@@ -1,4 +1,4 @@
-# Quality Check for tide gauge measurements in Greenland
+# Quality Check for Tide Gauge Measurements in Greenland
 
 
 
