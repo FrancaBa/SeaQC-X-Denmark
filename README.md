@@ -1,4 +1,4 @@
-# QC_SL_Greenland
+# Quality Check for tide gauge measurements in Greenland
 
 
 
