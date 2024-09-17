@@ -13,7 +13,31 @@ Let people know what your project can do specifically. Provide context and add a
 ## Roadmap
 This project will start off by developing a ML approach to flag tide gauge measurements in adequate groups. The next step will then be to adapt the flagged values to create a 'correct' ts. The timeline for this project is around 10 months.
 
-## Contributing
+# Pull and Push Code
+## Pull code from Gitlab
+```
+git clone https://gitlab.dmi.dk/frb/qc_sl_greenland
+cd qc_sl_greenland
+git checkout -b <branch_name>
+git branch
+conda activate my_env
+```
+
+## Push altered code back to gitlab
+
+Following steps will allow you to check your changes/improvements and push them to Gitlab.
+```
+git add * --dry-run
+git add *
+git commit -m "description of what you changed/added to code"
+git push origin <branch_name>
+```
+After that you also need to add your appreviation and password before the push is successfull.
+
+## Merge branch on Gitlab
+Open the gitlab repository online and manually merge the branch into main. Be aware of potential conflicts.
+
+# Contributing
 Contributions to this project are welcome. Please fork the repository, make your changes, and submit a merge request with a clear description of your modifications.
 
 ## Authors and acknowledgment
