@@ -1,27 +1,29 @@
 # Quality Check for Tide Gauge Measurements in Greenland
 
-
-## Introduction
-Choose a self-explaining name for your project.
+In the scope of the GrønSL project, this repository has been developed to have an automated quality check algorithm for sea level data in Greenland used on state of the art mchine learning approaches.
 
 ## Goal
-The goal of this work is to generate an automated QC algorithm which can detect and adapt faulty measurements using ML.
+The goal of this work is to generate an automated QC algorithm which can detect and adapt faulty measurements in timeseries using ML. The first version will be focusing on checking sea level measurements in Greenland.
 
 ## Motivation
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+Quality checking of many time series is at the moment only sparsly done and often manually. However, with the increasing amount of data, it is important to have an automated approach to assess the quality of measurements/recieved values - As a model can only be as accurate as the input. Thus, it is important to have cleaned input data especially in regions with little measurements as Greenland. This work will focus on developing an automated quality check algorithm for sea level data with a strong focus on detecting shifts and deshifting.
 
 ## Roadmap
 This project will start off by developing a ML approach to flag tide gauge measurements in adequate groups. The next step will then be to adapt the flagged values to create a 'correct' ts. The timeline for this project is around 10 months.
 
 # Pull and Push Code
+The subsequent lines are describing how to pull and push changes to this repository.
+
 ## Pull code from Gitlab
+1. Add a new branch on Gitlab via +-Icon
+* Naming convension: initials + month abbr. + number edit in this month 
+* f.e: fb_sep1, fb_sep2, ...
+2. Pull code to local server (you will need to log in to your Gitlab account)
 ```
-git clone https://gitlab.dmi.dk/frb/qc_sl_greenland
-cd qc_sl_greenland
-git checkout -b <branch_name>
-git branch
+git clone --branch <branch_name> https://gitlab.dmi.dk/frb/qc_sl_greenland greenland-qc
 conda activate my_env
 ```
+3. Activate the correct environment (here: conda environment called my_env)
 
 ## Push altered code back to gitlab
 
@@ -35,7 +37,7 @@ git push origin <branch_name>
 After that you also need to add your appreviation and password before the push is successfull.
 
 ## Merge branch on Gitlab
-Open the gitlab repository online and manually merge the branch into main. Be aware of potential conflicts.
+Open the gitlab repository online and manually merge the branch into main. Be aware of potential conflicts. After merging a branch, make sure to delete it from the server/local machine and Gitlab.
 
 # Contributing
 Contributions to this project are welcome. Please fork the repository, make your changes, and submit a merge request with a clear description of your modifications.
