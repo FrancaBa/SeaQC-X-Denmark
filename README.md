@@ -1,15 +1,15 @@
-# Quality Check for Tide Gauge Measurements in Greenland
+# Quality Check (QC) for Tide Gauge Measurements in Greenland
 
-In the scope of the GrønSL project, this repository has been developed to have an automated quality check algorithm for sea level data in Greenland using on state of the art mchine learning approaches.
+In the scope of the GrønSL project, this repository has been developed to have an automated quality check algorithm for sea level data in Greenland using state of the art machine learning approaches.
 
 ## Goal
 The goal of this work is to generate an automated QC algorithm which can detect and adapt faulty measurements in timeseries using ML. The first version will be focusing on checking sea level measurements in Greenland.
 
 ## Motivation
-Quality checking of many time series is at the moment only sparsly done and often manually. However, with the increasing amount of data, it is important to have an automated approach to assess the quality of measurements/recieved values - As a model can only be as accurate as the input. Thus, it is important to have cleaned input data especially in regions with little measurements as Greenland. This work will focus on developing an automated quality check algorithm for sea level data with a strong focus on detecting shifts and deshifting.
+Quality checking of many time series is at the moment only sparsly done and often manually. However, with the increasing amount of data, it is important to have an automated approach to assess the quality of measurements/recieved values - as a model can only be as accurate as the input. Thus, it is important to have cleaned input data especially in regions with little measurements as Greenland. This work will focus on developing an automated quality check algorithm for sea level data with a strong focus on detecting shifts and deshifting.
 
 ## Roadmap
-This project will start off by developing a ML approach to flag tide gauge measurements in adequate groups. The next step will then be to adapt the flagged values to create a 'correct' ts. The timeline for this project is around 10 months.
+This project will start off by developing a ML approach to flag tide gauge measurements in adequate groups. The next step will then be to adapt the flagged values to create a 'corrected' ts. The timeline for this project is around 10 months.
 
 # Pull and Push Code
 The subsequent lines are describing how to pull and push changes to this repository.
@@ -39,10 +39,10 @@ After that you also need to add your appreviation and password before the push i
 ## Merge branch on Gitlab
 Open the gitlab repository online and manually merge the branch into main. Be aware of potential conflicts. After merging a branch, make sure to delete it from the server/local machine and Gitlab.
 
-# Contributing
+## Contributing
 Contributions to this project are welcome. Please fork the repository, make your changes, and submit a merge request with a clear description of your modifications.
 
-## Authors and acknowledgment
+# Authors and acknowledgment
 This project is carried out by Franca Bauer under the supervision of Jian Su. By question, please feel free to reach out to frb@dmi.dk or jis@dmi.dk.
 
 ## License
