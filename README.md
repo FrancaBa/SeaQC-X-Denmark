@@ -1,6 +1,6 @@
 # Quality Check for Tide Gauge Measurements in Greenland
 
-In the scope of the GrønSL project, this repository has been developed to have an automated quality check algorithm for sea level data in Greenland used on state of the art mchine learning approaches.
+In the scope of the GrønSL project, this repository has been developed to have an automated quality check algorithm for sea level data in Greenland using on state of the art mchine learning approaches.
 
 ## Goal
 The goal of this work is to generate an automated QC algorithm which can detect and adapt faulty measurements in timeseries using ML. The first version will be focusing on checking sea level measurements in Greenland.
