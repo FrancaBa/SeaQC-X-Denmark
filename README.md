@@ -20,7 +20,7 @@ The subsequent lines are describing how to pull and push changes to this reposit
 * f.e: fb_sep1, fb_sep2, ...
 2. Pull code to local server (you will need to log in to your Gitlab account)
 ```
-git clone --branch <branch_name> https://gitlab.dmi.dk/frb/qc_sl_greenland greenland-qc
+git clone --branch <branch_name> https://gitlab.dmi.dk/frb/qc_sl_greenland greenland_qc
 conda activate my_env
 ```
 3. Activate the correct environment (here: conda environment called my_env)
