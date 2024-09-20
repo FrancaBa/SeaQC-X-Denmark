@@ -33,12 +33,13 @@ class Test_QA_Station(unittest.TestCase):
     def test_quality_check_qaqortoq(self):
 
         #select the station (here: Qaqortoq)
-        index_station=1 
+        index_station=0 
         station = self.stations[index_station]
         sta_filename = station +'.dba'
-        datadir = '/dmidata/users/stp/job/March/Data_WL_Greenland/Data_obs/'
+        datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
 
         preprocessing = pre_proc.PreProcessor()
+        preprocessing.read_data(datadir, sta_filename)
         preprocessing.check_timestamp()
         preprocessing.remove_stat_outliers()
 
