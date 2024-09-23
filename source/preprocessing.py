@@ -7,15 +7,43 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import cotede
+
+from cotede import datasets, qctests
 
 class PreProcessor():
     
-    #def __init__(self):
+    def __init__(self):
+        self.missing_meas_value = 999.000
+
+    def set_output_folder(self, folder_path):
+
+        self.folder_path = folder_path 
+
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
 
     def read_data(self, path, file):
         self.df_meas = pd.read_csv(os.path.join(path,file), sep="\s+", header=None, names=['Timestamp', 'WaterLevel', 'Flag'])
+        self.df_meas = self.df_meas[['Timestamp', 'WaterLevel']]
         self.df_meas['Timestamp'] = pd.to_datetime(self.df_meas['Timestamp'], format='%Y%m%d%H%M%S')
-        #WL_data.loc[WL_data['WaterLevel'] == 999.000, 'WaterLevel'] = np.nan
+        
+        #drop seconds
+        self.df_meas['Timestamp'] = self.df_meas['Timestamp'].dt.round('min')
+
+        #Initial screening of measurements:
+        #1. Invalid characters: Set non-float elements to NaN
+        # Count the original NaN values
+        original_nan_count = self.df_meas['WaterLevel'].isna().sum()
+        self.df_meas['WaterLevel'] = self.df_meas['WaterLevel'].apply(lambda x: x if isinstance(x, float) else np.nan)
+        # Count the new NaN values after the transformation -> Where there any invalid characters?
+        new_nan_count = self.df_meas['WaterLevel'].isna().sum() - original_nan_count
+        print('The measurement series contained',new_nan_count,'invalid data entires.')
+        
+        #2. Replace the missing values with nan
+        self.df_meas.loc[self.df_meas['WaterLevel'] == self.missing_meas_value, 'WaterLevel'] = np.nan
+
+        self.plot_df(self.df_meas['Timestamp'], self.df_meas['WaterLevel'],'Water Level','Timestamp','Measured water level')
 
     def check_timestamp(self):
 
@@ -25,21 +53,77 @@ class PreProcessor():
         ts_full = pd.date_range(start= start_time, end= end_time, freq='min').to_frame(name='Timestamp')
 
         #Merge df based on timestamp and plot the outcome
-        df_meas_long = ts_full.merge(self.df_meas[['WaterLevel','Timestamp']], on='Timestamp', how = 'left')
-        self.plot_df(df_meas_long['WaterLevel'],'Water Level','Timestamp','Measured water level')
+        #Measurements from Greenland have no winter/ summer shift
+        self.df_meas_long = pd.merge(ts_full, self.df_meas, on='Timestamp', how = 'outer')
+        
+        #Check specific lines
+        #self.df_meas_long[self.df_meas_long['Timestamp'] == '2009-08-13 00:37:00']
+
+        #plot with new ts
+        self.df_meas_long_filled = self.df_meas_long.fillna(0)
+        self.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long_filled['WaterLevel'],'Water Level','Timestamp','Measured water level in 1 min timestamp (nans filled with 0 for plot)')
 
     def remove_stat_outliers(self):
-        y = 1
-        return y
-    
-    def plot_df(self, data, y_title, x_title, title = None):
+
+        # Quantile Detection for large range outliers
+        # Calculate the interquartile range (IQR)
+        Q1 = self.df_meas_long.quantile(0.25)
+        Q3 = self.df_meas_long.quantile(0.75)
+        IQR = Q3 - Q1
+
+        # Define the lower and upper bounds for outlier detection
+        # normally it is lower_bound = Q1 - 1.5 * IQR and upper_bound = Q3 + 1.5 * IQR
+        # We can set them to even larger range to only tidal analysis, coz outlier detection is after tidal analysis 
+        lower_bound = Q1 - 2.5 * IQR
+        upper_bound = Q3 + 2.5 * IQR
+
+        # Detect outliers and set them to NaN specifically for the 'WaterLevel' column
+        self.df_meas_long['WaterLevel'] = self.df_meas_long['WaterLevel'].mask((self.df_meas_long['WaterLevel'] < lower_bound['WaterLevel']) | (self.df_meas_long['WaterLevel'] > upper_bound['WaterLevel'])) 
+        
+        #plot results without outliers
+        self.df_meas_long_filled = self.df_meas_long.fillna(0)
+        self.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long_filled['WaterLevel'],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (nans filled with 0 for plot)')
+
+    def remove_spikes(self):
+        # The spike check is a quite traditional one and is based on the principle of comparing one measurement with the tendency observed from the neighbor values.
+        # This is already implemented in CoTeDe as qctests.spike
+
+        # If no threshold is required, you can do like this:
+        sea_level_spike = qctests.spike(self.df_meas_long["WaterLevel"])  
+        print("The largest spike observed was: {:.3f}".format(np.nanmax(np.abs(sea_level_spike))))
+
+        #Assessment of max spike via plots
+        min_value = np.nanargmax(np.abs(sea_level_spike)) - 2000
+        max_value = np.nanargmax(np.abs(sea_level_spike)) + 2000
+        self.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (zoomed to max spike)')
+        self.plot_df(self.df_meas_long['Timestamp'], sea_level_spike,'Detected spike [m]','Timestamp','WL spikes in measured ts')
+
+        # If the spike is less than 1 cm (absolut value), it is not a spike -> Do not remove this small noise
+        sea_level_spike[abs(sea_level_spike) < 0.01] = 0.0
+        self.plot_df(self.df_meas_long['Timestamp'], sea_level_spike,'Detected spike [m]','Timestamp','cleaned WL spikes in measured ts')
+        self.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], sea_level_spike[min_value:max_value],'Detected spike [m]','Timestamp','cleaned WL spikes in measured ts (zoomed)')
+
+        # Add spike if spike is negative, subtract if spike is positive
+        self.df_meas_long['WaterLevel_sub'] = np.where(sea_level_spike < 0, self.df_meas_long['WaterLevel'] - sea_level_spike, self.df_meas_long['WaterLevel'] - sea_level_spike)
+        self.df_meas_long['WaterLevel_add'] = np.where(sea_level_spike < 0, self.df_meas_long['WaterLevel'] + sea_level_spike, self.df_meas_long['WaterLevel'] + sea_level_spike)
+        self.df_meas_long['WaterLevel_opp'] = np.where(sea_level_spike < 0, self.df_meas_long['WaterLevel'] - sea_level_spike, self.df_meas_long['WaterLevel'] + sea_level_spike)
+        self.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel_add'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers and spike in 1 min timestamp (zoomed to max spike) add')
+        self.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel_sub'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers and spike in 1 min timestamp (zoomed to max spike) sub')
+        self.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel_sub'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers and spike in 1 min timestamp (zoomed to max spike) opp')
+
+        #plot results without spikes
+        self.df_meas_long_filled = self.df_meas_long.fillna(0)
+        self.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long_filled['WaterLevel'],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (nans filled with 0 for plot)')
+
+
+    def plot_df(self, x_axis , data, y_title, x_title, title = None):
 
         plt.figure(figsize=(14, 7))
-        plt.plot(data)
+        plt.plot(x_axis, data)
         if title != None:
             plt.title(title)
         plt.xlabel(x_title)
         plt.ylabel(y_title)
         plt.xticks(rotation=45)
         plt.tight_layout()
-        plt.show()
+        plt.savefig(os.path.join(self.folder_path,f"{title}.png"))

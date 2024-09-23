@@ -23,6 +23,7 @@ The subsequent lines are describing how to pull and push changes to this reposit
 git clone --branch <branch_name> https://gitlab.dmi.dk/frb/qc_sl_greenland greenland_qc
 cd greenland_qc
 conda activate my_env
+code .
 ```
 3. Activate the correct environment (here: conda environment called my_env)
 

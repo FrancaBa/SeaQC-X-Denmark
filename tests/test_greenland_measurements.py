@@ -1,7 +1,9 @@
 ####################################################################
 ## Test quality check script for sea level tide gauge data by frb ##
 ####################################################################
-import sys
+import os, sys
+from pathlib import Path
+import shutil
 import unittest
 import datetime
 import numpy as np
@@ -38,10 +40,39 @@ class Test_QA_Station(unittest.TestCase):
         sta_filename = station +'.dba'
         datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
 
+        print(os.getcwd())
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
         preprocessing = pre_proc.PreProcessor()
+        preprocessing.set_output_folder(output_path)
         preprocessing.read_data(datadir, sta_filename)
         preprocessing.check_timestamp()
         preprocessing.remove_stat_outliers()
+        preprocessing.remove_spikes()
+
+    def test_quality_check_ittoq(self):
+
+        #select the station (here: Ittoqqortoormiit)
+        index_station=1
+        station = self.stations[index_station]
+        sta_filename = station +'.dba'
+        datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
+
+        print(os.getcwd())
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        preprocessing = pre_proc.PreProcessor()
+        preprocessing.set_output_folder(output_path)
+        preprocessing.read_data(datadir, sta_filename)
+        preprocessing.check_timestamp()
+        preprocessing.remove_stat_outliers()
+        preprocessing.remove_spikes()
 
 if __name__ == '__main__':
     unittest.main()
