@@ -7,14 +7,17 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import cotede
 
 from cotede import datasets, qctests
+from scipy.signal import argrelextrema
+
+import source.helper_methods as helper
 
 class PreProcessor():
     
     def __init__(self):
         self.missing_meas_value = 999.000
+        self.helper = helper.HelperMethods()
 
     def set_output_folder(self, folder_path):
 
@@ -22,6 +25,8 @@ class PreProcessor():
 
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
+
+        self.helper.set_output_folder(folder_path)
 
     def read_data(self, path, file):
         self.df_meas = pd.read_csv(os.path.join(path,file), sep="\s+", header=None, names=['Timestamp', 'WaterLevel', 'Flag'])
@@ -43,7 +48,11 @@ class PreProcessor():
         #2. Replace the missing values with nan
         self.df_meas.loc[self.df_meas['WaterLevel'] == self.missing_meas_value, 'WaterLevel'] = np.nan
 
-        self.plot_df(self.df_meas['Timestamp'], self.df_meas['WaterLevel'],'Water Level','Timestamp','Measured water level')
+        self.helper.plot_df(self.df_meas['Timestamp'], self.df_meas['WaterLevel'],'Water Level','Timestamp','Measured water level')
+        
+        #Subsequent line makes the code slow, only enable when needed
+        #self.helper.zoomable_plot_df(self.df_meas['Timestamp'], self.df_meas['WaterLevel'],'Water Level','Timestamp', 'Measured water level','measured water level')
+        
 
     def check_timestamp(self):
 
@@ -61,7 +70,7 @@ class PreProcessor():
 
         #plot with new ts
         self.df_meas_long_filled = self.df_meas_long.fillna(0)
-        self.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long_filled['WaterLevel'],'Water Level','Timestamp','Measured water level in 1 min timestamp (nans filled with 0 for plot)')
+        self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long_filled['WaterLevel'],'Water Level','Timestamp','Measured water level in 1 min timestamp (nans filled with 0 for plot)')
 
     def remove_stat_outliers(self):
 
@@ -82,7 +91,7 @@ class PreProcessor():
         
         #plot results without outliers
         self.df_meas_long_filled = self.df_meas_long.fillna(0)
-        self.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long_filled['WaterLevel'],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (nans filled with 0 for plot)')
+        self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long_filled['WaterLevel'],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (nans filled with 0 for plot)')
 
     def remove_spikes(self):
         # The spike check is a quite traditional one and is based on the principle of comparing one measurement with the tendency observed from the neighbor values.
@@ -91,39 +100,32 @@ class PreProcessor():
         # If no threshold is required, you can do like this:
         sea_level_spike = qctests.spike(self.df_meas_long["WaterLevel"])  
         print("The largest spike observed was: {:.3f}".format(np.nanmax(np.abs(sea_level_spike))))
+        print("Value at detected position", sea_level_spike[np.nanargmax(np.abs(sea_level_spike))])
 
         #Assessment of max spike via plots
         min_value = np.nanargmax(np.abs(sea_level_spike)) - 2000
         max_value = np.nanargmax(np.abs(sea_level_spike)) + 2000
-        self.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (zoomed to max spike)')
-        self.plot_df(self.df_meas_long['Timestamp'], sea_level_spike,'Detected spike [m]','Timestamp','WL spikes in measured ts')
+        self.helper.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (zoomed to max spike)')
+        self.helper.plot_df(self.df_meas_long['Timestamp'], sea_level_spike,'Detected spike [m]','Timestamp','WL spikes in measured ts')
 
         # If the spike is less than 1 cm (absolut value), it is not a spike -> Do not remove this small noise
-        sea_level_spike[abs(sea_level_spike) < 0.01] = 0.0
-        self.plot_df(self.df_meas_long['Timestamp'], sea_level_spike,'Detected spike [m]','Timestamp','cleaned WL spikes in measured ts')
-        self.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], sea_level_spike[min_value:max_value],'Detected spike [m]','Timestamp','cleaned WL spikes in measured ts (zoomed)')
+        #sea_level_spike[abs(sea_level_spike) < 0.01] = 0.0
+        sea_level_spike[abs(sea_level_spike) < 0.1] = 0.0
+        #Plot together
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], sea_level_spike[min_value:max_value],'Detected spikes', self.df_meas_long['WaterLevel'][min_value:max_value], 'Water Level', 'Timestamp','Spikes and measured WL')
 
-        # Add spike if spike is negative, subtract if spike is positive
-        self.df_meas_long['WaterLevel_sub'] = np.where(sea_level_spike < 0, self.df_meas_long['WaterLevel'] - sea_level_spike, self.df_meas_long['WaterLevel'] - sea_level_spike)
-        self.df_meas_long['WaterLevel_add'] = np.where(sea_level_spike < 0, self.df_meas_long['WaterLevel'] + sea_level_spike, self.df_meas_long['WaterLevel'] + sea_level_spike)
-        self.df_meas_long['WaterLevel_opp'] = np.where(sea_level_spike < 0, self.df_meas_long['WaterLevel'] - sea_level_spike, self.df_meas_long['WaterLevel'] + sea_level_spike)
-        self.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel_add'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers and spike in 1 min timestamp (zoomed to max spike) add')
-        self.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel_sub'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers and spike in 1 min timestamp (zoomed to max spike) sub')
-        self.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel_sub'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers and spike in 1 min timestamp (zoomed to max spike) opp')
-
-        #plot results without spikes
-        self.df_meas_long_filled = self.df_meas_long.fillna(0)
-        self.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long_filled['WaterLevel'],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (nans filled with 0 for plot)')
-
-
-    def plot_df(self, x_axis , data, y_title, x_title, title = None):
-
-        plt.figure(figsize=(14, 7))
-        plt.plot(x_axis, data)
-        if title != None:
-            plt.title(title)
-        plt.xlabel(x_title)
-        plt.ylabel(y_title)
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}.png"))
+        #balance out spike
+        for index, value in enumerate(sea_level_spike):
+            if abs(value) > 0:
+                spike = self.df_meas_long['WaterLevel'][index]
+                spike_bound1 = self.df_meas_long['WaterLevel'][index+20]
+                spike_bound2 = self.df_meas_long['WaterLevel'][index-20]
+                bound = (spike_bound1+spike_bound2)/2
+                if spike > bound:
+                    self.df_meas_long['WaterLevel'][index] = self.df_meas_long['WaterLevel'][index] - abs(value)
+                else:
+                    self.df_meas_long['WaterLevel'][index] = self.df_meas_long['WaterLevel'][index] + abs(value)
+        
+        self.helper.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike) - Step 20')
+        #Subsequent line makes the code slow, only enable when needed
+        #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['WaterLevel'],'Water Level','Timestamp','Spike analysis', 'measured water level',self.df_meas_long['Timestamp'], sea_level_spike,'Detected spikes')
