@@ -32,13 +32,15 @@ class Test_QA_Station(unittest.TestCase):
         dic_stations = {station: coord[station] for station in self.stations}
         print(dic_stations)
 
+        #get measurements
+        self.datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
+
     def test_quality_check_qaqortoq(self):
 
         #select the station (here: Qaqortoq)
         index_station=0 
         station = self.stations[index_station]
         sta_filename = station +'.dba'
-        datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
 
         print(os.getcwd())
 
@@ -48,7 +50,7 @@ class Test_QA_Station(unittest.TestCase):
 
         preprocessing = pre_proc.PreProcessor()
         preprocessing.set_output_folder(output_path)
-        preprocessing.read_data(datadir, sta_filename)
+        preprocessing.read_data(self.datadir, sta_filename)
         preprocessing.check_timestamp()
         preprocessing.remove_stat_outliers()
         preprocessing.remove_spikes()
@@ -59,7 +61,6 @@ class Test_QA_Station(unittest.TestCase):
         index_station=1
         station = self.stations[index_station]
         sta_filename = station +'.dba'
-        datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
 
         print(os.getcwd())
 
@@ -69,7 +70,7 @@ class Test_QA_Station(unittest.TestCase):
 
         preprocessing = pre_proc.PreProcessor()
         preprocessing.set_output_folder(output_path)
-        preprocessing.read_data(datadir, sta_filename)
+        preprocessing.read_data(self.datadir, sta_filename)
         preprocessing.check_timestamp()
         preprocessing.remove_stat_outliers()
         preprocessing.remove_spikes()

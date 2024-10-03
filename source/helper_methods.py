@@ -19,7 +19,12 @@ class HelperMethods():
         fig = go.Figure()
 
         # Add adjusted water level data
-        fig.add_trace(go.Scatter(x=x_axis, y= data, mode='lines', name=legend_name))
+        fig.add_trace(go.Scatter(x=x_axis, y= data, mode='markers', marker=dict(
+            size=5,          # Marker size
+            color='rgb(255, 0, 0)',  # Marker color
+            symbol='circle',   # Marker shape (e.g., 'circle', 'square', 'diamond')
+            opacity=0.8       # Marker transparency
+        ),name=legend_name))
         
         #Add additional ts (if wanted)
         if data_2 is not None:
@@ -41,7 +46,7 @@ class HelperMethods():
     def plot_df(self, x_axis, data, y_title, x_title, title = None):
         
         plt.figure(figsize=(14, 7))
-        plt.plot(x_axis, data)
+        plt.plot(x_axis, data,  marker='o', markersize=1, linestyle='None')
         if title != None:
             plt.title(title)
         plt.xlabel(x_title)
@@ -57,14 +62,14 @@ class HelperMethods():
         color = 'tab:red'
         ax1.set_xlabel(x_title)
         ax1.set_ylabel(y_title_1 , color=color)
-        ax1.plot(x_axis, data_1, color=color)
+        ax1.plot(x_axis, data_1, marker='o', markersize=1, color=color, linestyle='None')
         ax1.tick_params(axis='y', labelcolor=color)
 
         ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 
         color = 'tab:blue'
         ax2.set_ylabel(y_title_2, color=color)  # we already handled the x-label with ax1
-        ax2.plot(x_axis, data_2, color=color)
+        ax2.plot(x_axis, data_2, marker='o', markersize=1, color=color, linestyle='None')
         ax2.tick_params(axis='y', labelcolor=color)
 
         fig.tight_layout() 
