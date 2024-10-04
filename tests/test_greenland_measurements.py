@@ -53,7 +53,8 @@ class Test_QA_Station(unittest.TestCase):
         preprocessing.read_data(self.datadir, sta_filename)
         preprocessing.check_timestamp()
         preprocessing.remove_stat_outliers()
-        preprocessing.remove_spikes()
+        preprocessing.remove_spikes_cotede()
+        preprocessing.remove_spikes_cotede_improved()
 
     def test_quality_check_ittoq(self):
 
@@ -73,7 +74,8 @@ class Test_QA_Station(unittest.TestCase):
         preprocessing.read_data(self.datadir, sta_filename)
         preprocessing.check_timestamp()
         preprocessing.remove_stat_outliers()
-        preprocessing.remove_spikes()
+        preprocessing.remove_spikes_cotede()
+        preprocessing.remove_spikes_cotede_improved()
 
 if __name__ == '__main__':
     unittest.main()
