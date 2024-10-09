@@ -1,0 +1,15 @@
+{
+  "date_alteration": "09.10.2024",
+  "qc_flag_classification": {
+    "no_qc": 0,
+    "good_data": 1,
+    "probably_good_data": 2,
+    "bad_data_correctable": 3,
+    "bad_data": 4,
+    "shifted_value": 5,
+    "unused_1": 6,
+    "unused_2": 7,
+    "interpolated_value": 8,
+    "missing_data": 9
+  }
+}

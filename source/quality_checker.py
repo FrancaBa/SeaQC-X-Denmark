@@ -8,22 +8,34 @@ import numpy as np
 from numpy import ma
 import matplotlib.pyplot as plt
 import pandas as pd
+import json
 
 from cotede import datasets, qctests
 from scipy.signal import argrelextrema
 
 import source.helper_methods as helper
 
-class PreProcessor():
+class QualityFlagger():
     
     def __init__(self):
         self.missing_meas_value = 999.000
+        self.window_constant_value = 10
         self.helper = helper.HelperMethods()
+
+    def load_qf_classification(self, json_path):
+
+        # Open and load JSON file containing the quality flag classification
+        with open(json_path, 'r') as file:
+            config_data = json.load(file)
+
+        self.qf_classes = config_data['qc_flag_classification']
+
 
     def set_output_folder(self, folder_path):
 
         self.folder_path = folder_path 
 
+        #generate output folder for graphs and other docs
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
@@ -66,7 +78,6 @@ class PreProcessor():
         #print('length of ts:', len(self.df_meas))
         #self.helper.zoomable_plot_df(self.df_meas['Timestamp'], self.df_meas['WaterLevel'],'Water Level','Timestamp', 'Measured water level','measured water level')
         
-
     def check_timestamp(self):
 
         #Generate a new ts in 1 min timestamp
@@ -75,10 +86,8 @@ class PreProcessor():
         ts_full = pd.date_range(start= start_time, end= end_time, freq='min').to_frame(name='Timestamp').reset_index(drop=True)
 
         #Merge df based on timestamp and plot the outcome
-        #Measurements from Greenland have no winter/ summer shift
         self.df_meas_long = pd.merge(ts_full, self.df_meas, on='Timestamp', how = 'outer')
         self.df_meas_long['resolution'] = self.df_meas_long['resolution'].bfill()
-
 
         #Check specific lines
         print('The new ts is',len(self.df_meas_long),'entries long.')
@@ -87,10 +96,20 @@ class PreProcessor():
         print(self.df_meas_long[33300:33320])
         print(self.df_meas_long[:20])
 
-        #plot with new ts0)
+        #plot with new 1-min ts
         self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['WaterLevel'],'Water Level','Timestamp','Measured water level in 1 min timestamp')
         self.helper.plot_df(self.df_meas_long['Timestamp'][33300:33400], self.df_meas_long['WaterLevel'][33300:33400],'Water Level','Timestamp','Measured water level in 1 min timestamp (zoom)')
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:33600], self.df_meas_long_filled['WaterLevel'][:33600],'Water Level','Timestamp', 'Measured water level time','measured water level time')
+    
+    def detect_constant_value(self):
+
+        # Check if the value is constant over a window of 'self.window_constant_value' min (counts only non-nan)
+        constant_mask = self.df_meas['WaterLevel'].rolling(window=self.window_constant_value).apply(lambda x: x.nunique() == 1, raw=True)
+        # Mask the constant values
+        self.df_meas_long['altered'] = np.where(constant_mask, np.nan, self.df_meas_long['Timestamp'])
+        self.df_meas['masked_constant'] = np.where(constant_mask, self.qf_classes['bad_data'], self.qf_classes['good_data'])
+        self.helper.plot_df(self.df_meas['masked_constant'], self.df_meas['WaterLevel'],'Water Level','Timestamp','Measured water level')
+        print(self.df_meas['masked'])
     
     def remove_stat_outliers(self):
 
