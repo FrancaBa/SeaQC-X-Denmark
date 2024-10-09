@@ -5,24 +5,37 @@ import os, sys
 import pdb
 import datetime
 import numpy as np
+from numpy import ma
 import matplotlib.pyplot as plt
 import pandas as pd
+import json
 
 from cotede import datasets, qctests
 from scipy.signal import argrelextrema
 
 import source.helper_methods as helper
 
-class PreProcessor():
+class QualityFlagger():
     
     def __init__(self):
         self.missing_meas_value = 999.000
+        self.window_constant_value = 10
         self.helper = helper.HelperMethods()
+
+    def load_qf_classification(self, json_path):
+
+        # Open and load JSON file containing the quality flag classification
+        with open(json_path, 'r') as file:
+            config_data = json.load(file)
+
+        self.qf_classes = config_data['qc_flag_classification']
+
 
     def set_output_folder(self, folder_path):
 
         self.folder_path = folder_path 
 
+        #generate output folder for graphs and other docs
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
@@ -35,6 +48,17 @@ class PreProcessor():
         
         #drop seconds
         self.df_meas['Timestamp'] = self.df_meas['Timestamp'].dt.round('min')
+
+        # Extract the resolution in seconds, minutes, etc.
+        # Here, we extract the time difference in minutes
+        self.df_meas['time_diff'] = self.df_meas['Timestamp'].diff()
+        self.df_meas['resolution'] = self.df_meas['time_diff'].dt.total_seconds()/60
+        self.df_meas.loc[self.df_meas['resolution'] > 3600, 'resolution'] = np.nan
+        # Save the DataFrame to a text file (tab-separated)
+        self.df_meas.to_csv(os.path.join(self.folder_path,'time_series_with_resolution.txt'), sep='\t', index=False)
+        self.helper.plot_df(self.df_meas['Timestamp'][-2000:-1000], self.df_meas['resolution'][-2000:-1000],'step size','Timestamp','Time resolution (zoomed)')
+        self.helper.plot_df(self.df_meas['Timestamp'][33300:33320], self.df_meas['resolution'][33300:33320],'step size','Timestamp','Time resolution (zoomed 2)')
+        self.helper.plot_df(self.df_meas['Timestamp'], self.df_meas['resolution'],'step size','Timestamp','Time resolution')
 
         #Initial screening of measurements:
         #1. Invalid characters: Set non-float elements to NaN
@@ -54,7 +78,6 @@ class PreProcessor():
         #print('length of ts:', len(self.df_meas))
         #self.helper.zoomable_plot_df(self.df_meas['Timestamp'], self.df_meas['WaterLevel'],'Water Level','Timestamp', 'Measured water level','measured water level')
         
-
     def check_timestamp(self):
 
         #Generate a new ts in 1 min timestamp
@@ -63,19 +86,30 @@ class PreProcessor():
         ts_full = pd.date_range(start= start_time, end= end_time, freq='min').to_frame(name='Timestamp').reset_index(drop=True)
 
         #Merge df based on timestamp and plot the outcome
-        #Measurements from Greenland have no winter/ summer shift
         self.df_meas_long = pd.merge(ts_full, self.df_meas, on='Timestamp', how = 'outer')
+        self.df_meas_long['resolution'] = self.df_meas_long['resolution'].bfill()
 
         #Check specific lines
         print('The new ts is',len(self.df_meas_long),'entries long.')
-        #print(self.df_meas_long[self.df_meas_long['Timestamp'] == '2005-10-24 03:00:00'])
+        print(self.df_meas_long[self.df_meas_long['Timestamp'] == '2005-10-24 03:00:00'])
         #print(self.df_meas_long.index[self.df_meas_long['Timestamp'] == '2005-10-24 03:00:00'].to_list())
-        #print(self.df_meas_long[33300:33320])
+        print(self.df_meas_long[33300:33320])
+        print(self.df_meas_long[:20])
 
-        #plot with new ts0)
+        #plot with new 1-min ts
         self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['WaterLevel'],'Water Level','Timestamp','Measured water level in 1 min timestamp')
         self.helper.plot_df(self.df_meas_long['Timestamp'][33300:33400], self.df_meas_long['WaterLevel'][33300:33400],'Water Level','Timestamp','Measured water level in 1 min timestamp (zoom)')
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:33600], self.df_meas_long_filled['WaterLevel'][:33600],'Water Level','Timestamp', 'Measured water level time','measured water level time')
+    
+    def detect_constant_value(self):
+
+        # Check if the value is constant over a window of 'self.window_constant_value' min (counts only non-nan)
+        constant_mask = self.df_meas['WaterLevel'].rolling(window=self.window_constant_value).apply(lambda x: x.nunique() == 1, raw=True)
+        # Mask the constant values
+        self.df_meas_long['altered'] = np.where(constant_mask, np.nan, self.df_meas_long['Timestamp'])
+        self.df_meas['masked_constant'] = np.where(constant_mask, self.qf_classes['bad_data'], self.qf_classes['good_data'])
+        self.helper.plot_df(self.df_meas['masked_constant'], self.df_meas['WaterLevel'],'Water Level','Timestamp','Measured water level')
+        print(self.df_meas['masked'])
     
     def remove_stat_outliers(self):
 
@@ -101,7 +135,7 @@ class PreProcessor():
         #Subsequent line makes the code slow, only enable when needed
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['WaterLevel'][:1000000],'Water Level','Timestamp', 'Measured water level wo outliers','measured water level')
         
-    def remove_spikes(self):
+    def remove_spikes_cotede(self):
         # The spike check is a quite traditional one and is based on the principle of comparing one measurement with the tendency observed from the neighbor values.
         # This is already implemented in CoTeDe as qctests.spike
         # Revelant weaknesses:
@@ -115,7 +149,7 @@ class PreProcessor():
 
         #Assessment of max spike via plots
         min_value = np.nanargmax(np.abs(sea_level_spike)) - 500
-        max_value = np.nanargmax(np.abs(sea_level_spike)) + 500
+        max_value = np.nanargmax(np.abs(sea_level_spike)) + 1500
         self.helper.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (zoomed to max spike)')
         self.helper.plot_df(self.df_meas_long['Timestamp'], sea_level_spike,'Detected spike [m]','Timestamp','WL spikes in measured ts')
 
@@ -150,3 +184,38 @@ class PreProcessor():
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['WaterLevel'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp', 'measured water level')
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['WaterLevel'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp', 'measured water level')
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['WaterLevel'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp', 'measured water level')
+    
+    #Improve the cotede script by looking at the next existing neighbours and not just the next nieghbours
+    #Now: Neighbours within 2 hours of the center point are allowed
+    #This allows to work with different time scales and detect spikes even there are NaN values
+    def remove_spikes_cotede_improved(self):
+        print(datetime.datetime.now())
+        self.get_valid_neighbours(self.df_meas_long[6000000:6500000],'WaterLevel', max_distance=60)
+        print(datetime.datetime.now())
+        spikes = np.abs(self.df_meas_long['WaterLevel'] - (self.df_meas_long['prev_neighbor'] + self.df_meas_long['next_neighbor']) / 2.0) - np.abs((self.df_meas_long['next_neighbor'] - self.df_meas_long['prev_neighbor']) / 2.0)
+        self.helper.plot_df(self.df_meas_long['Timestamp'], spikes,'Detected spike [m]','Timestamp','WL spikes in measured ts')
+
+    def get_valid_neighbours(self, df, column, max_distance=60):
+
+        df['next_neighbor'] = np.nan
+        df['prev_neighbor'] = np.nan
+
+        # Loop through the DataFrame
+        for i in range(len(df)):
+            if not pd.isna(df[column].iloc[i]):
+                # Find the index of the next non-NaN value for every row
+                # Limit search to the next 60 neighbors or the end of the DataFrame, whichever is smaller
+                for j in range(i+1, min(i+max_distance+1, len(df))):
+                    if not pd.isna(df[column].iloc[j]):
+                        df['next_neighbor'].iloc[i] = df[column].iloc[j]
+                        break  # Stop after finding the next valid value
+                        
+                # Find the previous non-NaN neighbor within the last 60 rows
+                max_search_range_prev = max(0, i - max_distance)  # Ensure we don't go out of bounds
+                for k in range(i - 1, max_search_range_prev - 1, -1):
+                    if not pd.isna(df[column].iloc[k]):
+                        df['prev_neighbor'].iloc[i] = df[column].iloc[k]
+                        break  # Stop after finding the last valid value
+
+        print('hey')
+

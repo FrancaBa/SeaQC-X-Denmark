@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import source.preprocessing as pre_proc
+import source.quality_checker as qc_generator
 
 class Test_QA_Station(unittest.TestCase):
 
@@ -35,6 +35,9 @@ class Test_QA_Station(unittest.TestCase):
         #get measurements
         self.datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
 
+        #get config json
+        self.json_path = os.path.join(os.getcwd(), 'config.json')
+
     def test_quality_check_qaqortoq(self):
 
         #select the station (here: Qaqortoq)
@@ -48,12 +51,14 @@ class Test_QA_Station(unittest.TestCase):
         output_path = os.path.join(os.getcwd(),'output', station)
         if Path(output_path).exists(): shutil.rmtree(Path(output_path))
 
-        preprocessing = pre_proc.PreProcessor()
-        preprocessing.set_output_folder(output_path)
-        preprocessing.read_data(self.datadir, sta_filename)
-        preprocessing.check_timestamp()
-        preprocessing.remove_stat_outliers()
-        preprocessing.remove_spikes()
+        data_flagging = qc_generator.QualityFlagger()
+        data_flagging.set_output_folder(output_path)
+        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.read_data(self.datadir, sta_filename)
+        data_flagging.check_timestamp()
+        data_flagging.remove_stat_outliers()
+        data_flagging.remove_spikes_cotede()
+        data_flagging.remove_spikes_cotede_improved()
 
     def test_quality_check_ittoq(self):
 
@@ -68,12 +73,14 @@ class Test_QA_Station(unittest.TestCase):
         output_path = os.path.join(os.getcwd(),'output', station)
         if Path(output_path).exists(): shutil.rmtree(Path(output_path))
 
-        preprocessing = pre_proc.PreProcessor()
-        preprocessing.set_output_folder(output_path)
-        preprocessing.read_data(self.datadir, sta_filename)
-        preprocessing.check_timestamp()
-        preprocessing.remove_stat_outliers()
-        preprocessing.remove_spikes()
+        data_flagging = qc_generator.QualityFlagger()
+        data_flagging.set_output_folder(output_path)
+        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.read_data(self.datadir, sta_filename)
+        data_flagging.check_timestamp()
+        data_flagging.remove_stat_outliers()
+        data_flagging.remove_spikes_cotede()
+        data_flagging.remove_spikes_cotede_improved()
 
 if __name__ == '__main__':
     unittest.main()

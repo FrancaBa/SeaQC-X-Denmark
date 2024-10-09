@@ -45,15 +45,15 @@ class HelperMethods():
 
     def plot_df(self, x_axis, data, y_title, x_title, title = None):
         
-        plt.figure(figsize=(14, 7))
+        plt.figure(figsize=(18, 7))
         plt.plot(x_axis, data,  marker='o', markersize=1, linestyle='None')
         if title != None:
-            plt.title(title)
+            plt.title(f"{title}- Date: {x_axis.iloc[0]}")
         plt.xlabel(x_title)
         plt.ylabel(y_title)
-        plt.xticks(rotation=45)
+        plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}.png"))
+        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {x_axis.iloc[0]}.png"))
 
     def plot_two_df(self, x_axis, data_1, y_title_1, data_2, y_title_2, x_title, title = None):
 
