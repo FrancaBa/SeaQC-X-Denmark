@@ -88,6 +88,7 @@ class QualityFlagger():
         #Merge df based on timestamp and plot the outcome
         self.df_meas_long = pd.merge(ts_full, self.df_meas, on='Timestamp', how = 'outer')
         self.df_meas_long['resolution'] = self.df_meas_long['resolution'].bfill()
+        self.df_meas_long['quality_flag'] = np.where(np.isnan(self.df_meas_long['WaterLevel']), self.qf_classes['missing_data'], self.qf_classes['good_data'])
 
         #Check specific lines
         print('The new ts is',len(self.df_meas_long),'entries long.')
@@ -104,12 +105,16 @@ class QualityFlagger():
     def detect_constant_value(self):
 
         # Check if the value is constant over a window of 'self.window_constant_value' min (counts only non-nan)
-        constant_mask = self.df_meas['WaterLevel'].rolling(window=self.window_constant_value).apply(lambda x: x.nunique() == 1, raw=True)
+        constant_mask = self.df_meas_long['WaterLevel'].rolling(window=10, min_periods=1).apply(lambda x: (x == x[0]).all(), raw=True)
+
         # Mask the constant values
-        self.df_meas_long['altered'] = np.where(constant_mask, np.nan, self.df_meas_long['Timestamp'])
-        self.df_meas['masked_constant'] = np.where(constant_mask, self.qf_classes['bad_data'], self.qf_classes['good_data'])
-        self.helper.plot_df(self.df_meas['masked_constant'], self.df_meas['WaterLevel'],'Water Level','Timestamp','Measured water level')
-        print(self.df_meas['masked'])
+        self.df_meas_long['altered'] = np.where(constant_mask, np.nan, self.df_meas_long['WaterLevel'])
+        self.df_meas_long['quality_flag'] = np.where(self.df_meas_long['quality_flag'] == self.qf_classes['missing_data'], self.qf_classes['missing_data'],  # Keep it as missing_data
+                                        np.where(constant_mask, self.qf_classes['bad_data'], self.qf_classes['good_data']))  # Else set to good or bad based on constant_mask
+        self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['quality_flag'],'Quality Flags','Timestamp','Applied quality flags')
+
+        if self.qf_classes['bad_data'] in self.df_meas_long['quality_flag'].unique():
+            print('There are constant periods in this timeseries which indicates a sensor malfunctioning.')
     
     def remove_stat_outliers(self):
 
@@ -126,12 +131,21 @@ class QualityFlagger():
         upper_bound = Q3 + 2.5 * IQR
 
         # Detect outliers and set them to NaN specifically for the 'WaterLevel' column
-        self.df_meas_long['WaterLevel'] = self.df_meas_long['WaterLevel'].mask((self.df_meas_long['WaterLevel'] < lower_bound['WaterLevel']) | (self.df_meas_long['WaterLevel'] > upper_bound['WaterLevel'])) 
-        
+        outlier_mask = (self.df_meas_long['WaterLevel'] < lower_bound['WaterLevel']) | (self.df_meas_long['WaterLevel'] > upper_bound['WaterLevel'])
+        # Mask the outliers
+        self.df_meas_long['altered'] = np.where(np.isnan(outlier_mask), np.nan, self.df_meas_long['altered'])
+        #Flag & remove the outlier
+        self.df_meas_long.loc[(self.df_meas_long['quality_flag'] == self.qf_classes['good_data']) & (outlier_mask), 'quality_flag'] = self.qf_classes['outliers']
+        self.df_meas_long['altered'] = np.where(outlier_mask, np.nan, self.df_meas_long['WaterLevel'])
+
         #plot results without outliers
-        self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['WaterLevel'],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp')
-        self.helper.plot_df(self.df_meas_long['Timestamp'][33300:33400], self.df_meas_long['WaterLevel'][33300:33400],'Water Level','Timestamp','Measured water level in 1 min timestamp wo outliers(zoom)')
+        self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered'],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp')
+        self.helper.plot_df(self.df_meas_long['Timestamp'][33300:33400], self.df_meas_long['altered'][33300:33400],'Water Level','Timestamp','Measured water level in 1 min timestamp wo outliers(zoom)')
         
+        if self.qf_classes['outliers'] in self.df_meas_long['quality_flag'].unique():
+            ratio = (len(self.df_meas_long[self.df_meas_long['quality_flag'] == self.qf_classes['outliers']])/len(self.df_meas_long))*100
+            print(f"There are {len(self.df_meas_long[self.df_meas_long['quality_flag'] == self.qf_classes['outliers']])} outliers in this timeseries. This is {ratio}% of the overall dataset.")
+    
         #Subsequent line makes the code slow, only enable when needed
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['WaterLevel'][:1000000],'Water Level','Timestamp', 'Measured water level wo outliers','measured water level')
         
@@ -159,24 +173,31 @@ class QualityFlagger():
         self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], sea_level_spike[min_value:max_value],'Detected spikes', self.df_meas_long['WaterLevel'][min_value:max_value], 'Water Level', 'Timestamp','Spikes and measured WL')
 
         #balance out spike
-        for index, value in enumerate(sea_level_spike):
-            if abs(value) > 0:
-                spike = self.df_meas_long['WaterLevel'][index]
-                spike_bound1 = self.df_meas_long['WaterLevel'][index+1]
-                spike_bound2 = self.df_meas_long['WaterLevel'][index-1]
-                bound = (spike_bound1+spike_bound2)/2
-                if spike > bound:
-                    self.df_meas_long['WaterLevel'][index] = self.df_meas_long['WaterLevel'][index] - abs(value)
-                else:
-                   self.df_meas_long['WaterLevel'][index] = self.df_meas_long['WaterLevel'][index] + abs(value)
-            
-        self.helper.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike)')
-        self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['WaterLevel'],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp')
+        self.df_meas_long['WaterLevel_shiftedpast'] = self.df_meas_long['WaterLevel'].shift(-1)
+        self.df_meas_long['WaterLevel_shiftedfuture'] = self.df_meas_long['WaterLevel'].shift(1)
+        self.df_meas_long['bound'] = (self.df_meas_long['WaterLevel_shiftedfuture']+self.df_meas_long['WaterLevel_shiftedpast'])/2
+        self.df_meas_long['altered'] = self.df_meas_long['altered'].where(self.df_meas_long['bound'] <= sea_level_spike, self.df_meas_long['WaterLevel'] - abs(sea_level_spike))
+        self.df_meas_long['altered'] = self.df_meas_long['altered'].where(self.df_meas_long['bound'] > sea_level_spike, self.df_meas_long['WaterLevel'] + abs(sea_level_spike))
+
+        #Mask spikes
+        sea_level_spike_bool = (~np.isnan(sea_level_spike)) & (sea_level_spike != 0)
+        self.df_meas_long.loc[(self.df_meas_long['quality_flag'] == self.qf_classes['good_data']) & (sea_level_spike_bool), 'quality_flag'] = self.qf_classes['bad_data_correctable']
+        if self.qf_classes['bad_data_correctable'] in self.df_meas_long['quality_flag'].unique():
+            ratio = (len(self.df_meas_long[self.df_meas_long['quality_flag'] == self.qf_classes['bad_data_correctable']])/len(self.df_meas_long))*100
+            print(f"There are {len(self.df_meas_long[self.df_meas_long['quality_flag'] == self.qf_classes['bad_data_correctable']])} spikes in this timeseries. This is {ratio}% of the overall dataset.")
+    
+
+        #delete helper columns
+        self.df_meas_long = self.df_meas_long.drop(columns=['WaterLevel_shiftedpast', 'WaterLevel_shiftedfuture', 'bound'])
+        
+        #Analyse spike detection
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered'][min_value:max_value],'Water Level', self.df_meas_long['quality_flag'][min_value:max_value], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike)')
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered'],'Water Level', self.df_meas_long['quality_flag'], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp')
         #Some more plots for assessment
-        self.helper.plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['WaterLevel'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp 1')
-        self.helper.plot_df(self.df_meas_long['Timestamp'][1000000:2000000], self.df_meas_long['WaterLevel'][1000000:2000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp2')
-        self.helper.plot_df(self.df_meas_long['Timestamp'][2000000:3000000], self.df_meas_long['WaterLevel'][2000000:3000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp3')
-        self.helper.plot_df(self.df_meas_long['Timestamp'][3000000:4000000], self.df_meas_long['WaterLevel'][3000000:4000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp4')
+        self.helper.plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['altered'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp 1')
+        self.helper.plot_df(self.df_meas_long['Timestamp'][1000000:2000000], self.df_meas_long['altered'][1000000:2000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp2')
+        self.helper.plot_df(self.df_meas_long['Timestamp'][2000000:3000000], self.df_meas_long['altered'][2000000:3000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp3')
+        self.helper.plot_df(self.df_meas_long['Timestamp'][3000000:4000000], self.df_meas_long['altered'][3000000:4000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp4')
         #ubsequent line makes the code slow, only enable when need
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['WaterLevel'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp', 'measured water level')
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['WaterLevel'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp', 'measured water level')

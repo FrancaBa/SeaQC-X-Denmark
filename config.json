@@ -7,7 +7,7 @@
     "bad_data_correctable": 3,
     "bad_data": 4,
     "shifted_value": 5,
-    "unused_1": 6,
+    "outliers": 6, 
     "unused_2": 7,
     "interpolated_value": 8,
     "missing_data": 9

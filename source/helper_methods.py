@@ -57,7 +57,7 @@ class HelperMethods():
 
     def plot_two_df(self, x_axis, data_1, y_title_1, data_2, y_title_2, x_title, title = None):
 
-        fig, ax1 = plt.subplots()
+        fig, ax1 = plt.subplots(figsize=(18, 7))
 
         color = 'tab:red'
         ax1.set_xlabel(x_title)

@@ -56,9 +56,10 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.load_qf_classification(self.json_path)
         data_flagging.read_data(self.datadir, sta_filename)
         data_flagging.check_timestamp()
+        data_flagging.detect_constant_value()
         data_flagging.remove_stat_outliers()
         data_flagging.remove_spikes_cotede()
-        data_flagging.remove_spikes_cotede_improved()
+        #data_flagging.remove_spikes_cotede_improved()
 
     def test_quality_check_ittoq(self):
 
@@ -78,9 +79,10 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.load_qf_classification(self.json_path)
         data_flagging.read_data(self.datadir, sta_filename)
         data_flagging.check_timestamp()
+        data_flagging.detect_constant_value()
         data_flagging.remove_stat_outliers()
         data_flagging.remove_spikes_cotede()
-        data_flagging.remove_spikes_cotede_improved()
+        #data_flagging.remove_spikes_cotede_improved()
 
 if __name__ == '__main__':
     unittest.main()
