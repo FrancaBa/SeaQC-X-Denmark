@@ -173,11 +173,18 @@ class QualityFlagger():
         self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], sea_level_spike[min_value:max_value],'Detected spikes', self.df_meas_long['WaterLevel'][min_value:max_value], 'Water Level', 'Timestamp','Spikes and measured WL')
 
         #balance out spike
-        self.df_meas_long['WaterLevel_shiftedpast'] = self.df_meas_long['WaterLevel'].shift(-1)
-        self.df_meas_long['WaterLevel_shiftedfuture'] = self.df_meas_long['WaterLevel'].shift(1)
+        self.df_meas_long['WaterLevel_shiftedpast'] = self.df_meas_long['WaterLevel'].shift(50)
+        self.df_meas_long['WaterLevel_shiftedfuture'] = self.df_meas_long['WaterLevel'].shift(-50)
         self.df_meas_long['bound'] = (self.df_meas_long['WaterLevel_shiftedfuture']+self.df_meas_long['WaterLevel_shiftedpast'])/2
-        self.df_meas_long['altered'] = self.df_meas_long['altered'].where(self.df_meas_long['bound'] <= sea_level_spike, self.df_meas_long['WaterLevel'] - abs(sea_level_spike))
-        self.df_meas_long['altered'] = self.df_meas_long['altered'].where(self.df_meas_long['bound'] > sea_level_spike, self.df_meas_long['WaterLevel'] + abs(sea_level_spike))
+        self.df_meas_long['altered'] = np.where(
+            self.df_meas_long['bound'] <= self.df_meas_long['WaterLevel'],  # Condition 1: bound <= WaterLevel
+            self.df_meas_long['WaterLevel'] - abs(sea_level_spike),         # Action 1: WaterLevel - abs(sea_level_spike)
+            np.where(
+                self.df_meas_long['bound'] > self.df_meas_long['WaterLevel'],  # Condition 2: bound > WaterLevel
+                self.df_meas_long['WaterLevel'] + abs(sea_level_spike),         # Action 2: WaterLevel + abs(sea_level_spike)
+                self.df_meas_long['altered']                                    # Else: keep original value from 'altered'
+            )
+        )
 
         #Mask spikes
         sea_level_spike_bool = (~np.isnan(sea_level_spike)) & (sea_level_spike != 0)
@@ -191,6 +198,7 @@ class QualityFlagger():
         self.df_meas_long = self.df_meas_long.drop(columns=['WaterLevel_shiftedpast', 'WaterLevel_shiftedfuture', 'bound'])
         
         #Analyse spike detection
+        self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered'],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (all)')
         self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered'][min_value:max_value],'Water Level', self.df_meas_long['quality_flag'][min_value:max_value], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike)')
         self.helper.plot_two_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered'],'Water Level', self.df_meas_long['quality_flag'], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp')
         #Some more plots for assessment
