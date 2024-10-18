@@ -114,8 +114,9 @@ class QualityFlagger():
         self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['quality_flag'],'Quality Flags','Timestamp','Applied quality flags')
 
         if self.qf_classes['bad_data'] in self.df_meas_long['quality_flag'].unique():
-            print('There are constant periods in this timeseries which indicates a sensor malfunctioning.')
-    
+            ratio = (len(self.df_meas_long[self.df_meas_long['quality_flag'] == self.qf_classes['bad_data']])/len(self.df_meas_long))*100
+            print(f"There are {len(self.df_meas_long[self.df_meas_long['quality_flag'] == self.qf_classes['bad_data']])} constant value in this timeseries. This is {ratio}% of the overall dataset.")
+
     def remove_stat_outliers(self):
 
         # Quantile Detection for large range outliers
@@ -202,6 +203,10 @@ class QualityFlagger():
         self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered'][min_value:max_value],'Water Level', self.df_meas_long['quality_flag'][min_value:max_value], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike)')
         self.helper.plot_two_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered'],'Water Level', self.df_meas_long['quality_flag'], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp')
         #Some more plots for assessment
+        min_value = np.nanargmax(np.abs(self.df_meas_long['altered'])) - 500
+        max_value = np.nanargmax(np.abs(self.df_meas_long['altered'])) + 500
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered'][min_value:max_value],'Water Level', self.df_meas_long['quality_flag'][min_value:max_value], 'Quality flag', 'Timestamp','Measured water level wo outliers and wo spike in 1 min timestamp (zoomed to max spike after removing spike)')
+        #is deshifting of spike working?
         self.helper.plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['altered'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp 1')
         self.helper.plot_df(self.df_meas_long['Timestamp'][1000000:2000000], self.df_meas_long['altered'][1000000:2000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp2')
         self.helper.plot_df(self.df_meas_long['Timestamp'][2000000:3000000], self.df_meas_long['altered'][2000000:3000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp3')
@@ -219,32 +224,30 @@ class QualityFlagger():
     #This allows to work with different time scales and detect spikes even there are NaN values
     def remove_spikes_cotede_improved(self):
         print(datetime.datetime.now())
-        self.get_valid_neighbours(self.df_meas_long[6000000:6500000],'WaterLevel', max_distance=60)
-        print(datetime.datetime.now())
-        spikes = np.abs(self.df_meas_long['WaterLevel'] - (self.df_meas_long['prev_neighbor'] + self.df_meas_long['next_neighbor']) / 2.0) - np.abs((self.df_meas_long['next_neighbor'] - self.df_meas_long['prev_neighbor']) / 2.0)
-        self.helper.plot_df(self.df_meas_long['Timestamp'], spikes,'Detected spike [m]','Timestamp','WL spikes in measured ts')
+        self.get_valid_neighbours(self.df_meas_long, 'WaterLevel', 'next_neighbour', True, max_distance=60)
+        self.get_valid_neighbours(self.df_meas_long, 'WaterLevel', 'past_neighbour', False, max_distance=60)
+        print(datetime.datetime.now()) 
+        sea_level_spikes = np.abs(self.df_meas_long['WaterLevel'] - (self.df_meas_long['past_neighbour'] + self.df_meas_long['next_neighbour']) / 2.0) - np.abs((self.df_meas_long['next_neighbour'] - self.df_meas_long['past_neighbour']) / 2.0)
+        sea_level_spikes[abs(sea_level_spikes) < 0.01] = 0.0
+        self.helper.plot_df(self.df_meas_long['Timestamp'], sea_level_spikes,'Detected spike [m]','Timestamp','WL spikes in measured ts (improved)')
 
-    def get_valid_neighbours(self, df, column, max_distance=60):
+    def get_valid_neighbours(self, df, column, column_name, shift_future, max_distance=60):
 
-        df['next_neighbor'] = np.nan
-        df['prev_neighbor'] = np.nan
+        #Create a list of shifted columns for 60 min shifted values (depends on max_distance)
+        # Create shifted columns using numpy (pandas memory issue)
+        if shift_future:
+            for i in range(1, max_distance + 1):
+                df[f'shift_{i}'] = np.roll(df[column], -i)
+                df.loc[-i:, f'shift_{i}'] = np.nan
+        else:
+            for i in range(1, max_distance + 1):
+                df[f'shift_{i}'] = np.roll(df[column], i)
+                df.loc[:i, f'shift_{i}'] = np.nan
 
-        # Loop through the DataFrame
-        for i in range(len(df)):
-            if not pd.isna(df[column].iloc[i]):
-                # Find the index of the next non-NaN value for every row
-                # Limit search to the next 60 neighbors or the end of the DataFrame, whichever is smaller
-                for j in range(i+1, min(i+max_distance+1, len(df))):
-                    if not pd.isna(df[column].iloc[j]):
-                        df['next_neighbor'].iloc[i] = df[column].iloc[j]
-                        break  # Stop after finding the next valid value
-                        
-                # Find the previous non-NaN neighbor within the last 60 rows
-                max_search_range_prev = max(0, i - max_distance)  # Ensure we don't go out of bounds
-                for k in range(i - 1, max_search_range_prev - 1, -1):
-                    if not pd.isna(df[column].iloc[k]):
-                        df['prev_neighbor'].iloc[i] = df[column].iloc[k]
-                        break  # Stop after finding the last valid value
-
-        print('hey')
-
+        #combine shifted cells to find next closest neighbour value
+        df[column_name] = df['shift_1'].fillna(df['shift_2'])
+        del df['shift_1']
+        del df['shift_2']
+        for i in range(3, max_distance+1):
+            df[column_name] = df[column_name].fillna(df[f'shift_{i}'])
+            del df[f'shift_{i}']
