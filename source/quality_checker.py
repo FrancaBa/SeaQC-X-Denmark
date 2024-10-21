@@ -151,6 +151,7 @@ class QualityFlagger():
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['WaterLevel'][:1000000],'Water Level','Timestamp', 'Measured water level wo outliers','measured water level')
         
     def remove_spikes_cotede(self):
+        # used 'altered WL' series to detect spike as it is already cleaned (NOT raw measurement series)
         # The spike check is a quite traditional one and is based on the principle of comparing one measurement with the tendency observed from the neighbor values.
         # This is already implemented in CoTeDe as qctests.spike
         # Revelant weaknesses:
@@ -158,14 +159,14 @@ class QualityFlagger():
         # 2. Cannot detect smaller, continious spiking behaviour
 
         # If no threshold is required, you can do like this:
-        sea_level_spike = qctests.spike(self.df_meas_long["WaterLevel"])  
+        sea_level_spike = qctests.spike(self.df_meas_long["altered"])  
         print("The largest spike observed was: {:.3f}".format(np.nanmax(np.abs(sea_level_spike))))
         print("Value at detected position", sea_level_spike[np.nanargmax(np.abs(sea_level_spike))])
 
         #Assessment of max spike via plots
         min_value = np.nanargmax(np.abs(sea_level_spike)) - 500
         max_value = np.nanargmax(np.abs(sea_level_spike)) + 1500
-        self.helper.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['WaterLevel'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (zoomed to max spike)')
+        self.helper.plot_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered'][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (zoomed to max spike)')
         self.helper.plot_df(self.df_meas_long['Timestamp'], sea_level_spike,'Detected spike [m]','Timestamp','WL spikes in measured ts')
 
         # If the spike is less than 1 cm (absolut value), it is not a spike -> Do not remove this small noise
@@ -174,15 +175,15 @@ class QualityFlagger():
         self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], sea_level_spike[min_value:max_value],'Detected spikes', self.df_meas_long['WaterLevel'][min_value:max_value], 'Water Level', 'Timestamp','Spikes and measured WL')
 
         #balance out spike
-        self.df_meas_long['WaterLevel_shiftedpast'] = self.df_meas_long['WaterLevel'].shift(50)
-        self.df_meas_long['WaterLevel_shiftedfuture'] = self.df_meas_long['WaterLevel'].shift(-50)
+        self.df_meas_long['WaterLevel_shiftedpast'] = self.df_meas_long['altered'].shift(50)
+        self.df_meas_long['WaterLevel_shiftedfuture'] = self.df_meas_long['altered'].shift(-50)
         self.df_meas_long['bound'] = (self.df_meas_long['WaterLevel_shiftedfuture']+self.df_meas_long['WaterLevel_shiftedpast'])/2
-        self.df_meas_long['altered'] = np.where(
-            self.df_meas_long['bound'] <= self.df_meas_long['WaterLevel'],  # Condition 1: bound <= WaterLevel
-            self.df_meas_long['WaterLevel'] - abs(sea_level_spike),         # Action 1: WaterLevel - abs(sea_level_spike)
+        self.df_meas_long['altered_2'] = np.where(
+            self.df_meas_long['bound'] <= self.df_meas_long['altered'],  # Condition 1: bound <= WaterLevel
+            self.df_meas_long['altered'] - abs(sea_level_spike),         # Action 1: WaterLevel - abs(sea_level_spike)
             np.where(
-                self.df_meas_long['bound'] > self.df_meas_long['WaterLevel'],  # Condition 2: bound > WaterLevel
-                self.df_meas_long['WaterLevel'] + abs(sea_level_spike),         # Action 2: WaterLevel + abs(sea_level_spike)
+                self.df_meas_long['bound'] > self.df_meas_long['altered'],  # Condition 2: bound > WaterLevel
+                self.df_meas_long['altered'] + abs(sea_level_spike),         # Action 2: WaterLevel + abs(sea_level_spike)
                 self.df_meas_long['altered']                                    # Else: keep original value from 'altered'
             )
         )
@@ -199,18 +200,21 @@ class QualityFlagger():
         self.df_meas_long = self.df_meas_long.drop(columns=['WaterLevel_shiftedpast', 'WaterLevel_shiftedfuture', 'bound'])
         
         #Analyse spike detection
-        self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered'],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (all)')
-        self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered'][min_value:max_value],'Water Level', self.df_meas_long['quality_flag'][min_value:max_value], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike)')
-        self.helper.plot_two_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered'],'Water Level', self.df_meas_long['quality_flag'], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp')
+        self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered_2'],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (all)')
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered_2'][min_value:max_value],'Water Level', self.df_meas_long['quality_flag'][min_value:max_value], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike)')
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered_2'],'Water Level', self.df_meas_long['quality_flag'], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp')
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered_2'][min_value:max_value],'Water Level', self.df_meas_long['WaterLevel'][min_value:max_value], 'Water Level (original)', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike)')
         #Some more plots for assessment
-        min_value = np.nanargmax(np.abs(self.df_meas_long['altered'])) - 500
-        max_value = np.nanargmax(np.abs(self.df_meas_long['altered'])) + 500
-        self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered'][min_value:max_value],'Water Level', self.df_meas_long['quality_flag'][min_value:max_value], 'Quality flag', 'Timestamp','Measured water level wo outliers and wo spike in 1 min timestamp (zoomed to max spike after removing spike)')
+        self.max_value_plotting = max_value
+        self.min_value_plotting = min_value
+        min_value = np.nanargmax(np.abs(self.df_meas_long['altered_2'])) - 500
+        max_value = np.nanargmax(np.abs(self.df_meas_long['altered_2'])) + 500
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered_2'][min_value:max_value],'Water Level', self.df_meas_long['quality_flag'][min_value:max_value], 'Quality flag', 'Timestamp','Measured water level wo outliers and wo spike in 1 min timestamp (zoomed to max spike after removing spike)')
         #is deshifting of spike working?
-        self.helper.plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['altered'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp 1')
-        self.helper.plot_df(self.df_meas_long['Timestamp'][1000000:2000000], self.df_meas_long['altered'][1000000:2000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp2')
-        self.helper.plot_df(self.df_meas_long['Timestamp'][2000000:3000000], self.df_meas_long['altered'][2000000:3000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp3')
-        self.helper.plot_df(self.df_meas_long['Timestamp'][3000000:4000000], self.df_meas_long['altered'][3000000:4000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp4')
+        self.helper.plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['altered_2'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp 1')
+        self.helper.plot_df(self.df_meas_long['Timestamp'][1000000:2000000], self.df_meas_long['altered_2'][1000000:2000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp2')
+        self.helper.plot_df(self.df_meas_long['Timestamp'][2000000:3000000], self.df_meas_long['altered_2'][2000000:3000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp3')
+        self.helper.plot_df(self.df_meas_long['Timestamp'][3000000:4000000], self.df_meas_long['altered_2'][3000000:4000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp4')
         #ubsequent line makes the code slow, only enable when need
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['WaterLevel'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp', 'measured water level')
         #self.helper.zoomable_plot_df(self.df_meas_long['Timestamp'][:1000000], self.df_meas_long['WaterLevel'][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp', 'measured water level')
@@ -222,15 +226,39 @@ class QualityFlagger():
     #Improve the cotede script by looking at the next existing neighbours and not just the next nieghbours
     #Now: Neighbours within 2 hours of the center point are allowed
     #This allows to work with different time scales and detect spikes even there are NaN values
+    # used 'altered WL' series to detect spike as it is already cleaned (NOT raw measurement series)
     def remove_spikes_cotede_improved(self):
-        print(datetime.datetime.now())
-        self.get_valid_neighbours(self.df_meas_long, 'WaterLevel', 'next_neighbour', True, max_distance=60)
-        self.get_valid_neighbours(self.df_meas_long, 'WaterLevel', 'past_neighbour', False, max_distance=60)
-        print(datetime.datetime.now()) 
-        sea_level_spikes = np.abs(self.df_meas_long['WaterLevel'] - (self.df_meas_long['past_neighbour'] + self.df_meas_long['next_neighbour']) / 2.0) - np.abs((self.df_meas_long['next_neighbour'] - self.df_meas_long['past_neighbour']) / 2.0)
+        self.get_valid_neighbours(self.df_meas_long, 'altered', 'next_neighbour', True, max_distance=60)
+        self.get_valid_neighbours(self.df_meas_long, 'altered', 'past_neighbour', False, max_distance=60)
+        sea_level_spikes = np.abs(self.df_meas_long['altered'] - (self.df_meas_long['past_neighbour'] + self.df_meas_long['next_neighbour']) / 2.0) - np.abs((self.df_meas_long['next_neighbour'] - self.df_meas_long['past_neighbour']) / 2.0)
         sea_level_spikes[abs(sea_level_spikes) < 0.01] = 0.0
         self.helper.plot_df(self.df_meas_long['Timestamp'], sea_level_spikes,'Detected spike [m]','Timestamp','WL spikes in measured ts (improved)')
 
+        #Remove spike
+        self.df_meas_long['bound'] = (self.df_meas_long['next_neighbour']+self.df_meas_long['past_neighbour'])/2
+        self.df_meas_long['altered'] = np.where(
+            self.df_meas_long['bound'] <= self.df_meas_long['altered'],  # Condition 1: bound <= WaterLevel
+            self.df_meas_long['altered'] - abs(sea_level_spikes),         # Action 1: WaterLevel - abs(sea_level_spike)
+            np.where(
+                self.df_meas_long['bound'] > self.df_meas_long['altered'],  # Condition 2: bound > WaterLevel
+                self.df_meas_long['altered'] + abs(sea_level_spikes),         # Action 2: WaterLevel + abs(sea_level_spike)
+                self.df_meas_long['altered']                                    # Else: keep original value from 'altered'
+            )
+        )
+
+        #Mask spikes
+        sea_level_spike_bool = (~np.isnan(sea_level_spikes)) & (sea_level_spikes != 0)
+        self.df_meas_long.loc[(self.df_meas_long['quality_flag'] == self.qf_classes['good_data']) & (sea_level_spike_bool), 'quality_flag'] = self.qf_classes['bad_data_correctable']
+        if self.qf_classes['bad_data_correctable'] in self.df_meas_long['quality_flag'].unique():
+            ratio = (len(self.df_meas_long[self.df_meas_long['quality_flag'] == self.qf_classes['bad_data_correctable']])/len(self.df_meas_long))*100
+            print(f"There are {len(self.df_meas_long[self.df_meas_long['quality_flag'] == self.qf_classes['bad_data_correctable']])} spikes in this timeseries. This is {ratio}% of the overall dataset.")
+
+        #Analyse spike detection
+        self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered'],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (all) (improved)')
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'][self.min_value_plotting:self.max_value_plotting], self.df_meas_long['altered'][self.min_value_plotting:self.max_value_plotting],'Water Level', self.df_meas_long['quality_flag'][self.min_value_plotting:self.max_value_plotting], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike) (improved)')
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'][self.min_value_plotting:self.max_value_plotting], self.df_meas_long['altered'][self.min_value_plotting:self.max_value_plotting],'Water Level', self.df_meas_long['WaterLevel'][self.min_value_plotting:self.max_value_plotting], 'Water Level (original)', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) (improved)')
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered'],'Water Level', self.df_meas_long['quality_flag'], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (improved)')
+        
     def get_valid_neighbours(self, df, column, column_name, shift_future, max_distance=60):
 
         #Create a list of shifted columns for 60 min shifted values (depends on max_distance)
@@ -238,7 +266,7 @@ class QualityFlagger():
         if shift_future:
             for i in range(1, max_distance + 1):
                 df[f'shift_{i}'] = np.roll(df[column], -i)
-                df.loc[-i:, f'shift_{i}'] = np.nan
+                df.iloc[-i:, df.columns.get_loc(f'shift_{i}')] = np.nan
         else:
             for i in range(1, max_distance + 1):
                 df[f'shift_{i}'] = np.roll(df[column], i)
