@@ -9,7 +9,22 @@ The goal of this work is to generate an automated QC algorithm which can detect 
 Quality checking of many time series is at the moment only sparsly done and often manually. However, with the increasing amount of data, it is important to have an automated approach to assess the quality of measurements/recieved values - as a model can only be as accurate as the input. Thus, it is important to have cleaned input data especially in regions with little measurements as Greenland. This work will focus on developing an automated quality check algorithm for sea level data with a strong focus on detecting shifts and deshifting.
 
 ## Roadmap
-This project will start off by developing a ML approach to flag tide gauge measurements in adequate groups. The next step will then be to adapt the flagged values to create a 'corrected' ts. The timeline for this project is around 10 months.
+This project will start off by flagging and adapting tide gauge measurements in adequate groups by using basic assessment, common oceanographic packages and machine learning. Afterwards, the flagged data will be used as training data to develop a ML algorithm which can do quality checking. The timeline for this project is around 10 months.
+
+## Applied Quality Tests
+The following steps are part of the quality check:
+1. Format & date control 
+2. Re-sampling of intervals
+3. Out-of-range values
+4. Stability test
+5. Spike Detection
+
+Upcoming steps to be included (potentially):
+1. Detection of shifts and deshifting 
+2. Gradient Test???
+3. Interpolation of short gabs
+4. Multi-Variate Test
+5. Tides
 
 # Pull and Push Code
 The subsequent lines are describing how to pull and push changes to this repository.

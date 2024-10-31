@@ -60,6 +60,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.remove_stat_outliers()
         data_flagging.remove_spikes_cotede()
         data_flagging.remove_spikes_cotede_improved()
+        #data_flagging.detect_shifts()
 
     def test_quality_check_ittoq(self):
 
@@ -83,6 +84,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.remove_stat_outliers()
         data_flagging.remove_spikes_cotede()
         data_flagging.remove_spikes_cotede_improved()
+        #data_flagging.detect_shifts()
 
 if __name__ == '__main__':
     unittest.main()

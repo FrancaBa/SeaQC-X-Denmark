@@ -8,7 +8,7 @@
     "bad_data": 4,
     "shifted_value": 5,
     "outliers": 6, 
-    "unused_2": 7,
+    "trending": 7,
     "interpolated_value": 8,
     "missing_data": 9
   }

@@ -43,6 +43,13 @@ class HelperMethods():
         # Show the figure
         fig.show()
 
+        # Write the figure to an HTML file
+        #html_file_path = os.path.join(self.folder_path,f'{title.replace(" ", "")}.html')
+        #fig.write_html(html_file_path)
+        
+        # To ensure the file is created
+        #print(f"HTML file created at: {html_file_path}")
+
     def plot_df(self, x_axis, data, y_title, x_title, title = None):
         
         plt.figure(figsize=(18, 7))
@@ -54,25 +61,47 @@ class HelperMethods():
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {x_axis.iloc[0]}.png"))
+        plt.close()  # Close the figure to release memory
 
     def plot_two_df(self, x_axis, data_1, y_title_1, data_2, y_title_2, x_title, title = None):
 
         fig, ax1 = plt.subplots(figsize=(18, 7))
 
-        color = 'tab:red'
+        color = 'tab:green'
         ax1.set_xlabel(x_title)
         ax1.set_ylabel(y_title_1 , color=color)
-        ax1.plot(x_axis, data_1, marker='o', markersize=1, color=color, linestyle='None')
+        ax1.plot(x_axis, data_1, marker='+', markersize=3, color=color, linestyle='None')
         ax1.tick_params(axis='y', labelcolor=color)
 
         ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 
-        color = 'tab:blue'
+        color = 'tab:orange'
         ax2.set_ylabel(y_title_2, color=color)  # we already handled the x-label with ax1
-        ax2.plot(x_axis, data_2, marker='o', markersize=1, color=color, linestyle='None')
+        ax2.plot(x_axis, data_2, marker='o', markersize=1, color=color, linestyle='None', alpha=0.6)
         ax2.tick_params(axis='y', labelcolor=color)
 
         fig.tight_layout() 
         if title != None:
-            plt.title(title)
+            plt.title(f"{title}- Date: {x_axis.iloc[0]}")
         plt.savefig(os.path.join(self.folder_path,f"{title}.png"))
+        plt.close()  # Close the figure to release memory
+
+    def plot_two_df_same_axis(self, x_axis, data_1, y_title, legend_1, data_2, x_title, legend_2,title = None):
+
+        fig, ax1 = plt.subplots(figsize=(18, 7))
+
+        color = 'tab:green'
+        ax1.set_xlabel(x_title)
+        ax1.set_ylabel(y_title)
+        ax1.plot(x_axis, data_1, marker='+', markersize=3, color=color, linestyle='None', label= legend_1)
+        ax1.tick_params(axis='y')
+
+        color = 'tab:orange'
+        ax1.plot(x_axis, data_2, marker='o', markersize=1, color=color, linestyle='None', alpha=0.6, label= legend_2)
+        ax1.legend(loc='upper right')  # Position the legend as desired
+
+        fig.tight_layout() 
+        if title != None:
+            plt.title(f"{title}- Date: {x_axis.iloc[0]}")
+        plt.savefig(os.path.join(self.folder_path,f"{title}.png"))
+        plt.close()  # Close the figure to release memory
