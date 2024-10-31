@@ -3,15 +3,18 @@
 #####################################################
 import os, sys
 import pdb
-import datetime
+import datetime 
 import numpy as np
 from numpy import ma
 import matplotlib.pyplot as plt
 import pandas as pd
 import json
+import ruptures as rpt
+import random
 
 from cotede import datasets, qctests
 from scipy.signal import argrelextrema
+from ruptures.detection import Pelt
 
 import source.helper_methods as helper
 
@@ -105,7 +108,7 @@ class QualityFlagger():
     def detect_constant_value(self):
 
         # Check if the value is constant over a window of 'self.window_constant_value' min (counts only non-nan)
-        constant_mask = self.df_meas_long['WaterLevel'].rolling(window=10, min_periods=1).apply(lambda x: (x == x[0]).all(), raw=True)
+        constant_mask = self.df_meas_long['WaterLevel'].rolling(window=self.window_constant_value, min_periods=1).apply(lambda x: (x == x[0]).all(), raw=True)
 
         # Mask the constant values
         self.df_meas_long['altered'] = np.where(constant_mask, np.nan, self.df_meas_long['WaterLevel'])
@@ -194,7 +197,13 @@ class QualityFlagger():
         if self.qf_classes['bad_data_correctable'] in self.df_meas_long['quality_flag'].unique():
             ratio = (len(self.df_meas_long[self.df_meas_long['quality_flag'] == self.qf_classes['bad_data_correctable']])/len(self.df_meas_long))*100
             print(f"There are {len(self.df_meas_long[self.df_meas_long['quality_flag'] == self.qf_classes['bad_data_correctable']])} spikes in this timeseries. This is {ratio}% of the overall dataset.")
-    
+
+        #More plots
+        for i in range(1, 41):
+            min = random.randint(np.where(~np.isnan(sea_level_spike))[0][0], len(self.df_meas_long)-4000)
+            max = min + 3000
+            self.helper.plot_two_df_same_axis(self.df_meas_long['Timestamp'][min:max], self.df_meas_long['altered_2'][min:max],'Water Level', 'Water Level (corrected)', self.df_meas_long['WaterLevel'][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-Cotede{i}- Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) (improved)')
+
 
         #delete helper columns
         self.df_meas_long = self.df_meas_long.drop(columns=['WaterLevel_shiftedpast', 'WaterLevel_shiftedfuture', 'bound'])
@@ -203,7 +212,8 @@ class QualityFlagger():
         self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered_2'],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (all)')
         self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered_2'][min_value:max_value],'Water Level', self.df_meas_long['quality_flag'][min_value:max_value], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike)')
         self.helper.plot_two_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered_2'],'Water Level', self.df_meas_long['quality_flag'], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp')
-        self.helper.plot_two_df(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered_2'][min_value:max_value],'Water Level', self.df_meas_long['WaterLevel'][min_value:max_value], 'Water Level (original)', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike)')
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'], self.df_meas_long['WaterLevel'],'Water Level', self.df_meas_long['quality_flag'], 'Quality flag', 'Timestamp','Measured water level in 1 min timestamp incl. flags')
+        self.helper.plot_two_df_same_axis(self.df_meas_long['Timestamp'][min_value:max_value], self.df_meas_long['altered_2'][min_value:max_value],'Water Level', 'Water Level (corrected)', self.df_meas_long['WaterLevel'][min_value:max_value], 'Timestamp', 'Water Level (measured)', 'Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike)')
         #Some more plots for assessment
         self.max_value_plotting = max_value
         self.min_value_plotting = min_value
@@ -231,7 +241,7 @@ class QualityFlagger():
         self.get_valid_neighbours(self.df_meas_long, 'altered', 'next_neighbour', True, max_distance=60)
         self.get_valid_neighbours(self.df_meas_long, 'altered', 'past_neighbour', False, max_distance=60)
         sea_level_spikes = np.abs(self.df_meas_long['altered'] - (self.df_meas_long['past_neighbour'] + self.df_meas_long['next_neighbour']) / 2.0) - np.abs((self.df_meas_long['next_neighbour'] - self.df_meas_long['past_neighbour']) / 2.0)
-        sea_level_spikes[abs(sea_level_spikes) < 0.01] = 0.0
+        sea_level_spikes[abs(sea_level_spikes) < 0.02] = 0.0
         self.helper.plot_df(self.df_meas_long['Timestamp'], sea_level_spikes,'Detected spike [m]','Timestamp','WL spikes in measured ts (improved)')
 
         #Remove spike
@@ -256,9 +266,16 @@ class QualityFlagger():
         #Analyse spike detection
         self.helper.plot_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered'],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (all) (improved)')
         self.helper.plot_two_df(self.df_meas_long['Timestamp'][self.min_value_plotting:self.max_value_plotting], self.df_meas_long['altered'][self.min_value_plotting:self.max_value_plotting],'Water Level', self.df_meas_long['quality_flag'][self.min_value_plotting:self.max_value_plotting], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike) (improved)')
-        self.helper.plot_two_df(self.df_meas_long['Timestamp'][self.min_value_plotting:self.max_value_plotting], self.df_meas_long['altered'][self.min_value_plotting:self.max_value_plotting],'Water Level', self.df_meas_long['WaterLevel'][self.min_value_plotting:self.max_value_plotting], 'Water Level (original)', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) (improved)')
+        self.helper.plot_two_df_same_axis(self.df_meas_long['Timestamp'][self.min_value_plotting:self.max_value_plotting], self.df_meas_long['altered'][self.min_value_plotting:self.max_value_plotting],'Water Level', 'Water Level (corrected)', self.df_meas_long['WaterLevel'][self.min_value_plotting:self.max_value_plotting], 'Timestamp', 'Water Level (measured)', 'Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) (improved)')
         self.helper.plot_two_df(self.df_meas_long['Timestamp'], self.df_meas_long['altered'],'Water Level', self.df_meas_long['quality_flag'], 'Quality flag', 'Timestamp','Measured water level wo outliers and spikes in 1 min timestamp (improved)')
+        self.helper.plot_two_df(self.df_meas_long['Timestamp'], self.df_meas_long['WaterLevel'],'Water Level', self.df_meas_long['quality_flag'], 'Quality flag', 'Timestamp','Measured water level in 1 min timestamp incl. flags (improved)')
         
+        #More plots
+        for i in range(1, 41):
+            min = random.randint(1, len(self.df_meas_long)-4000)
+            max = min + 4000
+            self.helper.plot_two_df_same_axis(self.df_meas_long['Timestamp'][min:max], self.df_meas_long['altered'][min:max],'Water Level', 'Water Level (corrected)', self.df_meas_long['WaterLevel'][min:max], 'Timestamp', 'Water Level (measured)', f'Graph{i}- Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) (improved)')
+    
     def get_valid_neighbours(self, df, column, column_name, shift_future, max_distance=60):
 
         #Create a list of shifted columns for 60 min shifted values (depends on max_distance)
@@ -279,3 +296,18 @@ class QualityFlagger():
         for i in range(3, max_distance+1):
             df[column_name] = df[column_name].fillna(df[f'shift_{i}'])
             del df[f'shift_{i}']
+
+    def detect_shifts(self):
+        # Detect shifts in mean using Pruned Exact Linear Time approach
+        algo = Pelt(model="l2").fit(self.df_meas_long['altered'].values)
+        result = algo.predict(pen=1000)
+
+        # Detect shifts in variance using Pruned Exact Linear Time approach
+        #algo = Pelt(model="l2").fit(self.df_meas_long['altered'])
+        #result_2 = algo.predict(pen=50)
+
+        # Plot the results
+        rpt.display(self.df_meas_long['altered'], result)  # Display the signal with detected change points
+        plt.show()
+        #rpt.display(self.df_meas_long['altered'], result_2)  # Display the signal with detected change points
+        #plt.show()
