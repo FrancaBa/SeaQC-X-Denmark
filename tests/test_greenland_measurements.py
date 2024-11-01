@@ -54,13 +54,9 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging = qc_generator.QualityFlagger()
         data_flagging.set_output_folder(output_path)
         data_flagging.load_qf_classification(self.json_path)
-        data_flagging.read_data(self.datadir, sta_filename)
-        data_flagging.check_timestamp()
-        data_flagging.detect_constant_value()
-        data_flagging.remove_stat_outliers()
-        data_flagging.remove_spikes_cotede()
-        data_flagging.remove_spikes_cotede_improved()
-        #data_flagging.detect_shifts()
+        data_flagging.set_column_names('Timestamp', 'WaterLevel', 'Flag')
+        data_flagging.import_data(self.datadir, sta_filename)
+        data_flagging.run()
 
     def test_quality_check_ittoq(self):
 
@@ -78,13 +74,9 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging = qc_generator.QualityFlagger()
         data_flagging.set_output_folder(output_path)
         data_flagging.load_qf_classification(self.json_path)
-        data_flagging.read_data(self.datadir, sta_filename)
-        data_flagging.check_timestamp()
-        data_flagging.detect_constant_value()
-        data_flagging.remove_stat_outliers()
-        data_flagging.remove_spikes_cotede()
-        data_flagging.remove_spikes_cotede_improved()
-        #data_flagging.detect_shifts()
+        data_flagging.set_column_names('Timestamp', 'WaterLevel', 'Flag')
+        data_flagging.import_data(self.datadir, sta_filename)
+        data_flagging.run()
 
 if __name__ == '__main__':
     unittest.main()
