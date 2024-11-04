@@ -100,18 +100,19 @@ class QualityFlagger():
 
         #Detect spike values
         spike_detection = qc_spike.SpikeDetector()
+        spike_detection.set_output_folder(self.folder_path)
         #df_long = spike_detection.remove_spikes_ml(df_long[self.adapted_meas_col_name][-1000000:])
-        #df_long = spike_detection.remove_spikes_cotede(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
-        #df_long = spike_detection.remove_spikes_cotede_improved(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
+        df_long_2 = spike_detection.remove_spikes_cotede(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
+        df_long = spike_detection.remove_spikes_cotede_improved(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
         #df_long = spike_detection.selene_spike_detection(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column)
 
         #Detect shifts & deshift values
-        shift_detection = qc_shifts.ShiftDetector()
+        #shift_detection = qc_shifts.ShiftDetector()
         #df_long = shift_detection.detect_shifts(df_long, self.adapted_meas_col_name, self.quality_column_name)
 
         #Detect interpolated values
-        interpolated_qc = qc_interpolated.Interpolation_Detector()
-        df_long = interpolated_qc.run_interpolation_detection(df_long, self.adapted_meas_col_name, self.time_column, self.qc_classes, self.quality_column_name)
+        #interpolated_qc = qc_interpolated.Interpolation_Detector()
+        #df_long = interpolated_qc.run_interpolation_detection(df_long, self.adapted_meas_col_name, self.time_column, self.qc_classes, self.quality_column_name)
 
     def check_timestamp(self):
 
@@ -142,7 +143,20 @@ class QualityFlagger():
     def detect_constant_value(self, df_meas_long, window_constant_value):
 
         # Check if the value is constant over a window of 'self.window_constant_value' min (counts only non-nan)
-        constant_mask = df_meas_long[self.measurement_column].rolling(window=window_constant_value).apply(lambda x: (x == x[0]).all(), raw=True)
+        # Step 1: Identify where the values change, ignoring NaNs
+        # Step 2: Assign a unique group ID for each sequence of the same value
+        # Step 3: Count the size of each group, and check if each run is at least 'window_constant_value' entries long
+        # Step 4: Create the mask based on the length of consecutive identical values
+        is_new_value = (df_meas_long[self.measurement_column] != df_meas_long[self.measurement_column].shift()) | df_meas_long[self.measurement_column].isna()
+        groups = is_new_value.cumsum()
+        group_sizes = df_meas_long.groupby(groups)[self.measurement_column].transform('size')
+        constant_mask = (group_sizes >= window_constant_value) & df_meas_long[self.measurement_column].notna()
+
+        # Get indices where the mask is True (as check that approach works)
+        if constant_mask.any():
+            true_indices = constant_mask[constant_mask].index
+            self.helper.plot_df(df_meas_long[self.time_column][true_indices[0]-30:true_indices[0]+50], df_meas_long[self.measurement_column][true_indices[0]-30:true_indices[0]+50],'Water Level','Timestamp ','Constant period in TS')
+
 
         # Mask the constant values
         df_meas_long[self.adapted_meas_col_name] = np.where(constant_mask, np.nan, df_meas_long[self.measurement_column])
@@ -172,21 +186,22 @@ class QualityFlagger():
         upper_bound = Q3 + 2.5 * IQR
 
         # Detect outliers and set them to NaN specifically for the self.measurement_column column
-        outlier_mask = (df_meas_long[self.measurement_column] < lower_bound[self.measurement_column]) | (df_meas_long[self.measurement_column] > upper_bound[self.measurement_column])
+        outlier_mask = (df_meas_long[self.adapted_meas_col_name] < lower_bound[self.adapted_meas_col_name]) | (df_meas_long[self.adapted_meas_col_name] > upper_bound[self.adapted_meas_col_name])
         # Mask the outliers
-        df_meas_long[self.adapted_meas_col_name] = np.where(np.isnan(outlier_mask), np.nan, df_meas_long[self.adapted_meas_col_name])
+        #df_meas_long[self.adapted_meas_col_name] = np.where(np.isnan(outlier_mask), np.nan, df_meas_long[self.adapted_meas_col_name])
+        df_meas_long[self.adapted_meas_col_name] = np.where(outlier_mask, np.nan, df_meas_long[self.adapted_meas_col_name])
         #Flag & remove the outlier
         df_meas_long.loc[(df_meas_long[self.quality_column_name] == self.qc_classes['good_data']) & (outlier_mask), self.quality_column_name] = self.qc_classes['outliers']
 
-        #plot results without outliers
-        self.helper.plot_df(df_meas_long[self.time_column], df_meas_long[self.adapted_meas_col_name],'Water Level','Timestamp ','Measured water level wo outliers in 1 min timestamp')
-        self.helper.plot_df(df_meas_long[self.time_column][33300:33400], df_meas_long[self.adapted_meas_col_name][33300:33400],'Water Level','Timestamp ','Measured water level in 1 min timestamp wo outliers(zoom)')
-        
+        # Get indices where the mask is True (as check that approach works)
+        if outlier_mask.any():
+            true_indices = outlier_mask[outlier_mask].index
+            self.helper.plot_df(df_meas_long[self.time_column][true_indices[0]-10000:true_indices[0]+10000], df_meas_long[self.measurement_column][true_indices[0]-10000:true_indices[0]+10000],'Water Level','Timestamp ','Outlier period in TS')
+            self.helper.plot_df(df_meas_long[self.time_column][true_indices[0]-10000:true_indices[0]+10000], df_meas_long[self.adapted_meas_col_name][true_indices[0]-10000:true_indices[0]+10000],'Water Level','Timestamp ','Outlier period in TS (corrected)')
+            self.helper.plot_df(df_meas_long[self.time_column], df_meas_long[self.adapted_meas_col_name],'Water Level','Timestamp ','Measured water level wo outliers in 1 min timestamp')
+          
         if self.qc_classes['outliers'] in df_meas_long[self.quality_column_name].unique():
             ratio = (len(df_meas_long[df_meas_long[self.quality_column_name] == self.qc_classes['outliers']])/len(df_meas_long))*100
             print(f"There are {len(df_meas_long[df_meas_long[self.quality_column_name] == self.qc_classes['outliers']])} outliers in this timeseries. This is {ratio}% of the overall dataset.")
-    
-        #Subsequent line makes the code slow, only enable when needed
-        #self.helper.zoomable_plot_df(df_meas_long[self.time_column][:1000000], df_meas_long[self.measurement_column][:1000000],'Water Level','Timestamp ', 'Measured water level wo outliers','measured water level')
 
         return df_meas_long

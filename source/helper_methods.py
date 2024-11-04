@@ -55,7 +55,7 @@ class HelperMethods():
         plt.figure(figsize=(18, 9))
         plt.plot(x_axis, data,  marker='o', markersize=1, linestyle='None')
         if title != None:
-            plt.title(f"{title}- Date: {x_axis.iloc[0]}")
+            plt.title(f"{title} - Date: {x_axis.iloc[0]}")
         plt.xlabel(x_title)
         plt.ylabel(y_title)
         plt.xticks(rotation=45, ha='right')
@@ -65,7 +65,7 @@ class HelperMethods():
 
     def plot_two_df(self, x_axis, data_1, y_title_1, data_2, y_title_2, x_title, title = None):
 
-        fig, ax1 = plt.subplots(figsize=(18, 9))
+        fig, ax1 = plt.subplots(figsize=(18, 10))
 
         color = 'tab:green'
         ax1.set_xlabel(x_title)
@@ -82,13 +82,13 @@ class HelperMethods():
 
         fig.tight_layout() 
         if title != None:
-            plt.title(f"{title}- Date: {x_axis.iloc[0]}")
+            plt.title(f"{title} - Date: {x_axis.iloc[0]}")
         plt.savefig(os.path.join(self.folder_path,f"{title}.png"))
         plt.close()  # Close the figure to release memory
 
     def plot_two_df_same_axis(self, x_axis, data_1, y_title, legend_1, data_2, x_title, legend_2,title = None):
 
-        fig, ax1 = plt.subplots(figsize=(18, 9))
+        fig, ax1 = plt.subplots(figsize=(18, 10))
 
         color = 'tab:green'
         ax1.set_xlabel(x_title)
@@ -102,6 +102,6 @@ class HelperMethods():
 
         fig.tight_layout() 
         if title != None:
-            plt.title(f"{title}- Date: {x_axis.iloc[0]}")
+            plt.title(f"{title} - Date: {x_axis.iloc[0]}")
         plt.savefig(os.path.join(self.folder_path,f"{title}.png"))
         plt.close()  # Close the figure to release memory
