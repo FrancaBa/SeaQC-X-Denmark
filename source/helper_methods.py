@@ -60,7 +60,7 @@ class HelperMethods():
         plt.ylabel(y_title)
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {x_axis.iloc[0]}.png"))
+        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {x_axis.iloc[0]}.png"),  bbox_inches="tight")
         plt.close()  # Close the figure to release memory
 
     def plot_two_df(self, x_axis, data_1, y_title_1, data_2, y_title_2, x_title, title = None):
@@ -83,7 +83,7 @@ class HelperMethods():
         fig.tight_layout() 
         if title != None:
             plt.title(f"{title} - Date: {x_axis.iloc[0]}")
-        plt.savefig(os.path.join(self.folder_path,f"{title}.png"))
+        plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
         plt.close()  # Close the figure to release memory
 
     def plot_two_df_same_axis(self, x_axis, data_1, y_title, legend_1, data_2, x_title, legend_2,title = None):
@@ -103,5 +103,5 @@ class HelperMethods():
         fig.tight_layout() 
         if title != None:
             plt.title(f"{title} - Date: {x_axis.iloc[0]}")
-        plt.savefig(os.path.join(self.folder_path,f"{title}.png"))
+        plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
         plt.close()  # Close the figure to release memory
