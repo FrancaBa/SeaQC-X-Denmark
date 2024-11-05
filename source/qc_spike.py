@@ -119,7 +119,8 @@ class SpikeDetector():
         #self.helper.zoomable_plot_df(df_meas_long[time_column][:1000000], df_meas_long[measurement_column][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp', 'measured water level')
         #self.helper.zoomable_plot_df(df_meas_long[time_column][:1000000], df_meas_long[measurement_column][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp', 'measured water level')
         #self.helper.zoomable_plot_df(df_meas_long[time_column][:1000000], df_meas_long[measurement_column][:1000000],'Water Level','Timestamp','Measured water level wo outliers and spikes in 1 min timestamp', 'measured water level')
-                
+        
+        return df_meas_long
     """  
     Improve the cotede script by looking at the next existing neighbours and not just the next nieghbours
     Now: Neighbours within 2 hours of the center point are allowed
@@ -164,8 +165,14 @@ class SpikeDetector():
             min = random.randint(1, len(df_meas_long)-4000)
             max = min + 4000
             self.helper.plot_two_df_same_axis(df_meas_long[time_column][min:max], df_meas_long[adapted_meas_col_name][min:max],'Water Level', 'Water Level (corrected)', df_meas_long[measurement_column][min:max], 'Timestamp ', 'Water Level (measured)', f'Graph{i}- Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) (improved)')
-            self.helper.plot_two_df(df_meas_long[time_column][min:max], df_meas_long[measurement_column][min:max],'Water Level', df_meas_long[quality_column_name][min:max], 'Quality flag', 'Timestamp ','Graph{i}- Measured water level incl. flags')
+            self.helper.plot_two_df(df_meas_long[time_column][min:max], df_meas_long[measurement_column][min:max],'Water Level', df_meas_long[quality_column_name][min:max], 'Quality flag', 'Timestamp ',f'Graph{i}- Measured water level incl. flags')
         
+        del df_meas_long['next_neighbour']
+        del df_meas_long['past_neighbour']
+        del df_meas_long['bound']
+
+        return df_meas_long
+    
     def get_valid_neighbours(self, df, column, column_name, shift_future, max_distance=60):
 
         #Create a list of shifted columns for 60 min shifted values (depends on max_distance)

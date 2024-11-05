@@ -102,8 +102,9 @@ class QualityFlagger():
         spike_detection = qc_spike.SpikeDetector()
         spike_detection.set_output_folder(self.folder_path)
         #df_long = spike_detection.remove_spikes_ml(df_long[self.adapted_meas_col_name][-1000000:])
+        df_long_dup = df_long.copy()
         df_long_2 = spike_detection.remove_spikes_cotede(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
-        df_long = spike_detection.remove_spikes_cotede_improved(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
+        df_long = spike_detection.remove_spikes_cotede_improved(df_long_dup, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
         #df_long = spike_detection.selene_spike_detection(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column)
 
         #Detect shifts & deshift values
@@ -111,8 +112,9 @@ class QualityFlagger():
         #df_long = shift_detection.detect_shifts(df_long, self.adapted_meas_col_name, self.quality_column_name)
 
         #Detect interpolated values
-        #interpolated_qc = qc_interpolated.Interpolation_Detector()
-        #df_long = interpolated_qc.run_interpolation_detection(df_long, self.adapted_meas_col_name, self.time_column, self.qc_classes, self.quality_column_name)
+        interpolated_qc = qc_interpolated.Interpolation_Detector()
+        interpolated_qc.set_output_folder(self.folder_path)
+        df_long = interpolated_qc.run_interpolation_detection(df_long, self.adapted_meas_col_name, self.time_column, self.qc_classes, self.quality_column_name)
 
     def check_timestamp(self):
 
@@ -188,7 +190,6 @@ class QualityFlagger():
         # Detect outliers and set them to NaN specifically for the self.measurement_column column
         outlier_mask = (df_meas_long[self.adapted_meas_col_name] < lower_bound[self.adapted_meas_col_name]) | (df_meas_long[self.adapted_meas_col_name] > upper_bound[self.adapted_meas_col_name])
         # Mask the outliers
-        #df_meas_long[self.adapted_meas_col_name] = np.where(np.isnan(outlier_mask), np.nan, df_meas_long[self.adapted_meas_col_name])
         df_meas_long[self.adapted_meas_col_name] = np.where(outlier_mask, np.nan, df_meas_long[self.adapted_meas_col_name])
         #Flag & remove the outlier
         df_meas_long.loc[(df_meas_long[self.quality_column_name] == self.qc_classes['good_data']) & (outlier_mask), self.quality_column_name] = self.qc_classes['outliers']
