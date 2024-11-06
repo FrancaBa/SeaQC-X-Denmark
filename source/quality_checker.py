@@ -105,7 +105,7 @@ class QualityFlagger():
         df_long_dup = df_long.copy()
         df_long_2 = spike_detection.remove_spikes_cotede(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
         df_long = spike_detection.remove_spikes_cotede_improved(df_long_dup, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
-        #df_long = spike_detection.selene_spike_detection(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column)
+        df_long = spike_detection.selene_spike_detection(df_long_dup, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
 
         #Detect shifts & deshift values
         #shift_detection = qc_shifts.ShiftDetector()

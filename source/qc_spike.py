@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import random
 
 from cotede import datasets, qctests
-from scipy.signal import argrelextrema
+from scipy.interpolate import UnivariateSpline
 
 from xgboost import XGBRegressor
 from sklearn.experimental import enable_iterative_imputer  # noqa
@@ -31,14 +31,18 @@ class SpikeDetector():
         self.forecast_horizon = 10  # Predict 10 steps ahead
         self.test_size = 10000    # Size of the test set
 
-        #Selene package needed constants
-        self.splinedegree = 2 #3
-        self.winsize = 200
-        self.nsigma = 4
-        self.maxiter = 3
+        #Spline approach needed constants
+        self.splinedegree = 3
+        self.winsize = 2000
+        self.s = 2.0
+        self.nsigma = 3
 
     def set_output_folder(self, folder_path):
         self.helper.set_output_folder(folder_path)
+
+        # Impute missing values
+    def fill_missing_value(self, ):
+        
 
     def remove_spikes_cotede(self, df_meas_long, adapted_meas_col_name, quality_column_name, time_column, measurement_column, qc_classes):
         # used 'altered WL' series to detect spike as it is already cleaned (NOT raw measurement series)
@@ -195,46 +199,30 @@ class SpikeDetector():
             del df[f'shift_{i}']
             
     """
-    Using Selene package for spike detection
+    Using Selene package for spike detection - code rewritten, but still spline idea
     """   
 
-    def selene_spike_detection(self, df_meas_long, adapted_meas_col_name, quality_column_name, time_column, measurement_column):
+    def selene_spike_detection(self, df_meas_long, adapted_meas_col_name, quality_column_name, time_column, measurement_column, qc_classes):
         #spiketest    
-        spikedetected = True
-        iter = 0
-        badixs = []
-        df_meas_long['quality'] = 0
         df_meas_long['new_data'] = 0
-        while spikedetected and iter < self.maxiter:
-            print('hereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee')
-            #drop spike values detected in previous iteration
-            spikedetected = False
-            for ix in range(len(df_meas_long.index.values)):
-                print('here')
-                if (ix < self.winsize/2):
-                    ini= 0
-                    end= self.winsize-1
-                    winix = ix
-                elif (ix > len(df_meas_long.index) - self.winsize/2):
-                    ini=len(df_meas_long.index)- self.winsize
-                    end=len(df_meas_long.index)-1
-                    winix = (self.winsize-1)-(end-ix+1)
-                else:
-                    ini = int(ix - self.winsize/2)
-                    end = int(ix + self.winsize/2)
-                    winix = int(self.winsize/2)
-                winx = df_meas_long.index.values[ini:end].astype(float)
-                windata = df_meas_long[adapted_meas_col_name].values[ini:end]
-                splinefit = np.polyfit(winx, windata, self.splinedegree)
-                splinedata = np.polyval(splinefit,winx)
-                rmse = self.rmse(splinedata, np.array(windata))
-                if (abs(splinedata[winix]-df_meas_long[adapted_meas_col_name][ix]) >= self.nsigma*rmse):
-                    df_meas_long.loc[df_meas_long.index.values[ix],'quality'] = 4
-                    df_meas_long.loc[df_meas_long.index.values[ix],'new_data'] = splinedata[winix]
-                    badixs.append(df_meas_long.index.values[ix])
-                    spikedetected = True
-            iter=iter+1
+
+        # Calulate spline values over whole ts in windows
+        smoothed_series = df_meas_long[adapted_meas_col_name].rolling(window=self.winsize , center=True, min_periods=1).apply(self.rolling_spline, raw=False)
+        self.helper.plot_df(df_meas_long[time_column], smoothed_series ,'Water Level - Spline','Timestamp ','Spline fitted to measured WL')
+        self.helper.plot_two_df_same_axis(df_meas_long[time_column][-2000:], df_meas_long[adapted_meas_col_name][-2000:],'Water Level', 'Water Level', smoothed_series[-2000:], 'Timestamp ', 'Water Level - Spline fitted', 'Spline fitted to measured WL (zoomed)')
         
+        #calculate RMSE between measurements and spline to detect and assess outliers
+        sea_level_rmse = self.rmse(smoothed_series, df_meas_long[adapted_meas_col_name])
+        outlier_maks = abs(smoothed_series-df_meas_long[adapted_meas_col_name]) >= self.nsigma*sea_level_rmse
+        #sea_level_spikes[abs(sea_level_spikes) < self.improved_cotede_threshold] = 0.0
+
+        #Mark & remove outliers
+        sea_level_spike_bool = (~np.isnan(sea_level_spikes)) & (sea_level_spikes != 0)
+        df_meas_long.loc[(df_meas_long[quality_column_name] == qc_classes['good_data']) & (sea_level_spike_bool), quality_column_name] = qc_classes['bad_data_correctable']
+        if qc_classes['bad_data_correctable'] in df_meas_long[quality_column_name].unique():
+            ratio = (len(df_meas_long[df_meas_long[quality_column_name] == qc_classes['bad_data_correctable']])/len(df_meas_long))*100
+            print(f"There are {len(df_meas_long[df_meas_long[quality_column_name] == qc_classes['bad_data_correctable']])} spikes in this timeseries. This is {ratio}% of the overall dataset.")
+
         #make Plots
         #Analyse spike detection
         #self.helper.plot_df(df_meas_long[time_column], df_meas_long[adapted_meas_col_name],'Water Level','Timestamp ','Measured water level wo outliers and spikes in 1 min timestamp (all) (improved)')
@@ -251,6 +239,24 @@ class SpikeDetector():
 
         return df_meas_long
     
+    # Define a function to apply spline fitting within each rolling window
+    def rolling_spline(self, window_data):
+        # Create the x values corresponding to the window index
+        window_x = window_data.index
+        window_y = window_data.values
+        
+        if 1-(np.isnan(window_y).sum()/len(window_y)) > 0.05:
+            # Use Pandas to interpolate missing values
+            ts_interpolated = pd.Series(window_y).interpolate(method='spline', order = self.splinedegree).values
+            # Fit Univariate Spline
+            splinedata = UnivariateSpline(window_x, ts_interpolated, s =self.s, k = self.splinedegree)  # Adjust `s` for smoothness
+            return_value = splinedata(window_x[len(window_x) // 2])
+        else:
+            return_value = np.nan
+        
+        # Return the value of the spline at the center of the window (you could choose another value if you like)
+        return return_value
+
     def rmse(self, predictions, targets):
         return np.sqrt(((predictions - targets) ** 2).mean()) 
         
@@ -287,15 +293,7 @@ class SpikeDetector():
         X_train, X_test = X[:-self.test_size], X[-self.test_size:]
         y_train, y_test = y[:-self.test_size], y[-self.test_size:]
 
-        # Impute missing values using IterativeImputer
-        imputer = IterativeImputer()
-        X_train= imputer.fit_transform(X_train)
-        X_test = imputer.transform(X_test)
-
-        # Impute the target variable y_train (note: we reshape it)
-        y_train = imputer.fit_transform(y_train.reshape(-1, 1)).ravel()
-        y_test = imputer.transform(y_test.reshape(-1, 1)).ravel()
-
+        
         # Scaling
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
