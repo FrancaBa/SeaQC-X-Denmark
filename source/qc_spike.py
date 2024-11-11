@@ -33,11 +33,7 @@ class SpikeDetector():
         self.test_size = 10000    # Size of the test set
 
         #Spline approach needed constants
-        self.splinedegree = 3
-        self.winsize = 2000
-        self.s = 0.0
         self.nsigma = 3
-        self.min_values = 3
 
     def set_output_folder(self, folder_path):
         self.helper.set_output_folder(folder_path)

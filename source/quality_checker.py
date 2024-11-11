@@ -20,6 +20,7 @@ class QualityFlagger():
     def __init__(self):
         self.missing_meas_value = 999.000
         self.window_constant_value = 3
+        self.bound_interquantile = 3.5
         #to fit a spline
         self.splinelength = 14 #hours
         self.splinedegree = 2 #3
@@ -112,7 +113,6 @@ class QualityFlagger():
         
         # Loop over the series in windows
         for start in range(0, len(data), winsize):
-            print(start, winsize)
             end = min(start + winsize, len(data))
             x_window = data.index[start:end]
             y_window = data[self.measurement_column][start:end]
@@ -249,8 +249,8 @@ class QualityFlagger():
         # Define the lower and upper bounds for outlier detection
         # normally it is lower_bound = Q1 - 1.5 * IQR and upper_bound = Q3 + 1.5 * IQR
         # We can set them to even larger range to only tidal analysis, coz outlier detection is after tidal analysis 
-        lower_bound = Q1 - 3.5 * IQR
-        upper_bound = Q3 + 3.5 * IQR
+        lower_bound = Q1 - self.bound_interquantile * IQR
+        upper_bound = Q3 + self.bound_interquantile * IQR
 
         # Detect outliers and set them to NaN specifically for the self.measurement_column column
         outlier_mask = (df_meas_long[self.adapted_meas_col_name] < lower_bound[self.adapted_meas_col_name]) | (df_meas_long[self.adapted_meas_col_name] > upper_bound[self.adapted_meas_col_name])
