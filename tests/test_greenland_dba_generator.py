@@ -42,5 +42,95 @@ class Test_DTUSpace_DataConverter(unittest.TestCase):
         data_conversion.set_relev_station(station)
         data_conversion.run()
 
+    def test_data_Qaqortoq_conversion(self):
+       
+        print(os.getcwd())
+
+        #select the station (here: Qaqortoq)
+        index_station=0
+        station = self.stations[index_station]
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_conversion = data_converter.DataConverter()
+        data_conversion.set_output_path(output_path)
+        data_conversion.load_data_path(self.datadir)
+        data_conversion.set_relev_station(station)
+        data_conversion.run()
+
+    def test_data_Nuuk1_conversion(self):
+       
+        print(os.getcwd())
+
+        #select the station (here: Nuuk1)
+        index_station=3
+        station = self.stations[index_station]
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_conversion = data_converter.DataConverter()
+        data_conversion.set_output_path(output_path)
+        data_conversion.load_data_path(self.datadir)
+        data_conversion.set_relev_station(station)
+        data_conversion.run()
+
+    def test_data_Nuuk_conversion(self):
+       
+        print(os.getcwd())
+
+        #select the station (here: Nuuk)
+        index_station=2
+        station = self.stations[index_station]
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_conversion = data_converter.DataConverter()
+        data_conversion.set_output_path(output_path)
+        data_conversion.load_data_path(self.datadir)
+        data_conversion.set_relev_station(station)
+        data_conversion.run()
+
+    def test_data_Pituffik_conversion(self):
+       
+        print(os.getcwd())
+
+        #select the station (here: Pituffik)
+        index_station=4
+        station = self.stations[index_station]
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_conversion = data_converter.DataConverter()
+        data_conversion.set_output_path(output_path)
+        data_conversion.load_data_path(self.datadir)
+        data_conversion.set_relev_station(station)
+        data_conversion.run()
+
+    def test_data_Ittoqqortoormiit_conversion(self):
+       
+        print(os.getcwd())
+
+        #select the station (here: Ittoqqortoormiit)
+        index_station=1
+        station = self.stations[index_station]
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_conversion = data_converter.DataConverter()
+        data_conversion.set_output_path(output_path)
+        data_conversion.load_data_path(self.datadir)
+        data_conversion.set_relev_station(station)
+        data_conversion.run()
+
 if __name__ == '__main__':
     unittest.main()
