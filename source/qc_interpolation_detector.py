@@ -13,9 +13,13 @@ class Interpolation_Detector():
         
     def __init__(self):
         # Define the window size
+        # Param for gradient detection
         self.window_size_const_gradient = 7
+
+        # Param for small distribution detection
         self.rolling_window = 60
         self.min_periods = 20
+        self.min_duration = 5
         self.threshold = 1.1
 
         self.helper = helper.HelperMethods()
@@ -29,6 +33,10 @@ class Interpolation_Detector():
         """
         gradient_mask = self.find_constant_slope(data, value_column, column_time)
         distribution_mask = self.find_small_distribution(data, value_column, column_time)
+
+        # Do we want to remove the interpolated periods? I would say NO
+        #data.loc[gradient_mask, value_column] = np.nan
+        #data.loc[distribution_mask, value_column] = np.nan
 
         #Flag the interpolated periods
         data.loc[(data[quality_column_name] == qf_classes['good_data']) & (distribution_mask), quality_column_name] = qf_classes['interpolated_value']
@@ -52,7 +60,7 @@ class Interpolation_Detector():
         # Compute the values of the slopes and sets the ones with a slope of 0 equal to nan, as we find them as
         # flatlines instead.
         data['slope'] = np.divide(value_diffs, time_diffs)
-        data['slope'][data['slope'] == 0] = np.nan
+        data.loc[data['slope'] == 0, 'slope'] = np.nan
 
         # Check if the value is constant over a window of 'self.window_constant_value' min (counts only non-nan)
         # Step 1: Identify where the values change, ignoring NaNs
@@ -68,9 +76,12 @@ class Interpolation_Detector():
         if gradient_mask.any():
             print(f"There are {gradient_mask.sum()} values with constant gradient over a period of {self.window_size_const_gradient} minutes in this timeseries.")
             true_indices = gradient_mask[gradient_mask].index
-            self.helper.plot_df(data[column_time][true_indices[0]-100:true_indices[0]+100], data[data_column_name][true_indices[0]-100:true_indices[0]+100],'Water Level','Timestamp ','Constant gradient period in TS')
-            self.helper.plot_df(data[column_time][true_indices[7]-100:true_indices[7]+100], data[data_column_name][true_indices[7]-100:true_indices[7]+100],'Water Level','Timestamp ','Constant gradient period 2.0 in TS')
-            
+            data['y_nan'] = data[data_column_name]
+            data.loc[gradient_mask, 'y_nan'] = np.nan
+            self.helper.plot_two_df_same_axis(data[column_time][true_indices[0]-60:true_indices[0]+60], data[data_column_name][true_indices[0]-60:true_indices[0]+60],'Water Level', 'Water Level', data['y_nan'][true_indices[0]-60:true_indices[0]+60], 'Timestamp', 'Interpolated WL','Constant gradient period in TS')
+            self.helper.plot_two_df_same_axis(data[column_time][true_indices[7]-60:true_indices[7]+60], data[data_column_name][true_indices[7]-60:true_indices[7]+60],'Water Level', 'Water Level', data['y_nan'][true_indices[7]-60:true_indices[7]+60], 'Timestamp', 'Interpolated WL', 'Constant gradient period 2.0 in TS')
+            del data['y_nan']
+
         return gradient_mask
 
     def find_small_distribution(self, data, column, column_time):
@@ -84,20 +95,30 @@ class Interpolation_Detector():
         # Calculate the median of the rolling standard deviation and rolling variance
         rolling_std_median = data['rolling_std'].median()
         #rolling_var_median = df['rolling_var'].median()
-
-        self.helper.plot_df(data[column_time], data['rolling_std'],'Stand. Deviation WL','Timestamp ','Small distribution values')
-
-        # Identify interpolated values
-        distribution_mask = (data['rolling_std'] < data['rolling_std'].min()*self.threshold)
-
+        
         # Output results
         print("Median:", rolling_std_median)
 
+        # Identify interpolated values over x values with small distribution
+        distribution_mask_detailled = (data['rolling_std'] < data['rolling_std'].min()*self.threshold)
+
+        # Remove all detections smaller than x in a row
+        is_new_value = (distribution_mask_detailled != distribution_mask_detailled.shift())
+        groups = is_new_value.cumsum()
+        group_sizes = distribution_mask_detailled.groupby(groups).transform('size')
+        distribution_mask = (group_sizes >= self.min_duration) & distribution_mask_detailled
+        
         #print details on the small distribution check
         if distribution_mask.any():
             print(f"There are {distribution_mask.sum()} values with a small standard deviation in this timeseries.")
-            true_indices = distribution_mask[distribution_mask].index
-            self.helper.plot_df(data[column_time][true_indices[0]-100:true_indices[0]+100], data[column][true_indices[0]-100:true_indices[0]+100],'Water Level','Timestamp ','Small distribution period in TS')
-            self.helper.plot_df(data[column_time][true_indices[-1]-100:true_indices[-1]+100], data[column][true_indices[-1]-100:true_indices[-1]+100],'Water Level','Timestamp ','Small distribution period 2.0 in TS')
-            
+            true_indices = distribution_mask[distribution_mask].index 
+            data['y_nan'] = data[column]
+            data.loc[distribution_mask, 'y_nan'] = np.nan
+            self.helper.plot_two_df_same_axis(data[column_time][true_indices[0]-60:true_indices[0]+60], data[column][true_indices[0]-60:true_indices[0]+60],'Water Level', 'Water Level', data['y_nan'][true_indices[0]-60:true_indices[0]+60], 'Timestamp', 'Interpolated WL','Small distribution period in TS')
+            data['y_dis_nan'] = data['rolling_std']
+            data.loc[distribution_mask, 'y_dis_nan'] = np.nan
+            self.helper.plot_two_df_same_axis(data[column_time][true_indices[-1]-60:true_indices[-1]+60], data['rolling_std'][true_indices[-1]-60:true_indices[-1]+60],'Standard Deviation', 'Standard Deviation (cut off)', data['y_dis_nan'][true_indices[-1]-60:true_indices[-1]+60], 'Timestamp', 'Standard Deviation', 'Small distribution in TS - Standard deviation')
+            del data['y_nan']
+            del data['y_dis_nan']
+
         return distribution_mask

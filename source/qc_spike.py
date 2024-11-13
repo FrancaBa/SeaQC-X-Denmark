@@ -1,11 +1,11 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-
+import numpy.ma as ma
 import random
 
 from cotede import datasets, qctests
-from scipy.signal import argrelextrema
+from scipy.interpolate import UnivariateSpline
 
 from xgboost import XGBRegressor
 from sklearn.experimental import enable_iterative_imputer  # noqa
@@ -13,6 +13,7 @@ from sklearn.impute import IterativeImputer
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
+from scipy.interpolate import PchipInterpolator
 
 import source.helper_methods as helper
 
@@ -31,14 +32,15 @@ class SpikeDetector():
         self.forecast_horizon = 10  # Predict 10 steps ahead
         self.test_size = 10000    # Size of the test set
 
-        #Selene package needed constants
-        self.splinedegree = 2 #3
-        self.winsize = 200
-        self.nsigma = 4
-        self.maxiter = 3
+        #Spline approach needed constants
+        self.nsigma = 3
 
     def set_output_folder(self, folder_path):
         self.helper.set_output_folder(folder_path)
+
+        # Impute missing values
+    def filled_ts_tight(self, filled_ts):
+        self.filled_measured_ts = filled_ts
 
     def remove_spikes_cotede(self, df_meas_long, adapted_meas_col_name, quality_column_name, time_column, measurement_column, qc_classes):
         # used 'altered WL' series to detect spike as it is already cleaned (NOT raw measurement series)
@@ -48,7 +50,7 @@ class SpikeDetector():
         # 1. Cannot detect spikes when NaN in the neighbourhood
         # 2. Cannot detect smaller, continious spiking behaviour
 
-        # If no threshold is required, you can do like this:
+        # If no threshold is required, you can do like this:{"IsDistinguishedFolder":true,"FolderId":{"Id":"AAMkADJkMWFjYmQ0LWFjMzQtNDhlMy1iMzdkLWExN2Q4MjJkMDA3ZQAuAAAAAABcbTRROxEgQZ3JJ2pBWrh8AQBb+VROiwnuTqOVc4B9qTLcAAAAAAEMAAA=","ChangeKey":"AQAAABYAAABb+VROiwnuTqOVc4B9qTLcAAA+Lmf7"},"DragItemType":3}
         sea_level_spike = qctests.spike(df_meas_long[adapted_meas_col_name])  
         print("The largest spike observed was: {:.3f}".format(np.nanmax(np.abs(sea_level_spike))))
         print("Value at detected position", sea_level_spike[np.nanargmax(np.abs(sea_level_spike))])
@@ -56,7 +58,10 @@ class SpikeDetector():
         #Assessment of max spike via plots
         min_value = np.nanargmax(np.abs(sea_level_spike)) - 500
         max_value = np.nanargmax(np.abs(sea_level_spike)) + 1500
+        min_value_2 = np.nanargmax(np.abs(sea_level_spike)) - 50
+        max_value_2 = np.nanargmax(np.abs(sea_level_spike)) + 50
         self.helper.plot_df(df_meas_long[time_column][min_value:max_value], df_meas_long[adapted_meas_col_name][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (zoomed to max spike)')
+        self.helper.plot_df(df_meas_long[time_column][min_value_2:max_value_2], df_meas_long[adapted_meas_col_name][min_value_2:max_value_2],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (very zoomed to max spike)')
         self.helper.plot_df(df_meas_long[time_column], sea_level_spike,'Detected spike [m]','Timestamp','WL spikes in measured ts')
 
         # If the spike is less than 1 cm (absolut value), it is not a spike -> Do not remove this small noise
@@ -195,60 +200,36 @@ class SpikeDetector():
             del df[f'shift_{i}']
             
     """
-    Using Selene package for spike detection
+    Using Selene package for spike detection - code rewritten, but still spline idea (do not improve data, but delete them)
+    Parameter values are based on Selene
     """   
 
-    def selene_spike_detection(self, df_meas_long, adapted_meas_col_name, quality_column_name, time_column, measurement_column):
-        #spiketest    
-        spikedetected = True
-        iter = 0
-        badixs = []
-        df_meas_long['quality'] = 0
-        df_meas_long['new_data'] = 0
-        while spikedetected and iter < self.maxiter:
-            print('hereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee')
-            #drop spike values detected in previous iteration
-            spikedetected = False
-            for ix in range(len(df_meas_long.index.values)):
-                print('here')
-                if (ix < self.winsize/2):
-                    ini= 0
-                    end= self.winsize-1
-                    winix = ix
-                elif (ix > len(df_meas_long.index) - self.winsize/2):
-                    ini=len(df_meas_long.index)- self.winsize
-                    end=len(df_meas_long.index)-1
-                    winix = (self.winsize-1)-(end-ix+1)
-                else:
-                    ini = int(ix - self.winsize/2)
-                    end = int(ix + self.winsize/2)
-                    winix = int(self.winsize/2)
-                winx = df_meas_long.index.values[ini:end].astype(float)
-                windata = df_meas_long[adapted_meas_col_name].values[ini:end]
-                splinefit = np.polyfit(winx, windata, self.splinedegree)
-                splinedata = np.polyval(splinefit,winx)
-                rmse = self.rmse(splinedata, np.array(windata))
-                if (abs(splinedata[winix]-df_meas_long[adapted_meas_col_name][ix]) >= self.nsigma*rmse):
-                    df_meas_long.loc[df_meas_long.index.values[ix],'quality'] = 4
-                    df_meas_long.loc[df_meas_long.index.values[ix],'new_data'] = splinedata[winix]
-                    badixs.append(df_meas_long.index.values[ix])
-                    spikedetected = True
-            iter=iter+1
-        
+    def selene_spike_detection(self, df_meas_long, adapted_meas_col_name, quality_column_name, time_column, measurement_column, filled_meas_col_name, qc_classes):
+
+        #calculate RMSE between measurements and spline to detect and assess outliers
+        sea_level_rmse = self.rmse(df_meas_long[filled_meas_col_name], df_meas_long[adapted_meas_col_name])
+        outlier_mask = abs(df_meas_long[filled_meas_col_name]-df_meas_long[adapted_meas_col_name]) >= self.nsigma*sea_level_rmse
+        df_meas_long[adapted_meas_col_name] = np.where(outlier_mask, np.nan, df_meas_long[adapted_meas_col_name])
+
+        #Mark & remove outliers
+        df_meas_long.loc[(df_meas_long[quality_column_name] == qc_classes['good_data']) & (outlier_mask), quality_column_name] = qc_classes['bad_data_correctable']
+        if qc_classes['bad_data_correctable'] in df_meas_long[quality_column_name].unique():
+            ratio = (len(df_meas_long[df_meas_long[quality_column_name] == qc_classes['bad_data_correctable']])/len(df_meas_long))*100
+            print(f"There are {len(df_meas_long[df_meas_long[quality_column_name] == qc_classes['bad_data_correctable']])} spikes in this timeseries. This is {ratio}% of the overall dataset.")
+
         #make Plots
         #Analyse spike detection
-        #self.helper.plot_df(df_meas_long[time_column], df_meas_long[adapted_meas_col_name],'Water Level','Timestamp ','Measured water level wo outliers and spikes in 1 min timestamp (all) (improved)')
+        self.helper.plot_df(df_meas_long[time_column], df_meas_long[adapted_meas_col_name],'Water Level','Timestamp ','SELENE: Measured water level wo outliers and spikes in 1 min timestamp (all) (improved)')
         self.helper.plot_two_df(df_meas_long[time_column][self.min_value_plotting:self.max_value_plotting], df_meas_long[adapted_meas_col_name][self.min_value_plotting:self.max_value_plotting],'Water Level', df_meas_long[quality_column_name][self.min_value_plotting:self.max_value_plotting], 'Quality flag', 'Timestamp ','SELENE: Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike')
-        #self.helper.plot_two_df_same_axis(df_meas_long[time_column][self.min_value_plotting:self.max_value_plotting], df_meas_long[adapted_meas_col_name][self.min_value_plotting:self.max_value_plotting],'Water Level', 'Water Level (corrected)', df_meas_long[measurement_column][self.min_value_plotting:self.max_value_plotting], 'Timestamp ', 'Water Level (measured)', 'Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) (improved)')
-        self.helper.plot_two_df(df_meas_long[time_column], df_meas_long['new_data'],'Spike', df_meas_long[quality_column_name], 'Quality flag', 'Timestamp ','SELENE: Measured water level wo outliers and spikes in 1 min timestamp ')
-        self.helper.plot_two_df(df_meas_long[time_column], df_meas_long[measurement_column],'Water Level', df_meas_long['quality'], 'Quality flag', 'Timestamp ','SELENE: Measured water level in 1 min timestamp incl. flags')
+        self.helper.plot_two_df_same_axis(df_meas_long[time_column][self.min_value_plotting:self.max_value_plotting], df_meas_long[adapted_meas_col_name][self.min_value_plotting:self.max_value_plotting],'Water Level', 'Water Level (corrected)', df_meas_long[measurement_column][self.min_value_plotting:self.max_value_plotting], 'Timestamp ', 'Water Level (measured)', 'SELENE: Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) (improved)')
+        self.helper.plot_two_df(df_meas_long[time_column], df_meas_long[measurement_column],'Water Level', df_meas_long[quality_column_name], 'Quality flag', 'Timestamp ','SELENE: Measured water level in 1 min timestamp incl. flags')
         
         #More plots
         for i in range(1, 41):
             min = random.randint(1, len(df_meas_long)-4000)
             max = min + 4000
-            self.helper.plot_two_df(df_meas_long[time_column][min:max], df_meas_long['new_data'][min:max],'Spike', df_meas_long[measurement_column][min:max], 'Water Level (measured)', 'Timestamp ', f'SELENE: Graph{i}- Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) (improved)')
-
+            self.helper.plot_two_df_same_axis(df_meas_long[time_column][min:max], df_meas_long[adapted_meas_col_name][min:max],'Water Level', 'Water Level (corrected)', df_meas_long[measurement_column][min:max], 'Timestamp ', 'Water Level (measured)', f'SELENE Graph{i}- Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) (improved)')
+            
         return df_meas_long
     
     def rmse(self, predictions, targets):
@@ -287,15 +268,7 @@ class SpikeDetector():
         X_train, X_test = X[:-self.test_size], X[-self.test_size:]
         y_train, y_test = y[:-self.test_size], y[-self.test_size:]
 
-        # Impute missing values using IterativeImputer
-        imputer = IterativeImputer()
-        X_train= imputer.fit_transform(X_train)
-        X_test = imputer.transform(X_test)
-
-        # Impute the target variable y_train (note: we reshape it)
-        y_train = imputer.fit_transform(y_train.reshape(-1, 1)).ravel()
-        y_test = imputer.transform(y_test.reshape(-1, 1)).ravel()
-
+        
         # Scaling
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)

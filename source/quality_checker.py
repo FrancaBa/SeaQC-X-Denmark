@@ -2,10 +2,13 @@
 ## Preprocessing sea level tide gauge data by frb  ##
 #####################################################
 import os, sys
-import pdb
 import numpy as np
 import pandas as pd
 import json
+import random
+import matplotlib.pyplot as plt
+
+from scipy.interpolate import UnivariateSpline
 
 import source.helper_methods as helper
 import source.qc_spike as qc_spike
@@ -16,8 +19,11 @@ class QualityFlagger():
     
     def __init__(self):
         self.missing_meas_value = 999.000
-        self.window_constant_value = 10
-        
+        self.window_constant_value = 3
+        self.bound_interquantile = 3.5
+        #to fit a spline
+        self.splinelength = 14 #hours
+        self.splinedegree = 2 #3
         self.helper = helper.HelperMethods()
 
     def load_qf_classification(self, json_path):
@@ -82,10 +88,59 @@ class QualityFlagger():
         #Plot for visualisation
         self.helper.plot_df(self.df_meas[self.time_column], self.df_meas[self.measurement_column],'Water Level','Timestamp ','Measured water level')
         
+        #Plot distribution for analysis
+        plt.hist(self.df_meas[self.measurement_column] , bins=3000, edgecolor='black', alpha=0.7)
+        plt.title('Distribution of Values')
+        plt.xlabel('Water Level')
+        plt.ylabel('Frequency')
+        plt.savefig(os.path.join(self.folder_path,"Distribuiton - WL measurements.png"),  bbox_inches="tight")
+        plt.close() 
+
         #Subsequent line makes the code slow, only enable when needed
         #print('length of ts:', len(self.df_meas))
         #self.helper.zoomable_plot_df(self.df_meas[self.time_column], self.df_meas[self.measurement_column],'Water Level','Timestamp ', 'Measured water level','measured water level')
     
+    """
+    Make a spline to measurements over 14 hours
+    """
+
+    def fill_measurement_column(self, data):
+        interp_values = np.zeros_like(data[self.measurement_column])  # Initialize array for results
+        
+        #get correct window size to cover xy hours based on resolution
+        #winsize impacts the speed of the code a lot (with 500 to 1000 code is much faster)
+        winsize = int((self.splinelength*60)/(data[self.time_column].diff()[1].total_seconds()/60))
+        
+        # Loop over the series in windows
+        for start in range(0, len(data), winsize):
+            end = min(start + winsize, len(data))
+            x_window = data.index[start:end]
+            y_window = data[self.measurement_column][start:end]
+            
+            if np.sum(~np.isnan(y_window)) > winsize/4:
+                # Fit a spline to the masked array, automatically skipping NaNs
+                # Mask out the NaNs
+                x_known = x_window[~np.isnan(y_window)]  # x values where y is not NaN
+                y_known = y_window[~np.isnan(y_window)]  # Corresponding y values (non-NaN)
+
+                spline = UnivariateSpline(x_known, y_known, s=1, k = self.splinedegree)
+                
+                # Evaluate the spline at all original `x` points
+                fitted_y = spline(x_window)
+                
+                #Set interpolated values on comparison ts
+                interp_values[start:end] = fitted_y
+
+                #Set new winsize based on resolution
+                if not end == len(data):
+                    winsize = int((self.splinelength*60)/(data[self.time_column].diff()[end].total_seconds()/60))
+            else:
+                interp_values[start:end] = np.nan
+                if not end == len(data):
+                    winsize = int((self.splinelength*60)/(data[self.time_column].diff()[end].total_seconds()/60))
+            
+        return interp_values
+
     def run(self):
         """
         Different steps taken in the QC approach
@@ -94,6 +149,14 @@ class QualityFlagger():
         self.adapted_meas_col_name = 'altered'
         self.quality_column_name = 'quality_flag'
 
+        #get interpolated data for comparison later on
+        self.filled_WL_measurements = self.fill_measurement_column(self.df_meas)
+        for i in range(1, 41):
+            min = random.randint(0, len(self.df_meas)-3000)
+            max = min + 3000
+            self.helper.plot_two_df_same_axis(self.df_meas[self.time_column][min:max], self.filled_WL_measurements[min:max],'Water Level', 'Water Level (interpolated)', self.df_meas[self.measurement_column][min:max], 'Timestamp', 'Water Level (measured)',f'Interpolation Example {i}- Measured and interpolated WL')
+        self.df_meas['filled_values'] = self.filled_WL_measurements
+
         df_long = self.check_timestamp()
         df_long = self.detect_constant_value(df_long, self.window_constant_value)
         df_long = self.remove_stat_outliers(df_long)
@@ -101,11 +164,13 @@ class QualityFlagger():
         #Detect spike values
         spike_detection = qc_spike.SpikeDetector()
         spike_detection.set_output_folder(self.folder_path)
+        spike_detection.filled_ts_tight(self.filled_WL_measurements)
         #df_long = spike_detection.remove_spikes_ml(df_long[self.adapted_meas_col_name][-1000000:])
         df_long_dup = df_long.copy()
+        df_long_dup_2 = df_long.copy()
         df_long_2 = spike_detection.remove_spikes_cotede(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
         df_long = spike_detection.remove_spikes_cotede_improved(df_long_dup, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, self.qc_classes)
-        #df_long = spike_detection.selene_spike_detection(df_long, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column)
+        df_long_test = spike_detection.selene_spike_detection(df_long_dup_2, self.adapted_meas_col_name, self.quality_column_name, self.time_column, self.measurement_column, 'filled_values', self.qc_classes)
 
         #Detect shifts & deshift values
         #shift_detection = qc_shifts.ShiftDetector()
@@ -184,8 +249,8 @@ class QualityFlagger():
         # Define the lower and upper bounds for outlier detection
         # normally it is lower_bound = Q1 - 1.5 * IQR and upper_bound = Q3 + 1.5 * IQR
         # We can set them to even larger range to only tidal analysis, coz outlier detection is after tidal analysis 
-        lower_bound = Q1 - 2.5 * IQR
-        upper_bound = Q3 + 2.5 * IQR
+        lower_bound = Q1 - self.bound_interquantile * IQR
+        upper_bound = Q3 + self.bound_interquantile * IQR
 
         # Detect outliers and set them to NaN specifically for the self.measurement_column column
         outlier_mask = (df_meas_long[self.adapted_meas_col_name] < lower_bound[self.adapted_meas_col_name]) | (df_meas_long[self.adapted_meas_col_name] > upper_bound[self.adapted_meas_col_name])
@@ -204,5 +269,13 @@ class QualityFlagger():
         if self.qc_classes['outliers'] in df_meas_long[self.quality_column_name].unique():
             ratio = (len(df_meas_long[df_meas_long[self.quality_column_name] == self.qc_classes['outliers']])/len(df_meas_long))*100
             print(f"There are {len(df_meas_long[df_meas_long[self.quality_column_name] == self.qc_classes['outliers']])} outliers in this timeseries. This is {ratio}% of the overall dataset.")
+        
+        #Plot distribution for analysis after outlier removal
+        plt.hist(self.df_meas[self.measurement_column] , bins=3000, edgecolor='black', alpha=0.7)
+        plt.title('Distribution of Values')
+        plt.xlabel('Water Level')
+        plt.ylabel('Frequency')
+        plt.savefig(os.path.join(self.folder_path,"Distribuiton - WL measurements (no outliers).png"),  bbox_inches="tight")
+        plt.close() 
 
         return df_meas_long
