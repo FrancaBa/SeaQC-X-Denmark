@@ -58,7 +58,10 @@ class SpikeDetector():
         #Assessment of max spike via plots
         min_value = np.nanargmax(np.abs(sea_level_spike)) - 500
         max_value = np.nanargmax(np.abs(sea_level_spike)) + 1500
+        min_value_2 = np.nanargmax(np.abs(sea_level_spike)) - 50
+        max_value_2 = np.nanargmax(np.abs(sea_level_spike)) + 50
         self.helper.plot_df(df_meas_long[time_column][min_value:max_value], df_meas_long[adapted_meas_col_name][min_value:max_value],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (zoomed to max spike)')
+        self.helper.plot_df(df_meas_long[time_column][min_value_2:max_value_2], df_meas_long[adapted_meas_col_name][min_value_2:max_value_2],'Water Level','Timestamp','Measured water level wo outliers in 1 min timestamp (very zoomed to max spike)')
         self.helper.plot_df(df_meas_long[time_column], sea_level_spike,'Detected spike [m]','Timestamp','WL spikes in measured ts')
 
         # If the spike is less than 1 cm (absolut value), it is not a spike -> Do not remove this small noise

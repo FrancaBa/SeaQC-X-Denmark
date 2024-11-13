@@ -67,7 +67,7 @@ class DataConverter():
         self.export_to_dba(final_df)
 
     def export_to_dba(self, df):
-        df.to_csv(os.path.join(self.output_path, f'{self.station}_data.dba'), sep=' ', index=False)
+        df.to_csv(os.path.join(self.output_path, f'{self.station}_data.dba'), sep=',', index=False)
 
     def load_data(self):
 
@@ -99,14 +99,29 @@ class DataConverter():
                                     if len(file_columns) == 4:
                                         #Extract measurements the content of the .txt file
                                         monthly_df = pd.read_csv(txt_file, sep='\s+', header=None, names=['date', 'time', measurement_name, 'error_flag'])
-                                        monthly_df['timestamp'] = pd.to_datetime(monthly_df['date'] + ' ' + monthly_df['time']).dt.strftime('%Y%m%d%H%M%S')
-                                        self.data_df.append(monthly_df)
+                                        initial_row_count = len(monthly_df)
+                                        monthly_df['date'] = pd.to_datetime(monthly_df['date'], errors='coerce')
+                                        monthly_df['time'] = pd.to_datetime(monthly_df['time'], format='%H:%M:%S', errors='coerce')
+                                        monthly_df = monthly_df.dropna(subset=['date', 'time'])
+                                        if initial_row_count != len(monthly_df):
+                                            print(f'{initial_row_count- len(monthly_df)} rows were deleted from measurements, because they had an invalid date (f.e. 32.01.2007).')
+                                        monthly_df['time'] = monthly_df['time'].dt.time.astype(str)
+                                        monthly_df['date'] = monthly_df['date'].dt.date.astype(str)
+                                        monthly_df['timestamp'] = pd.to_datetime(monthly_df['date']+ ' ' + monthly_df['time']).dt.strftime('%Y%m%d%H%M%S')
                                         del monthly_df['date']
                                         del monthly_df['time']
                                     elif len(file_columns) == 3:
                                         #Extract measurements the content of the .txt file
                                         monthly_df = pd.read_csv(txt_file, sep='\s+', header=None, names=['date', 'time', measurement_name])
-                                        monthly_df['timestamp'] = pd.to_datetime(monthly_df['date'] + ' ' + monthly_df['time']).dt.strftime('%Y%m%d%H%M%S')
+                                        initial_row_count = len(monthly_df)
+                                        monthly_df['date'] = pd.to_datetime(monthly_df['date'], errors='coerce')
+                                        monthly_df['time'] = pd.to_datetime(monthly_df['time'], format='%H:%M:%S', errors='coerce')
+                                        monthly_df = monthly_df.dropna(subset=['date', 'time'])
+                                        if initial_row_count != len(monthly_df):
+                                            print(f'{initial_row_count- len(monthly_df)} rows were deleted from measurements, because they had an invalid date (f.e. 32.01.2007).')
+                                        monthly_df['time'] = monthly_df['time'].dt.time.astype(str)
+                                        monthly_df['date'] = monthly_df['date'].dt.date.astype(str)
+                                        monthly_df['timestamp'] = pd.to_datetime(monthly_df['date']+ ' ' + monthly_df['time']).dt.strftime('%Y%m%d%H%M%S')
                                         monthly_df['error_flag'] = np.nan
                                         del monthly_df['date']
                                         del monthly_df['time']
