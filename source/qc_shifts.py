@@ -33,20 +33,10 @@ class ShiftDetector():
 
     def detect_shifts_statistical(self, df, data_column_name, time_column, measurement_column):
         
-        test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)]
-        test_df['change'] = np.abs(np.diff(test_df[data_column_name], append=np.nan))
-        change_points= test_df[test_df['change'] > 0.04].index
-        mask = np.diff(change_points, append=np.inf) > 1
-        filtered_changepoints = change_points[mask]
-
-        #Remove spikes from changepoints and only mark shifted periods
-        too_close_indices = np.where(np.diff(filtered_changepoints) < 20)[0]
-        remove_indices = set(too_close_indices).union(set(too_close_indices + 1))
-        mask = np.array([i not in remove_indices for i in range(len(filtered_changepoints))])
-        result = filtered_changepoints[mask]
-        
         df['shifted_period'] = False
         shift_points = (df['segments'] != df['segments'].shift())
+
+        #test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)]
 
         for i in range(0,len(df['segments'][shift_points]), 1):
             start_index = df['segments'][shift_points].index[i]
@@ -55,30 +45,39 @@ class ShiftDetector():
             else:
                 end_index = df['segments'][shift_points].index[i+1]
             if df['segments'][start_index] == 0:
+                relev_df = df[start_index:end_index]
+                #Get shifted points based on strong gradient
+                relev_df['change'] = np.abs(np.diff(relev_df[data_column_name], append=np.nan))
+                change_points= relev_df[relev_df['change'] > 0.05].index
+                if change_points.any():
+                    mask = np.diff(change_points, append=np.inf) > 1
+                    filtered_changepoints = change_points[mask]
 
-                df_relev = df[start_index:end_index]
-                df_relev['change'] = np.abs(np.diff(df_relev[data_column_name], append=np.nan))
-                change_points= df_relev[df_relev['change'] > 0.04].index
-                #This is to removes spikes - here I want to detect shifted periods
-                diffs_prev = np.abs(np.diff(change_points, prepend=np.nan))  # Difference with previous element
-                diffs_next = np.abs(np.diff(change_points, append=np.nan))  # Difference with next element
-                #Keep elements where the differences with both neighbors are >= 10
-                mask = (diffs_prev >= 10) & (diffs_next >= 10)
-                #self.helper.plot_df(df[time_column][change_points[0]-500:change_points[0]+500], df[data_column_name][change_points[0]-500:change_points[0]+500],'Water Level','Timestamp ','testing - outlier 0')
+                    #Remove spikes from changepoints and only mark shifted periods
+                    too_close_indices = np.where((np.diff(filtered_changepoints) < 20) & (np.diff(filtered_changepoints) > 200))[0]
+                    remove_indices = set(too_close_indices).union(set(too_close_indices + 1))
+                    mask = np.array([i not in remove_indices for i in range(len(filtered_changepoints))])
+                    result = np.array(filtered_changepoints[mask])
 
-                # Step 4: Mark Period Between Changepoints
-                mask = np.zeros_like(data, dtype=bool)
-                if len(changepoints) >= 2:
-                    mask[changepoints[0]:changepoints[-1]] = True
-                    #print details on the small distribution check
-                    if df['statistical_outlier'][start_index:end_index].any():
-                        ratio = (df['statistical_outlier'][start_index:end_index].sum()/len(df))*100
-                        print(f"There are {df['statistical_outlier'][start_index:end_index].sum()} shifted values according to moving windows in this timeseries. This is {ratio}% of the overall dataset.")
-                        self.helper.plot_two_df_same_axis(df[time_column][start_index:end_index], df[data_column_name][start_index:end_index],'Water Level', 'Water Level (corrected)', df[measurement_column][start_index:end_index], 'Timestamp', 'Water Level (measured)',f'Graph {i}- Shifted periods based on moving window')
-                        for i in range(1, 41):
-                            min = (random.choice(change_index))-500
-                            max = min + 500
-                            self.helper.plot_two_df_same_axis(df[time_column][min:max], df[data_column_name][min:max],'Water Level', 'Water Level (corrected)', df[measurement_column][min:max], 'Timestamp', 'Water Level (measured)',f'Graph {i, min}- Shifted periods based on z-score')
+                    # Get indices of non-NaN values in column 'a'
+                    non_nan_indices = relev_df[~relev_df[measurement_column].isna()].index.to_numpy()
+                    # Compute the absolute difference between target indices and non-NaN indices using broadcasting
+                    distances = np.abs(result[:, np.newaxis] - non_nan_indices)
+                    # Find the index of the minimum distance for each target index
+                    closest_indices = non_nan_indices[np.argmin(distances, axis=1)]
+                    print(closest_indices)
+
+                    if closest_indices.any():
+                        for start, end in zip(closest_indices[::2], closest_indices[1::2]):
+                            df['shifted_period'][start:end-1] = True
+                            df[measurement_column][start:end-1] = np.nan
+                    
+                            self.helper.plot_df(relev_df.loc[start-1000:end+1000,time_column], relev_df.loc[start-1000:end+1000, measurement_column],'Water Level','Timestamp ',f'testing - outlier {start}')
+
+        #print details on the small distribution check
+        if df['shifted_period'].any():
+            ratio = (df['shifted_period'].sum()/len(df))*100
+            print(f"There are {df['shifted_period'].sum()} shifted values in periods. This is {ratio}% of the overall dataset.")
 
         return df
 

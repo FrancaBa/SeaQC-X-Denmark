@@ -29,8 +29,7 @@ class MissingDataFiller():
         self.helper = helper.HelperMethods()
 
     def set_output_folder(self, folder_path):
-        folder_path = os.path.join(folder_path,'interpolated periods')
-
+        folder_path = os.path.join(folder_path,'segmentation and filling')
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 

@@ -16,6 +16,7 @@ import source.qc_spike as qc_spike
 import source.qc_interpolation_detector as qc_interpolated
 import source.qc_shifts as qc_shifts
 import source.qc_filling_missing_data as qc_fill_data
+import source.data_extractor_monthly as extractor
 
 from sklearn.impute import KNNImputer
 
@@ -42,6 +43,9 @@ class QualityFlagger():
         #Define periods between bad data as probably with less then 1 hour of good measurements
         self.probably_good_threshold = 60
 
+    def set_station(self, station):
+        self.station = station
+        
     def load_qf_classification(self, json_path):
 
         # Open and load JSON file containing the quality flag classification
@@ -74,6 +78,11 @@ class QualityFlagger():
         self.df_meas = self.df_meas[[self.time_column, self.measurement_column]]
         self.df_meas[self.time_column] = pd.to_datetime(self.df_meas[self.time_column], format='%Y%m%d%H%M%S')
         
+        #Extract data for manual labelling
+        data_extractor = extractor.DataExtractor()
+        data_extractor.set_output_folder(self.folder_path, self.station)
+        data_extractor.run(self.df_meas, self.time_column, self.measurement_column)
+
         #drop seconds
         self.df_meas[self.time_column] = self.df_meas[self.time_column].dt.round('min')
 
@@ -121,7 +130,7 @@ class QualityFlagger():
         #Subsequent line makes the code slow, only enable when needed
         #print('length of ts:', len(self.df_meas))
         #self.helper.zoomable_plot_df(self.df_meas[self.time_column], self.df_meas[self.measurement_column],'Water Level','Timestamp ', 'Measured water level','measured water level')
-       
+
     def run(self):
         """
         Different steps taken in the QC approach
@@ -140,7 +149,6 @@ class QualityFlagger():
         df = self.remove_stat_outliers(df)
 
         #Segmentation of ts in empty and filled segments
-
         #Extract segments and fill them accordingly
         segment_column = 'segments'
         fill_data_qc = qc_fill_data.MissingDataFiller()
@@ -163,7 +171,7 @@ class QualityFlagger():
         #Detect shifts & deshift values
         shift_detection = qc_shifts.ShiftDetector()
         shift_detection.set_output_folder(self.folder_path)
-        df_long = shift_detection.detect_shifts_statistical(df, 'poly_interpolated_data', self.time_column, self.measurement_column)
+        df = shift_detection.detect_shifts_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
         #test = shift_detection.detect_shifts_ruptures(test, self.adapted_meas_col_name, 'poly_interpolated_data')
         #df_long = shift_detection.unsupervised_outlier_detection(df, self.adapted_meas_col_name, 'poly_interpolated_data', self.time_column)
 

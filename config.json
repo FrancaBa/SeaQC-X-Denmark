@@ -8,8 +8,19 @@
     "bad_data": 4,
     "shifted_value": 5,
     "outliers": 6, 
-    "trending": 7,
+    "stuck_value": 7,
     "interpolated_value": 8,
     "missing_data": 9
+  },
+   "qc_binary_classification": {
+    "missing_data": 1,
+    "interpolated_value": 2,
+    "stuck_value": 3,
+    "outliers": 4,
+    "spikes": 5,
+    "incorrect_format": 6,
+    "drifting_data": 7,
+    "shifted_value": 8,
+    "probably_good_data": 9
   }
 }

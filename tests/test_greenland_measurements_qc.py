@@ -55,6 +55,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_output_folder(output_path)
         data_flagging.load_qf_classification(self.json_path)
         data_flagging.set_column_names('Timestamp', 'WaterLevel', 'Flag')
+        data_flagging.set_station(station)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -75,6 +76,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_output_folder(output_path)
         data_flagging.load_qf_classification(self.json_path)
         data_flagging.set_column_names('Timestamp', 'WaterLevel', 'Flag')
+        data_flagging.set_station(station)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
