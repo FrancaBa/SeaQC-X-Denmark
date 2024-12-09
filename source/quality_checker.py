@@ -9,8 +9,6 @@ import random
 import matplotlib.pyplot as plt
 import builtins
 
-
-
 import source.helper_methods as helper
 import source.qc_spike as qc_spike
 import source.qc_interpolation_detector as qc_interpolated
@@ -18,7 +16,7 @@ import source.qc_shifts as qc_shifts
 import source.qc_filling_missing_data as qc_fill_data
 import source.data_extractor_monthly as extractor
 
-from sklearn.impute import KNNImputer
+from sklearn.ensemble import IsolationForest
 
 class QualityFlagger():
     
@@ -38,7 +36,8 @@ class QualityFlagger():
         self.threshold_unusabel_segment = 1000
         
         #change rate (maximum possible change in 30cm in 10 min)
-        self.threshold_max_change = 0.30
+        self.threshold_max_change = 0.2
+        self.shifting_periods = 0.1
 
         #Define periods between bad data as probably with less then 1 hour of good measurements
         self.probably_good_threshold = 60
@@ -141,6 +140,7 @@ class QualityFlagger():
 
         #Padding of ts to a homogenous timestep
         df = self.check_global_timestamp(self.df_meas)
+        df_comp = df.copy()
 
         #Tests possible on whole dataset
         #Detect stuck values in ts
@@ -168,33 +168,32 @@ class QualityFlagger():
         interpolated_qc.set_output_folder(self.folder_path)
         df = interpolated_qc.run_interpolation_detection(df, self.adapted_meas_col_name, self.time_column)
 
+        #Detect implausible change rate over period
+        df = self.remove_implausible_change_rate(df)
+
         #Detect shifts & deshift values
         shift_detection = qc_shifts.ShiftDetector()
         shift_detection.set_output_folder(self.folder_path)
+        df = shift_detection.detect_shifts_ruptures(df, self.adapted_meas_col_name, 'poly_interpolated_data')
         df = shift_detection.detect_shifts_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
-        #test = shift_detection.detect_shifts_ruptures(test, self.adapted_meas_col_name, 'poly_interpolated_data')
-        #df_long = shift_detection.unsupervised_outlier_detection(df, self.adapted_meas_col_name, 'poly_interpolated_data', self.time_column)
-
 
         #Detect spike values
         spike_detection = qc_spike.SpikeDetector()
         spike_detection.set_output_folder(self.folder_path)
-        #spike_detection.filled_ts_tight(self.filled_WL_measurements)
-        df_long_dup = df_long.copy()
-        df_long_dup_2 = df_long.copy()
-        df_long_test = df_long.copy()
-
-        #Detect outliers based on plausible change rate within a certain timestamp f.e. 30 cm in 10 min
-        df = self.remove_spikes_plausible_change_rate(df, segment_column)
-
-        df_long_2 = spike_detection.remove_spikes_cotede(df_long, self.adapted_meas_col_name, self.time_column, self.measurement_column)
+        df_long_dup = df.copy()
+        df_long_dup_2 = df.copy()
+        df_long_test = df.copy()
+        df_long_2 = spike_detection.remove_spikes_cotede(df, self.adapted_meas_col_name, self.time_column, self.measurement_column)
         df_long = spike_detection.remove_spikes_cotede_improved(df_long_dup, self.adapted_meas_col_name, self.time_column, self.measurement_column)
-        #df_long_dup_2 = spike_detection.selene_spike_detection(df_long_dup_2, self.adapted_meas_col_name, self.time_column, self.measurement_column, 'filled_values')
-        df_long_dup = spike_detection.remove_spikes_ml(df_long_dup_2, self.adapted_meas_col_name, self.time_column, self.measurement_column)
+        df_long_dup_2 = spike_detection.selene_spike_detection(df_long_dup_2, self.adapted_meas_col_name, self.time_column, self.measurement_column, 'filled_values')
+        df_long_dup = spike_detection.remove_spikes_ml(df_long_test, self.adapted_meas_col_name, self.time_column, self.measurement_column)
 
         #Probbly good data
         #Mark all data as probably good data if it is only a short measurement period be
-        #df_long = self.probably_goog_data(df_long)
+        df = self.probably_good_data(df)
+
+        #Check what unsupervised ML tool says
+        self.unsupervised_outlier_detection(df_comp, self.measurement_column, 'poly_interpolated_data', self.time_column)
 
     def check_global_timestamp(self, data):
 
@@ -336,7 +335,138 @@ class QualityFlagger():
 
         return data
 
+    def remove_implausible_change_rate(self, df):
 
+        #Get the difference between measurement and flag all measurement wth change more than x cm in 1 min
+        # If there are more then 2 outliers in 1 hour keep them, as this could indicate a more systemetic error in the measurement
+
+        #Call method from detect spike values
+        spike_detection = qc_spike.SpikeDetector()
+        spike_detection.set_output_folder(self.folder_path)
+        spike_detection.get_valid_neighbours(df, self.adapted_meas_col_name, 'next_neighbour', True, max_distance=10)
+    
+        #not really correct, but good enough for now!
+        df['change'] = (df[self.adapted_meas_col_name]-df['next_neighbour']).abs()
+        outlier_change_rate= df['change'] > self.threshold_max_change
+        distributed_periods = df['change'] > self.shifting_periods
+
+        self.run_single_spikes(df, outlier_change_rate)
+        self.run_noisy_periods(df, distributed_periods)
+
+        del df['change']
+        del df['next_neighbour']
+
+        return df
+
+    def run_single_spikes(self, df, outlier_change_rate):
+
+        # When shifting back from outliers, there is a large jump again. Make sure that those jumps are not marked as outlier!!
+        true_indices = outlier_change_rate[outlier_change_rate == True]
+        diff_true = true_indices.index.to_series().diff().fillna(0)
+        drop_true_pair = diff_true <= 30
+        outlier_change_rate.loc[true_indices.index[drop_true_pair.shift(1, fill_value=True)]] = False
+
+        # For windows exceeding the threshold, check proximity condition
+        #To keep weird measurement periods
+        for idx in outlier_change_rate[outlier_change_rate].index:
+            # Extract indices of True values in the current window of 2 hours around the selected index
+            window_indices = range(builtins.max(0, idx - 59), idx + 61)
+            true_indices = [i for i in window_indices if outlier_change_rate[i]]
+            
+            # Extract the timestamps of the `True` values
+            true_timestamps = pd.Series(df[self.time_column][true_indices])
+            min_time, max_time = true_timestamps.min(), true_timestamps.max()
+            
+            # Check if all True timestamps are within the cluster_threshold
+            time_span = (max_time - min_time).total_seconds() / 60
+            if time_span > 16:
+                # If not, set all `True` values in this window to `False`
+                outlier_change_rate[window_indices] = False
+
+        df['outlier_change_rate'] = outlier_change_rate
+        df[self.adapted_meas_col_name] = np.where(df['outlier_change_rate'], np.nan, df[self.adapted_meas_col_name])
+
+         # Get indices where the mask is True (as check that approach works)
+        if df['outlier_change_rate'].any():
+            true_indices = df['outlier_change_rate'][df['outlier_change_rate']].index
+            self.helper.plot_df(df[self.time_column][true_indices[0]-100:true_indices[0]+100], df[self.measurement_column][true_indices[0]-100:true_indices[0]+100],'Water Level','Timestamp ','Max plausible change period in TS')
+            self.helper.plot_df(df[self.time_column][true_indices[0]-100:true_indices[0]+100], df[self.adapted_meas_col_name][true_indices[0]-100:true_indices[0]+100],'Water Level','Timestamp ','Max plausible change period in TS (corrected)')
+            self.helper.plot_df(df[self.time_column][true_indices[-1]-100:true_indices[-1]+100], df[self.measurement_column][true_indices[-1]-100:true_indices[-1]+100],'Water Level','Timestamp ','Max plausible change period in TS (2)')
+            self.helper.plot_df(df[self.time_column][true_indices[-1]-100:true_indices[-1]+100], df[self.adapted_meas_col_name][true_indices[-1]-100:true_indices[-1]+100],'Water Level','Timestamp ','Max plausible change period in TS (corrected) (2)')
+            #More plots
+            for i in range(1, 41):
+                min = (random.choice(true_indices))-200
+                max = min + 400
+                self.helper.plot_two_df_same_axis(df[self.time_column][min:max], df[self.adapted_meas_col_name][min:max],'Water Level', 'Water Level (corrected)', df[self.measurement_column][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-local outliers detected {i}')
+
+            ratio = (df['outlier_change_rate'].sum()/len(df))*100
+            print(f"There are {df['outlier_change_rate'].sum()} outliers in this timeseries which change their level within 10 min too much. This is {ratio}% of the overall dataset.")
+
+    def run_noisy_periods(self, df, distributed_periods):
+
+        df['noisy_period'] = False
+
+        test_df = df[(df[self.time_column].dt.year == 2023) & (df[self.time_column].dt.month == 1) & (df[self.time_column].dt.day == 24) & (df[self.time_column].dt.hour > 21)]
+
+        #For values exceeding the threshold, check proximity condition
+        #To keep weird measurement periods, filter if other outliers a close by
+        for idx in distributed_periods[distributed_periods].index:
+            # Extract indices of True values in the current window of 2 hours around the selected index
+            window_indices = range(builtins.max(0, idx - 179), idx + 180)
+            true_indices = [i for i in window_indices if distributed_periods[i]]
+            
+            # Extract the timestamps of the `True` values
+            true_timestamps = pd.Series(df[self.time_column][true_indices])
+            min_time, max_time = true_timestamps.min(), true_timestamps.max()
+            
+            # Check if all True timestamps are within the cluster_threshold
+            time_span = (max_time - min_time).total_seconds() / 60
+
+            if len(true_indices) >= 2:
+                print(len(true_indices)/time_span)
+
+                if (len(true_indices)/time_span) >= (time_span*2):
+                    df['noisy_period'][true_indices] = True
+
+        #Check if selection is a noisy period and yes, remove value
+        df[self.adapted_meas_col_name] = np.where(df['noisy_period'], np.nan, df[self.adapted_meas_col_name])
+
+        ratio = (df['noisy_period'].sum()/len(df))*100
+        print(f"There are {df['noisy_period'].sum()} noisy periods in this timeseries which change their level within a short timeframe a lot. This is {ratio}% of the overall dataset.")
+
+        #Plot marked periods to check
+        if df['noisy_period'].any():
+            true_indices = df['noisy_period'][df['noisy_period']].index
+            for i in range(1, 41):
+                min = (random.choice(true_indices))-200
+                max = min + 400
+                self.helper.plot_two_df_same_axis(df[self.time_column][min:max], df[self.adapted_meas_col_name][min:max],'Water Level', 'Water Level (corrected)', df[self.measurement_column][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-noisy period detected {i}')
+
+
+        """
+            if time_span > 16:
+                # If not, set all `True` values in this window to `False`
+                outlier_change_rate[window_indices] = False
+
+        df['outlier_change_rate'] = outlier_change_rate
+        df[self.adapted_meas_col_name] = np.where(df['outlier_change_rate'], np.nan, df[self.adapted_meas_col_name])
+
+         # Get indices where the mask is True (as check that approach works)
+        if df['outlier_change_rate'].any():
+            true_indices = df['outlier_change_rate'][df['outlier_change_rate']].index
+            self.helper.plot_df(df[self.time_column][true_indices[0]-100:true_indices[0]+100], df[self.measurement_column][true_indices[0]-100:true_indices[0]+100],'Water Level','Timestamp ','Max plausible change period in TS')
+            self.helper.plot_df(df[self.time_column][true_indices[0]-100:true_indices[0]+100], df[self.adapted_meas_col_name][true_indices[0]-100:true_indices[0]+100],'Water Level','Timestamp ','Max plausible change period in TS (corrected)')
+            self.helper.plot_df(df[self.time_column][true_indices[-1]-100:true_indices[-1]+100], df[self.measurement_column][true_indices[-1]-100:true_indices[-1]+100],'Water Level','Timestamp ','Max plausible change period in TS (2)')
+            self.helper.plot_df(df[self.time_column][true_indices[-1]-100:true_indices[-1]+100], df[self.adapted_meas_col_name][true_indices[-1]-100:true_indices[-1]+100],'Water Level','Timestamp ','Max plausible change period in TS (corrected) (2)')
+            #More plots
+            for i in range(1, 41):
+                min = (random.choice(true_indices))-200
+                max = min + 400
+                self.helper.plot_two_df_same_axis(df[self.time_column][min:max], df[self.adapted_meas_col_name][min:max],'Water Level', 'Water Level (corrected)', df[self.measurement_column][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-local outliers detected {i}')
+
+            ratio = (df['outlier_change_rate'].sum()/len(df))*100
+            print(f"There are {df['outlier_change_rate'].sum()} outliers in this timeseries which change their level within 10 min too much. This is {ratio}% of the overall dataset.")
+        """
     def probably_good_data(self, data):
 
         boolean_columns = data.select_dtypes(include='bool')
@@ -368,3 +498,45 @@ class QualityFlagger():
                 mask[start:end] = False
 
         return mask
+
+    def unsupervised_outlier_detection(self, df, data_column_name, interpolated_data_colum, time_column):
+
+        shift_points = (df['segments'] != df['segments'].shift())
+
+        for i in range(0,len(df['segments'][shift_points]), 1):
+            start_index = df['segments'][shift_points].index[i]
+            if i == len(df['segments'][shift_points])-1:
+                end_index = len(df)
+            else:
+                end_index = df['segments'][shift_points].index[i+1]
+            if df['segments'][start_index] == 0:
+                relev_df = df[start_index:end_index]
+                # Prepare data for Isolation Forest
+                # Isolation Forest expects input in a 2D array form
+                X = df[interpolated_data_colum][start_index:end_index].values.reshape(-1, 1)
+
+                # Fit Isolation Forest
+                model = IsolationForest(contamination=0.15, random_state=42)  # Adjust contamination as needed
+                anomaly = model.fit_predict(X)
+
+                print('hey')
+                # Get indices of non-NaN values in measurement column
+                non_nan_indices = relev_df[~relev_df[data_column_name].isna()].index.to_numpy()
+                # Compute the absolute difference between target indices and non-NaN indices using broadcasting
+                distances = np.abs(np.array(anomaly)[:, np.newaxis] - non_nan_indices)
+                # Find the index of the minimum distance for each target index
+                anomaly_entries = np.unique(non_nan_indices[np.argmin(distances, axis=1)])
+
+
+                # Identify anomalies
+                anomalies = df[anomaly == -1]
+
+                # Plot the results
+                plt.figure(figsize=(12, 6))
+                plt.plot(df[time_column], df[interpolated_data_colum][start_index:end_index], label='Time Series')
+                plt.scatter(anomalies[time_column], anomalies[interpolated_data_colum], color='red', label='Anomalies', zorder=5)
+                plt.title('Anomaly Detection with Isolation Forest')
+                plt.xlabel('Time')
+                plt.ylabel('Value')
+                plt.legend()
+                plt.show()

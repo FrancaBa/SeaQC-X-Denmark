@@ -143,7 +143,7 @@ class MissingDataFiller():
                     y_known = y_window[~np.isnan(y_window)]  # Corresponding y values (non-NaN)
 
                     if np.sum(~np.isnan(y_window)) < (self.splinedegree+1):
-                        print('hey')
+                        print('hey 2')
                         pass
                     else:
                         spline = UnivariateSpline(x_known, y_known, s=1, k = self.splinedegree)

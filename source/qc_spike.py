@@ -44,75 +44,56 @@ class SpikeDetector():
         # Impute missing values
     def filled_ts_tight(self, filled_ts):
         self.filled_measured_ts = filled_ts
-      
-    def remove_spikes_plausible_change_rate(self, df_long):
-        
-        #Backup code from brainstorming
-        df.loc[df['resolution'] > 10, 'resolution_helper'] = 0
-        df['compare_index'] = df[data_column_name][start_index:end_index].index - df['resolution_helper']
-        df['previous_value'] = df['compare_index'].apply(lambda idx: df[data_column_name].iloc[idx] if idx >= 0 else np.nan)
-        df['changepoint'] = (df['data_column_name'] - df['previous_value'])
-
-
-        #Get the difference between measurement and flag all measurement wth change more than x cm in 1 min
-        # If there are more then 2 outliers in 1 hour keep them, as this could indicate a more systemetic error in the measurement
-
-        #Call method from detect spike values
-        spike_detection = qc_spike.SpikeDetector()
-        spike_detection.set_output_folder(self.folder_path)
-        spike_detection.get_valid_neighbours(df_long, self.adapted_meas_col_name, 'next_neighbour', True, max_distance=10)
     
-        #not really correct, but good enough for now!
-        df_long['change'] = (df_long[self.adapted_meas_col_name]-df_long['next_neighbour']).abs()
-        outlier_change_rate= df_long['change'] > self.threshold_max_change
+    def detect_spikes_statistical(self, df, data_column_name, time_column, measurement_column):
+        
+        df['shifted_period'] = False
+        shift_points = (df['segments'] != df['segments'].shift())
 
-        # When shifting back from outliers, there is a large jump again. Make sure that those jumps are not marked as outlier!!
-        #true_indices = outlier_change_rate[outlier_change_rate == True]
-        #diff_true = true_indices.index.to_series().diff().fillna(0)
-        #drop_true_pair = diff_true < 2
+        #test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)]
 
-        #outlier_change_rate.loc[true_indices.index[drop_true_pair.shift(0, fill_value=True)]] = False
-        #print(outlier_change_rate.sum())
+        for i in range(0,len(df['segments'][shift_points]), 1):
+            start_index = df['segments'][shift_points].index[i]
+            if i == len(df['segments'][shift_points])-1:
+                end_index = len(df)
+            else:
+                end_index = df['segments'][shift_points].index[i+1]
+            if df['segments'][start_index] == 0:
+                relev_df = df[start_index:end_index]
+                #Get shifted points based on strong gradient
+                relev_df['change'] = np.abs(np.diff(relev_df[data_column_name], append=np.nan))
+                change_points= relev_df[relev_df['change'] > 0.05].index
+                if change_points.any():
+                    mask = np.diff(change_points, append=np.inf) > 1
+                    filtered_changepoints = change_points[mask]
 
-        # For windows exceeding the threshold, check proximity condition
-        for idx in outlier_change_rate[outlier_change_rate].index:
-            # Extract indices of True values in the current window
-            window_indices = range(builtins.max(0, idx - 60 + 1), idx + 1)
-            true_indices = [i for i in window_indices if outlier_change_rate[i]]
-            
-            # Extract the timestamps of the `True` values
-            true_timestamps = pd.Series(df_long[self.time_column][true_indices])
-            min_time, max_time = true_timestamps.min(), true_timestamps.max()
-            
-            # Check if all True timestamps are within the cluster_threshold
-            time_span = (max_time - min_time).total_seconds() / 60
-            if time_span > 15:
-                # If not, set all `True` values in this window to `False`
-                outlier_change_rate[window_indices] = False
+                    #Remove spikes from changepoints and only mark shifted periods
+                    too_close_indices = np.where((np.diff(filtered_changepoints) < 20) & (np.diff(filtered_changepoints) > 200))[0]
+                    remove_indices = set(too_close_indices).union(set(too_close_indices + 1))
+                    mask = np.array([i not in remove_indices for i in range(len(filtered_changepoints))])
+                    result = np.array(filtered_changepoints[mask])
 
-        df_long['outlier_change_rate'] = outlier_change_rate
-        df_long[self.adapted_meas_col_name] = np.where(df_long['outlier_change_rate'], np.nan, df_long[self.adapted_meas_col_name])
+                    # Get indices of non-NaN values in column 'a'
+                    non_nan_indices = relev_df[~relev_df[measurement_column].isna()].index.to_numpy()
+                    # Compute the absolute difference between target indices and non-NaN indices using broadcasting
+                    distances = np.abs(result[:, np.newaxis] - non_nan_indices)
+                    # Find the index of the minimum distance for each target index
+                    closest_indices = non_nan_indices[np.argmin(distances, axis=1)]
+                    print(closest_indices)
 
-         # Get indices where the mask is True (as check that approach works)
-        if df_long['outlier_change_rate'].any():
-            true_indices = df_long['outlier_change_rate'][df_long['outlier_change_rate']].index
-            self.helper.plot_df(df_long[self.time_column][true_indices[0]-100:true_indices[0]+100], df_long[self.measurement_column][true_indices[0]-100:true_indices[0]+100],'Water Level','Timestamp ','Max plausible change period in TS')
-            self.helper.plot_df(df_long[self.time_column][true_indices[0]-100:true_indices[0]+100], df_long[self.adapted_meas_col_name][true_indices[0]-100:true_indices[0]+100],'Water Level','Timestamp ','Max plausible change period in TS (corrected)')
-            self.helper.plot_df(df_long[self.time_column][true_indices[-1]-100:true_indices[-1]+100], df_long[self.measurement_column][true_indices[-1]-100:true_indices[-1]+100],'Water Level','Timestamp ','Max plausible change period in TS (2)')
-            self.helper.plot_df(df_long[self.time_column][true_indices[-1]-100:true_indices[-1]+100], df_long[self.adapted_meas_col_name][true_indices[-1]-100:true_indices[-1]+100],'Water Level','Timestamp ','Max plausible change period in TS (corrected) (2)')
-            #More plots
-            for i in range(1, 41):
-                min = (random.choice(true_indices))-200
-                max = min + 400
-                self.helper.plot_two_df_same_axis(df_long[self.time_column][min:max], df_long[self.adapted_meas_col_name][min:max],'Water Level', 'Water Level (corrected)', df_long[self.measurement_column][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-local outliers detected {i}')
+                    if closest_indices.any():
+                        for start, end in zip(closest_indices[::2], closest_indices[1::2]):
+                            df['shifted_period'][start:end-1] = True
+                            df[measurement_column][start:end-1] = np.nan
+                    
+                            self.helper.plot_df(relev_df.loc[start-1000:end+1000,time_column], relev_df.loc[start-1000:end+1000, measurement_column],'Water Level','Timestamp ',f'testing - outlier {start}')
 
-            ratio = (df_long['outlier_change_rate'].sum()/len(df_long))*100
-            print(f"There are {df_long['outlier_change_rate'].sum()} outliers in this timeseries which change their level within 10 min too much. This is {ratio}% of the overall dataset.")
-   
-        del df_long['change']
-        del df_long['next_neighbour']
+        #print details on the small distribution check
+        if df['shifted_period'].any():
+            ratio = (df['shifted_period'].sum()/len(df))*100
+            print(f"There are {df['shifted_period'].sum()} shifted values in periods. This is {ratio}% of the overall dataset.")
 
-        return df_long
+        return df
     
     def remove_spikes_cotede(self, df_meas_long, adapted_meas_col_name, time_column, measurement_column):
         # used 'altered WL' series to detect spike as it is already cleaned (NOT raw measurement series)

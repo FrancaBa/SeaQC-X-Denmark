@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import source.DTU_space_data_to_dba as data_converter
+import source.DTU_space_data_reader as data_converter
 
 
 class Test_DTUSpace_DataConverter(unittest.TestCase):
@@ -33,7 +33,7 @@ class Test_DTUSpace_DataConverter(unittest.TestCase):
         station = self.stations[index_station]
 
         #select output folder
-        output_path = os.path.join(os.getcwd(),'output', station)
+        output_path = os.path.join(os.getcwd(),'output', 'data_files', station)
         if Path(output_path).exists(): shutil.rmtree(Path(output_path))
 
         data_conversion = data_converter.DataConverter()
@@ -51,7 +51,7 @@ class Test_DTUSpace_DataConverter(unittest.TestCase):
         station = self.stations[index_station]
 
         #select output folder
-        output_path = os.path.join(os.getcwd(),'output', station)
+        output_path = os.path.join(os.getcwd(),'output', 'data_files', station)
         if Path(output_path).exists(): shutil.rmtree(Path(output_path))
 
         data_conversion = data_converter.DataConverter()
@@ -69,7 +69,7 @@ class Test_DTUSpace_DataConverter(unittest.TestCase):
         station = self.stations[index_station]
 
         #select output folder
-        output_path = os.path.join(os.getcwd(),'output', station)
+        output_path = os.path.join(os.getcwd(),'output', 'data_files', station)
         if Path(output_path).exists(): shutil.rmtree(Path(output_path))
 
         data_conversion = data_converter.DataConverter()
@@ -87,7 +87,7 @@ class Test_DTUSpace_DataConverter(unittest.TestCase):
         station = self.stations[index_station]
 
         #select output folder
-        output_path = os.path.join(os.getcwd(),'output', station)
+        output_path = os.path.join(os.getcwd(),'output', 'data_files', station)
         if Path(output_path).exists(): shutil.rmtree(Path(output_path))
 
         data_conversion = data_converter.DataConverter()
@@ -105,7 +105,7 @@ class Test_DTUSpace_DataConverter(unittest.TestCase):
         station = self.stations[index_station]
 
         #select output folder
-        output_path = os.path.join(os.getcwd(),'output', station)
+        output_path = os.path.join(os.getcwd(),'output', 'data_files', station)
         if Path(output_path).exists(): shutil.rmtree(Path(output_path))
 
         data_conversion = data_converter.DataConverter()
@@ -123,7 +123,7 @@ class Test_DTUSpace_DataConverter(unittest.TestCase):
         station = self.stations[index_station]
 
         #select output folder
-        output_path = os.path.join(os.getcwd(),'output', station)
+        output_path = os.path.join(os.getcwd(),'output', 'data_files', station)
         if Path(output_path).exists(): shutil.rmtree(Path(output_path))
 
         data_conversion = data_converter.DataConverter()
