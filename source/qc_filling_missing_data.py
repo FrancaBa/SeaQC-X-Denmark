@@ -78,17 +78,58 @@ class MissingDataFiller():
             else:
                 end_index = data[segment_column][shift_points].index[i+1]
             if data[segment_column][start_index] == 0:
-                y_interpolated = data[data_column][start_index:end_index].interpolate(method='polynomial', order= self.order_ploynomial_fit)
+                y_interpolated = data.loc[start_index:end_index, data_column].interpolate(method='polynomial', order= self.order_ploynomial_fit)
                 data.loc[start_index:end_index,'poly_interpolated_data'] = y_interpolated
                 
                 if end_index - start_index > 1000:
-                    self.helper.plot_two_df_same_axis(data[time_column][start_index:start_index+1000], data[data_column][start_index:start_index+1000],'Water Level', 'Water Level (corrected)', y_interpolated[:1000], 'Timestamp ', 'Interpolated Water Level', f'Interpolated data Graph{i}- Measured water level vs Interpolated values (start)')
-                    self.helper.plot_two_df_same_axis(data[time_column][end_index-500:end_index], data[data_column][end_index-500:end_index],'Water Level', 'Water Level (corrected)', y_interpolated[-500:], 'Timestamp ', 'Interpolated Water Level', f'Interpolated data Graph{i}- Measured water level vs Interpolated values (end)')
+                    self.helper.plot_two_df_same_axis(data[time_column][start_index:start_index+1000], data[data_column][start_index:start_index+1000],'Water Level', 'Water Level (corrected)', data['poly_interpolated_data'][start_index:start_index+1000], 'Timestamp ', 'Interpolated Water Level', f'Interpolated data Graph{i}- Measured water level vs Interpolated values (start)')
+                    self.helper.plot_two_df_same_axis(data[time_column][end_index-500:end_index], data[data_column][end_index-500:end_index],'Water Level', 'Water Level (corrected)', data['poly_interpolated_data'][end_index-500:end_index], 'Timestamp ', 'Interpolated Water Level', f'Interpolated data Graph{i}- Measured water level vs Interpolated values (end)')
 
-                self.helper.plot_two_df_same_axis(data[time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Water Level (corrected)', y_interpolated, 'Timestamp ', 'Interpolated Water Level', f'Interpolated data Graph{i}- Measured water level vs Interpolated values')
+                self.helper.plot_two_df_same_axis(data[time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Water Level (corrected)', data['poly_interpolated_data'][start_index:end_index], 'Timestamp ', 'Interpolated Water Level', f'Interpolated data Graph{i}- Measured water level vs Interpolated values')
         
         return data
     
+    def polynomial_fitted_data_column(self, data, data_column, time_column, segment_column, fitted_data):
+        
+        #for segment
+        shift_points = (data[segment_column] != data[segment_column].shift())
+        #assuming a 1-min time step
+        winsize = (self.splinelength*60)
+        data['poly_fitted_data'] = np.nan
+
+        for i in range(0,len(data[segment_column][shift_points]), 1):  
+            start_index = data[segment_column][shift_points].index[i]
+            if i == len(data[segment_column][shift_points])-1:
+                end_index = len(data)
+            else:
+                end_index = data[segment_column][shift_points].index[i+1]
+            if data[segment_column][start_index] == 0:
+                end_loop = False
+                for start in range(start_index, end_index, winsize):
+                    if (start + winsize*2) > end_index:
+                        end = end_index-1
+                        end_loop = True
+                    else:
+                        end = start + winsize
+                    x_window = data.loc[start:end,time_column]
+                    x_numeric = (x_window - x_window.min()).dt.total_seconds() / 60  # Convert to minutes
+                    y_window = data.loc[start:end, fitted_data]
+
+                    coefficients = np.polyfit(x_numeric, y_window, 6)
+
+                    # Create a polynomial function from the coefficients
+                    poly = np.poly1d(coefficients)
+                    # Generate fitted values
+                    y_fit = poly(x_numeric)
+                    data.loc[start:end,'poly_fitted_data'] = y_fit
+                    if end_loop:
+                        break
+               
+                self.helper.plot_two_df_same_axis(data[time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Water Level (corrected)', data['poly_fitted_data'][start_index:end_index], 'Timestamp ', 'Polynomial fitted data Water Level', f'Polynomial fitted graph{start_index}')
+            
+        return data
+    
+
     def spline_fill_measurement_column(self, data, data_column, time_column, segment_column):
         """
         Make a spline to measurements over 14 hours
