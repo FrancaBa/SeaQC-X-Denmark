@@ -107,7 +107,7 @@ class MissingDataFiller():
                 end_loop = False
                 for start in range(start_index, end_index, winsize):
                     if (start + winsize*2) > end_index:
-                        end = end_index-1
+                        end = end_index
                         end_loop = True
                     else:
                         end = start + winsize

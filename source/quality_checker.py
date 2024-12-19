@@ -179,21 +179,17 @@ class QualityFlagger():
         #Detect spike values
         spike_detection = qc_spike.SpikeDetector()
         spike_detection.set_output_folder(self.folder_path)
-        df_test = df.copy()
-        df_long_dup = df.copy()
-        df_long_dup_2 = df.copy()
-        df_long_test = df.copy()
-        df_long_2 = spike_detection.detect_spikes_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
-        df_long_1 = spike_detection.remove_spikes_cotede(df_test, self.adapted_meas_col_name, self.time_column)
-        df_long = spike_detection.remove_spikes_cotede_improved(df_long_dup, self.adapted_meas_col_name, self.time_column)
-        df_long_dup_2 = spike_detection.selene_spike_detection(df_long_dup_2, self.adapted_meas_col_name, self.time_column, 'spline_filled_data')
-        df_long_dup = spike_detection.remove_spikes_ml(df_long_test, 'poly_fitted_data', self.adapted_meas_col_name, self.time_column)
+        df = spike_detection.detect_spikes_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
+        df = spike_detection.remove_spikes_cotede(df, self.adapted_meas_col_name, self.time_column)
+        df = spike_detection.remove_spikes_cotede_improved(df, self.adapted_meas_col_name, self.time_column)
+        df = spike_detection.selene_spike_detection(df, self.adapted_meas_col_name, self.time_column, 'spline_filled_data')
+        df= spike_detection.remove_spikes_ml(df, 'poly_fitted_data', self.adapted_meas_col_name, self.time_column)
         
         #Detect shifts & deshift values
         shift_detection = qc_shifts.ShiftDetector()
         shift_detection.set_output_folder(self.folder_path)
-        #df = shift_detection.detect_shifts_ruptures(df, self.adapted_meas_col_name, 'poly_interpolated_data')
-        #df = shift_detection.detect_shifts_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
+        df = shift_detection.detect_shifts_ruptures(df, self.adapted_meas_col_name, 'poly_interpolated_data')
+        df = shift_detection.detect_shifts_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
 
         #Probably good data
         #Mark all data as probably good data if it is only a short measurement period be
@@ -430,7 +426,7 @@ class QualityFlagger():
                 self.helper.plot_two_df_same_axis(df[self.time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[self.measurement_column][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-local outliers detected {i}')
 
             ratio = (df['outlier_change_rate'].sum()/len(df))*100
-            print(f"There are {df['outlier_change_rate'].sum()} outliers in this timeseries which change their level within 10 min too much. This is {ratio}% of the overall dataset.")
+            print(f"There are {df['outlier_change_rate'].sum()} outliers in this timeseries which change their level within 15 min too much. This is {ratio}% of the overall dataset.")
         del df['test']
 
     def run_noisy_periods(self, df, distributed_periods):
