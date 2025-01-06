@@ -4,9 +4,11 @@ import ruptures as rpt
 import matplotlib.pyplot as plt
 import datetime
 import os
+import random
+import builtins
+from itertools import tee
 
 import source.helper_methods as helper
-import source.qc_spike as qc_spike
 
 class ShiftDetector():
 
@@ -28,66 +30,27 @@ class ShiftDetector():
 
         self.helper.set_output_folder(folder_path)
 
+    def filter_elements_lazy(self, test):
+        """Yields filtered elements lazily to save memory."""
+        it = iter(test)  # Turn the input into an iterator
+        try:
+            previous = next(it)  # Get the first element
+            yield previous  # Always include the first element
+            for current in it:  # Iterate through the rest
+                if current - previous <= 60:
+                    yield current
+                previous = current
+        except StopIteration:
+            pass
+
     def detect_shifts_statistical(self, df, data_column_name, time_column, measurement_column):
         
         df['shifted_period'] = False
         df['remove_shifted_period'] = df[measurement_column].copy()
         shift_points = (df['segments'] != df['segments'].shift())
 
-        test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)]
-        #test_df = df[(df[time_column].dt.year == 2008) & (df[time_column].dt.month == 12) & (df[time_column].dt.day > 21) & (df[time_column].dt.day < 24)]
-        #test_df = df[(df[time_column].dt.year == 2010) & (df[time_column].dt.month == 3) & (df[time_column].dt.day > 17) & (df[time_column].dt.day < 20)]
-        #test_df = df[(df[time_column].dt.year == 2007) & (df[time_column].dt.month == 9) & (df[time_column].dt.day > 17) & (df[time_column].dt.day < 20)]
-        self.helper.plot_df(test_df[time_column], test_df[measurement_column],'Water Level', 'Timestamp', 'shifted period test')
-        test_df['change'] = np.abs(np.diff(test_df[data_column_name], append=np.nan))
-        #change_points= test_df[test_df['change'] > 0.045].index
-        change_points= test_df[test_df['change'] > 0.01].index
-        if change_points.any():
-                    mask = np.diff(change_points, append=np.inf) > 1
-                    filtered_changepoints = change_points[mask]
-                    
-                    # Get indices of non-NaN values in measurement column
-                    non_nan_indices = test_df[~test_df[measurement_column].isna()].index.to_numpy()
-                    # Compute the absolute difference between target indices and non-NaN indices using broadcasting
-                    distances = np.abs(np.array(filtered_changepoints)[:, np.newaxis] - non_nan_indices)
-                    # Find the index of the minimum distance for each target index
-                    numbers = np.unique(non_nan_indices[np.argmin(distances, axis=1)])
-
-                    # Set to keep track of numbers to remove
-                    #to_remove = set()
-
-                    # Check for differences of 5 between consecutive numbers
-                    #for i in range(1, len(numbers)):
-                    #    if abs(numbers[i] - numbers[i-1]) <= 15:
-                    #        to_remove.add(numbers[i])
-                    #        to_remove.add(numbers[i-1])
-
-                    # Filter out the numbers to remove
-                    #filtered_numbers = [num for num in numbers if num not in to_remove]
-                    #print(filtered_numbers)
-
-                    test = []
-                    for elem in numbers:
-                    #for elem in filtered_numbers:
-                        previous_data = test_df[measurement_column].loc[:elem - 1].dropna()
-                        if len(previous_data) >= 2:
-                            prev2_wl = previous_data.iloc[-2]
-                            prev_wl = previous_data.iloc[-1]
-                        else:
-                            prev2_wl = 100
-                            prev_wl = previous_data.iloc[-1]
-                        now_wl = test_df[measurement_column].loc[elem]
-                        next_wl = test_df[measurement_column].loc[elem + 1:].dropna().iloc[0]
-                        next2_wl = test_df[measurement_column].loc[elem + 1:].dropna().iloc[1]
-                        print(prev2_wl, prev_wl,now_wl,next_wl, next2_wl)
-                        #if abs(next2_wl-next_wl) < 0.02 and abs(now_wl-next_wl) > 0.05 and abs(prev_wl-now_wl) < 0.02:
-                        if abs(next2_wl-next_wl) < 0.05 and abs(now_wl-next_wl) > 0.1 and abs(prev_wl-now_wl) < 0.05:
-                            test.append(elem)
-                        #elif abs(next_wl-now_wl) < 0.02 and abs(prev_wl-now_wl) > 0.05 and abs(prev2_wl-prev_wl) < 0.02:
-                        elif abs(next_wl-now_wl) < 0.06 and abs(prev_wl-now_wl) > 0.1 and abs(prev2_wl-prev_wl) < 0.06:
-                            test.append(elem)
-                    print(test)
-        
+        #test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)]
+                   
         for i in range(0,len(df['segments'][shift_points]), 1):
             start_index = df['segments'][shift_points].index[i]
             if i == len(df['segments'][shift_points])-1:
@@ -98,18 +61,31 @@ class ShiftDetector():
                 relev_df = df[start_index:end_index]
                 #Get shifted points based on strong gradient
                 relev_df['change'] = np.abs(np.diff(relev_df[data_column_name], append=np.nan))
-                self.helper.plot_df(relev_df[time_column], relev_df[measurement_column],'Water Level','Timestamp ', f'Measured water level-{start_index}')
-                change_points= relev_df[relev_df['change'] > 0.01].index
+                change_points= relev_df[relev_df['change'] > 0.04].index
                 if change_points.any():
                     mask = np.diff(change_points, append=np.inf) > 1
-                    filtered_changepoints = change_points[mask]
+                    filtered_changepoints = np.array(change_points[mask])
                         
                     # Get indices of non-NaN values in measurement column
                     non_nan_indices = relev_df[~relev_df[measurement_column].isna()].index.to_numpy()
+
+                    chunk_size = 100  # Adjust this based on memory capacity
+                    distances = []
+
+                    for i in range(0, len(non_nan_indices), chunk_size): #This loop is only needed because of memory issues.
+                        chunk = non_nan_indices[i:i+chunk_size]
+                        chunk_distances = np.abs(filtered_changepoints[:, np.newaxis] - chunk)
+                        distances.append(chunk_distances)
+
+                    # Concatenate the chunks into the final distances array
+                    distances = np.concatenate(distances, axis=1)
                     # Compute the absolute difference between target indices and non-NaN indices using broadcasting
-                    distances = np.abs(np.array(filtered_changepoints)[:, np.newaxis] - non_nan_indices)
+                    #Below line causes memory issues, thus use code above
+                    #distances = np.abs(np.array(filtered_changepoints)[:, np.newaxis] - non_nan_indices)
+
                     # Find the index of the minimum distance for each target index
                     numbers = np.unique(non_nan_indices[np.argmin(distances, axis=1)])
+                    print(numbers)
 
                     test = []
                     for elem in numbers:
@@ -117,24 +93,45 @@ class ShiftDetector():
                         if len(previous_data) >= 2:
                             prev2_wl = previous_data.iloc[-2]
                             prev_wl = previous_data.iloc[-1]
-                        else:
+                        elif len(previous_data) == 1:
                             prev2_wl = 100
                             prev_wl = previous_data.iloc[-1]
+                        else:
+                            prev2_wl = 0
+                            prev_wl = 0
                         now_wl = relev_df[measurement_column].loc[elem]
-                        next_wl = relev_df[measurement_column].loc[elem + 1:].dropna().iloc[0]
-                        next2_wl = relev_df[measurement_column].loc[elem + 1:].dropna().iloc[1]
-                        if abs(next2_wl-next_wl) < 0.06 and abs(now_wl-next_wl) > 0.1 and abs(prev_wl-now_wl) < 0.06:
+                        if (elem) == relev_df.index[-1]:
+                            next_wl = 100 #dummy values so that code works
+                            next2_wl = 200 #dummy values so that code works
+                        else:
+                            next_wl = relev_df[measurement_column].loc[elem + 1:].dropna().iloc[0]
+                            #print(relev_df.loc[elem + 1:].dropna(), relev_df.index[-1])
+                            if relev_df.loc[elem + 1:].dropna().empty:
+                                next2_wl = next_wl
+                            else:
+                                next2_wl = relev_df[measurement_column].loc[elem + 1:].dropna().iloc[1]
+                        if abs(next2_wl-next_wl) < 0.06 and abs(now_wl-next_wl) > 0.3 and abs(prev_wl-now_wl) < 0.06:
                             test.append(elem)
-                        elif abs(next_wl-now_wl) < 0.06 and abs(prev_wl-now_wl) > 0.1 and abs(prev2_wl-prev_wl) < 0.06:
+                        elif abs(next_wl-now_wl) < 0.06 and abs(prev_wl-now_wl) > 0.3 and abs(prev2_wl-prev_wl) < 0.06:
                             test.append(elem)
-
-                    print(test)
+                    
+                    print(len(test))
                     if test:
-                        for start, end in zip(test[::2], test[1::2]):
-                            df['shifted_period'][start:end-1] = True
-                            df['remove_shifted_period'][start:end-1] = np.nan
-                            self.helper.plot_two_df_same_axis(df.loc[start-1000:end+1000,time_column], df.loc[start-1000:end+1000, measurement_column],'Water Level', 'Water Level (original)', df.loc[start-1000:end+1000, 'remove_shifted_period'], 'Timestamp ', 'Water Level (correct)', f'Measured water level at shifted periods - {start}')
-       
+                        #Trying to remove shift back from short shifts
+                        filtered_elements = self.filter_elements_lazy(test)
+                        #filtered_elements = [test[0]] + [current for previous, current in zip(test, test[1:]) if current - previous <= 60]
+                        print('hey2')
+                        df['shifted_period'][filtered_elements] = True
+                        df['remove_shifted_period'][filtered_elements] = np.nan
+                    print('here2')   
+                    
+        print('here')
+        true_indices = df['shifted_period'][df['shifted_period']].index
+        for i in range(0, 41):
+            min = builtins.max(0,(random.choice(true_indices))-2000)
+            max = min + 2000                
+            self.helper.plot_two_df_same_axis(df.loc[min:max,time_column], df.loc[min:max, 'remove_shifted_period'],'Water Level', 'Water Level (corrected)', df.loc[min:max, measurement_column], 'Timestamp ', 'Values removed', f'Statistical Shift {i}')
+        
         #print details on the small distribution check
         if df['shifted_period'].any():
             ratio = (df['shifted_period'].sum()/len(df))*100
@@ -176,7 +173,7 @@ class ShiftDetector():
                     #change_points = algo.predict(n_bkps=test)
                     #print(datetime.datetime.now())
                     #change_points = algo.predict(pen=500)
-                    change_points = algo.predict(pen=1000)
+                    change_points = algo.predict(pen=2500)
                     print(datetime.datetime.now())
 
                     # Plot the results
@@ -184,7 +181,7 @@ class ShiftDetector():
                         for z in range(0, len(change_points)-1):
                             plt.figure(figsize=(10, 6))
                             rpt.display(df[interpolated_data_colum][start_index:end_index].values, change_points)
-                            plt.xlim(change_points[z]-3500, change_points[z]+3500)  # Limit the x-axis to focus on  certain indices
+                            plt.xlim(change_points[z]-1500, change_points[z]+1500)  # Limit the x-axis to focus on  certain indices
                             plt.title(f"Change Point Detection in Time Series - Graph {i, z}")
                             plt.savefig(os.path.join(self.folder_path_ruptures,f"change_point_detection_plot{i, z}.png"))
                             plt.close()

@@ -1,6 +1,7 @@
-######################################################
-###Empty Python script which will be used later on ###
-######################################################
+#############################################################
+###Python script which will be used later on for detiding ###
+## Written by frb for GronSL project (2024-2025) ############
+#############################################################
 
 import numpy as np
 import pandas as pd
@@ -10,6 +11,7 @@ import utide
 from statsmodels.tsa.seasonal import MSTL
 from statsmodels.tsa.seasonal import DecomposeResult
 
+#This is a template for later on and currently not in use
 
 class TSDecomposer():
 

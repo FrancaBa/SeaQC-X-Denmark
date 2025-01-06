@@ -157,7 +157,7 @@ class QualityFlagger():
         segment_column = 'segments'
         fill_data_qc = qc_fill_data.MissingDataFiller()
         fill_data_qc.set_output_folder(self.folder_path)
-        df = fill_data_qc.segmentation_ts(df, self.adapted_meas_col_name, self.time_column, segment_column)
+        df = fill_data_qc.segmentation_ts(df, self.adapted_meas_col_name, segment_column)
 
         #Set short measurement periods as not trustworthy periods
         df = self.short_bad_measurement_periods(df, segment_column)
@@ -165,8 +165,8 @@ class QualityFlagger():
         #fill nans in relevant segments
         df = fill_data_qc.polynomial_fill_data_column(df, self.adapted_meas_col_name, self.time_column, segment_column)
         df = fill_data_qc.polynomial_fitted_data_column(df, self.adapted_meas_col_name, self.time_column, segment_column, 'poly_interpolated_data')
-        df = fill_data_qc.spline_fill_measurement_column(df, self.adapted_meas_col_name, self.time_column, segment_column)
-        fill_data_qc.compare_filled_measurements(df, self.adapted_meas_col_name, self.time_column, segment_column)
+        df = fill_data_qc.spline_fitted_measurement_column(df, self.adapted_meas_col_name, self.time_column, segment_column)
+        fill_data_qc.compare_filled_measurements(df, self.time_column, segment_column)
 
         #Detect interpolated values
         interpolated_qc = qc_interpolated.Interpolation_Detector()
@@ -179,16 +179,16 @@ class QualityFlagger():
         #Detect spike values
         spike_detection = qc_spike.SpikeDetector()
         spike_detection.set_output_folder(self.folder_path)
-        df = spike_detection.detect_spikes_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
-        df = spike_detection.remove_spikes_cotede(df, self.adapted_meas_col_name, self.time_column)
-        df = spike_detection.remove_spikes_cotede_improved(df, self.adapted_meas_col_name, self.time_column)
-        df = spike_detection.selene_spike_detection(df, self.adapted_meas_col_name, self.time_column, 'spline_filled_data')
-        df= spike_detection.remove_spikes_ml(df, 'poly_fitted_data', self.adapted_meas_col_name, self.time_column)
-        
+        #df = spike_detection.detect_spikes_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
+        #df = spike_detection.remove_spikes_cotede(df, self.adapted_meas_col_name, self.time_column)
+        #df = spike_detection.remove_spikes_cotede_improved(df, self.adapted_meas_col_name, self.time_column)
+        #df = spike_detection.selene_spike_detection(df, self.adapted_meas_col_name, self.time_column, 'spline_fitted_data')
+        #df = spike_detection.remove_spikes_harmonic(df, 'poly_fitted_data', self.adapted_meas_col_name, self.time_column)
+
         #Detect shifts & deshift values
         shift_detection = qc_shifts.ShiftDetector()
         shift_detection.set_output_folder(self.folder_path)
-        df = shift_detection.detect_shifts_ruptures(df, self.adapted_meas_col_name, 'poly_interpolated_data')
+        #df = shift_detection.detect_shifts_ruptures(df, self.adapted_meas_col_name, 'poly_interpolated_data')
         df = shift_detection.detect_shifts_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
 
         #Probably good data

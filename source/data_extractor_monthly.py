@@ -1,6 +1,7 @@
-#####################################################################
-## Extrac interesting measurement periods by date (written by frb) ##
-#####################################################################
+####################################################################################################
+## Extrac interesting measurement periods by date (written by frb for GronSL project (2024-2025)) ##
+####################################################################################################
+
 import os, sys
 import numpy as np
 import pandas as pd
@@ -69,8 +70,6 @@ class DataExtractor():
                 self.list_relev_section[i+1].loc[:, 'timestamp'] = pd.to_datetime(self.list_relev_section[i+1]['timestamp']) - timedelta(days=diff_days)
                 self.list_relev_section[i+1].loc[:, 'timestamp'] = pd.to_datetime(self.list_relev_section[i+1]['timestamp']).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
                 combined_df = pd.concat([combined_df, self.list_relev_section[i+1]], ignore_index=True)
-
-
 
         # Save to a CSV file with comma-delimited format
         file_name = f"{self.station}-WLdata.csv"
