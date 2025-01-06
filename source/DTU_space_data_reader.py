@@ -1,7 +1,8 @@
 #############################################################################################################################
 #This script reads and saves to csv the DTU Space Greenland measurements saved in yearly .zip files in the same base folder.#
 #For folder structure and data see: /net/isilon/ifs/arch/home/ocean/sealevel/Greenland_data_DTU                             #
-#Written by frb (November 2023)                                                                                             #
+#Written by frb (November 2023) for GronSL project                                                                          #
+#_met data is currently not considered!!                                                                                    #
 #############################################################################################################################
 
 import os, sys
@@ -26,6 +27,9 @@ class DataConverter():
             os.makedirs(output_path)
 
     def set_relev_station(self, station):
+        """
+        Define where measurement file is from.
+        """
 
         self.station = station
 
@@ -45,7 +49,9 @@ class DataConverter():
             raise Exception('Prefix to this station is unknown. Make sure that script knows this station and how files connected to this station are saved.')
     
     def get_measured_parameter(self, bla, base_filename):
-
+        """
+        Define what is measurement in which file.
+        """
         if '_cond' in base_filename:
             measurement_name = 'Conductivity'
         elif '_height.' in base_filename:
@@ -66,6 +72,10 @@ class DataConverter():
         return measurement_name
     
     def run(self):
+        """
+        Main Method: Open, Convert and save measurements combined to a big csv file.
+        """
+         
         self.load_data()
         df = self.convert_data_to_df()
         #sort df by time of measurements
@@ -74,10 +84,26 @@ class DataConverter():
         final_df = df[['timestamp'] + [col for col in df.columns if col not in ['timestamp', 'error_flag']] + ['error_flag']]
         self.export_to_csv(final_df)
 
+
     def export_to_csv(self, df):
+        """
+        Save combined df for each station over all years to a csv file.
+        """
         df.to_csv(os.path.join(self.output_path, f'{self.station}_data.csv'), index=False)
 
+
     def load_data(self):
+        """
+        Open the different zip. files for each year. Open the correct files for the respective station as monthly dataframe and append them all to a long list of dfs. Different measurements and months have the data differently saved.
+        Based on the column count in the first line in the monthly file, decide on how to open the csv file.
+
+        Currently, there are three options:
+        1. 4 columns: time, date, measurement & error_flag, Combine time and date to a timestamp column
+        2. 3 columns: time, date & measurement, add error_flag column in code and also combine time and date to a timestamp column
+        3. 2 columns: timestamp & measurement, add error_flag column in code
+
+        Note: _met measurements are currently ignored as timestamp is off.
+        """
 
         # Iterate through each file in the directory
         for file_name in os.listdir(self.data_path):
@@ -89,7 +115,7 @@ class DataConverter():
                 with zipfile.ZipFile(zip_path, 'r') as zip_file:
                     # Iterate over each file in the .zip archive
                     for zip_info in zip_file.infolist():
-                        # Check if it's a .txt file and starts with the desired prefix
+                        # Check if it's a .txt file and starts with the desired prefix (only relevant station)
                         base_filename = os.path.basename(zip_info.filename)
                         if base_filename.endswith('.txt') and base_filename.startswith(self.file_prefix):
                             # Open and read the content of the .txt file
@@ -141,17 +167,24 @@ class DataConverter():
                                 else:
                                     raise Exception('Content of the .txt a format which is not compatibel with the current code version.')
                                 self.data_df.append(monthly_df)
-                                    
+
+
     def convert_data_to_df(self):
-        # Initialize a dataframe with the first dataframe from the list
+        """
+        Convert list of monthly dataframes and different measurements dfs to one long dataframe for this station. Append the same measurement to the columns, respectively.
+        """
+                
+        # Initialize a dataframe with the first monthly dataframe from the list
         result_df = self.data_df[0]
 
-        # Iterate over each subsequent dataframe in the list
+        # Iterate over each subsequent monthly dataframe in the list and append it
         for df in self.data_df[1:]:
-            # Merge matching rows
+            #Get common column names between previous and current df
             common_columns = result_df.columns.intersection(df.columns)
+            #If common column name only 2 (tiestamp and error_flag), append the new values to those column and add the new measurement type as a new column
             if len(common_columns)== 2:
                 merged_df = pd.merge(result_df, df, on=list(common_columns), how='left')
+            #if all measurement types exist in the big df, fill rows and columns for all months accordingly
             elif len(common_columns) == 3:
                 #Sort that common columns are always in the same order
                 unknown_column = [col for col in common_columns if col not in ['error_flag', 'timestamp']][0]
