@@ -101,7 +101,7 @@ class MissingDataFiller():
             else:
                 end_index = data[segment_column][shift_points].index[i+1]
             if data[segment_column][start_index] == 0:
-                y_interpolated = data.loc[start_index:end_index, data_column].interpolate(method='polynomial', order= self.order_ploynomial_fit) #Polynomial order is defined here (currently: 2S)
+                y_interpolated = data.loc[start_index:end_index, data_column].interpolate(method='polynomial', order= self.order_ploynomial_fit) #Polynomial order is defined here (currently: 2)
                 y_interpolated = y_interpolated.ffill()  #Last elem in segment is NaN as not enough neighboring values for interpolation, so forward-fill previous value
                 data.loc[start_index:end_index,'poly_interpolated_data'] = y_interpolated
                 

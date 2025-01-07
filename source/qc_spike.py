@@ -1,7 +1,17 @@
+################################################################################
+## Written by frb for GronSL project (2024-2025)                              ##
+## To detect single spikes in measured series.                                ##
+## Approaches:                                                                ##
+## 0. Statistical changepoint analysis                                        ##
+## 1. Cotede & improved cotede                                                ##
+## 2. Selene (adapted)                                                        ##
+## 3. ML deviation (train on poly. fitted series) and compare to measurements ##
+## 4. Deviation from polynomial fitted series                                 ##
+################################################################################
+
 import os
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import numpy.ma as ma
 import random
 import builtins
@@ -22,10 +32,10 @@ class SpikeDetector():
         self.improved_cotede_threshold = 0.05 #0.02
         self.max_window_neighbours = 60 #under the assumption that timestamp is in 1 min
 
-        # Parameters for ml
+        # Parameters for ml (to split into training and testing set)
         self.test_size = 0.85    # Size of the test set in percentage
 
-        #Spline approach needed constants
+        #Selene spline approach needed constants
         self.nsigma = 3
 
     def set_output_folder(self, folder_path):
@@ -42,13 +52,24 @@ class SpikeDetector():
         self.filled_measured_ts = filled_ts
     
     def detect_spikes_statistical(self, df, data_column_name, time_column, measurement_column):
+        """
+        In measurement segments, find all stronger changepoints that fit to a real measurement data points. 
+        
+        Input:
+        -Main dataframe [df]
+        -Name of colum where measurements have been interpolated to fill NaNs [str]
+        -Column name for timestamp [str]
+        -Column name with measurements to analyse [str]
+        """
         
         df['test'] = df[measurement_column].copy()
         df['spike_value_statistical'] = False
         shift_points = (df['segments'] != df['segments'].shift())
 
+        #For Qaqortoq: relevant period to test the code
         #test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)]
 
+        #For measurement segment: polynomial fit (6th degree) to the polynomial interpolated measurement series
         for i in range(0,len(df['segments'][shift_points]), 1):
             start_index = df['segments'][shift_points].index[i]
             if i == len(df['segments'][shift_points])-1:
@@ -57,10 +78,11 @@ class SpikeDetector():
                 end_index = df['segments'][shift_points].index[i+1]
             if df['segments'][start_index] == 0:
                 relev_df = df[start_index:end_index]
-                #Get shifted points based on strong gradient
+                #Get shifted points based on strong gradient in interpolated series (hard to define a gradient if a lot of NaN values.)
                 relev_df['change'] = np.abs(np.diff(relev_df[data_column_name], append=np.nan))
                 change_points= relev_df[relev_df['change'] > 0.05].index
                 if change_points.any():
+                    #per change area only 1 changepoint
                     mask = np.diff(change_points, append=np.inf) > 1
                     filtered_changepoints =  np.array(change_points[mask])
 
@@ -83,6 +105,7 @@ class SpikeDetector():
                     remove_indices = set(too_close_indices).union(set(too_close_indices + 1))
                     mask = np.array([i not in remove_indices for i in range(len(closest_indices))])
                     result = closest_indices[mask]
+                    #result = closest_indices
                     print(result)
 
                     if result.any():
@@ -95,7 +118,7 @@ class SpikeDetector():
             max = builtins.min(min + 2000, len(df))
             self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[measurement_column][min:max], 'Timestamp', 'Water Level (measured)',f'Statistical spike Graph-local spike detected via statistics {min}')
 
-        #print details on the small distribution check
+        #print details on the statistical spike check
         if df['spike_value_statistical'].any():
             ratio = (df['spike_value_statistical'].sum()/len(df))*100
             print(f"There are {df['spike_value_statistical'].sum()} spikes in periods based on a changepoint detection. This is {ratio}% of the overall dataset.")

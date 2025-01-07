@@ -1,6 +1,8 @@
-####################################################################
-## Test quality check script for sea level tide gauge data by frb ##
-####################################################################
+########################################################################################
+## Test quality check script for sea level tide gauge data by frb for GronSL (2024/25)##
+## This script runs the QC for all 4/5 stations (1 method for each station)           ##
+########################################################################################
+
 import os, sys
 from pathlib import Path
 import shutil
@@ -19,7 +21,7 @@ class Test_QA_Station(unittest.TestCase):
         #All existing measurements in Greenland
         self.stations = ['Qaqortoq', 'Ittoqqortoormiit', 'Nuuk', 'Pituffik', 'Upernavik'] 
 
-        # Coordinates of stations
+        #Coordinates of stations
         coord = {
             'Qaqortoq': (60.7, -46),
             'Ittoqqortoormiit': (70.48, -21.98),
@@ -28,14 +30,14 @@ class Test_QA_Station(unittest.TestCase):
             'Upernavik': (np.nan, np.nan),
         }
 
-        # dic containing all stations
+        #Generates a dic containing all stations
         dic_stations = {station: coord[station] for station in self.stations}
         print(dic_stations)
 
-        #get measurements
+        #Set path to measurements
         self.datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
 
-        #get config json
+        #Set path to config json
         self.json_path = os.path.join(os.getcwd(), 'config.json')
 
     def test_quality_check_qaqortoq(self):

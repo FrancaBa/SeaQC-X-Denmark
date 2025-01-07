@@ -1,6 +1,7 @@
-####################################################
-## Written by frb for GronSL project (2024-2025) ###
-####################################################
+##########################################################
+## Written by frb for GronSL project (2024-2025)        ##
+## To detect constant slope/ linear interpolated values ##
+##########################################################
 
 import pandas as pd
 import matplotlib.pyplot as plt
