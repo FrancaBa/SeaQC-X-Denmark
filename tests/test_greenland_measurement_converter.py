@@ -1,6 +1,8 @@
-####################################################################
-## Test conversion DTU Space measurements to .dba script test by frb ##
-####################################################################
+###############################################################################################
+## Measurement reader and converter for sea level tide gauge data by frb for GronSL (2024/25)##
+## This script reads the measurements for all 4/5 stations (1 method for each station)       ##
+###############################################################################################
+
 import os, sys
 from pathlib import Path
 import shutil

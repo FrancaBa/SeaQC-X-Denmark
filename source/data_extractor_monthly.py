@@ -1,6 +1,7 @@
-####################################################################################################
-## Extrac interesting measurement periods by date (written by frb for GronSL project (2024-2025)) ##
-####################################################################################################
+######################################################################################################################################
+## Extract interesting measurement periods by date (written by frb for GronSL project (2024-2025))                                  ##
+## This script is used to generate csv files which are the baseline for manual labelling in Trainset (https://trainset.geocene.com/)##
+######################################################################################################################################
 
 import os, sys
 import numpy as np
@@ -17,6 +18,7 @@ class DataExtractor():
         self.list_relev_section = []
         self.helper = helper.HelperMethods()
     
+    #Define relevant station and where to save output to
     def set_output_folder(self, folder, station):
         self.folder_path = os.path.join(folder,'interesting ts and their graphs')
 
@@ -26,7 +28,18 @@ class DataExtractor():
         self.helper.set_output_folder(self.folder_path)
         self.station = station
 
+    #Main method 
     def run(self, df, time_column, data_column):
+        """
+        Extract relevant periods to csv for manual quality check based on station. 
+        After extracting the periods, merge all relevant periods to a long csv file.
+        Rearrange timestamp to put a max timestep of 10 days between relevant periods (makes manual labelling more convenient).
+
+        Input:
+        -Main dataframe [df]
+        -Column name for timestamp [str]
+        -Column name for relevant measurement series [str]
+        """
 
         filtered_df = df.copy()
         filtered_df['label'] = None
@@ -75,10 +88,24 @@ class DataExtractor():
         file_name = f"{self.station}-WLdata.csv"
         combined_df.to_csv(os.path.join(self.folder_path, file_name), index=False)
 
-        print('long csv file for manual labelling has been saved.')
+        print('Long csv file for manual labelling has been saved.')
 
-
+    #make a subset of whole timeseries based on provided start and end date & save the subset to csv
     def extract_period(self, data, time_column, data_column, year, start_month, end_month, start_day='1', end_day='31'):
+        """
+        Extract relevant periods based on inputs to a new shorter dataframe. 
+        This new dataframe is saved as csv with only relevant columns and also plotted for visual analysis.
+
+        Input:
+        -Main dataframe [df]
+        -Column name for timestamp [str]
+        -Column name for relevant measurement series [str]
+        -Year [str] (periods cannot go between years!)
+        -Start month (possible: 01-12) [str]
+        -End month (possible: 01-12) [str]
+        -Start day (by default 1, but can be overwritten) (possible: 01-31) [str]
+        -End day (by default 31, but can be overwritten) (possible: 01-31) [str]
+        """
 
         start_date = datetime(int(year), int(start_month), int(start_day))
         end_date = datetime(int(year), int(end_month), int(end_day))

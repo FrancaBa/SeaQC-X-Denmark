@@ -1,30 +1,92 @@
 # Quality Check (QC) for Tide Gauge Measurements in Greenland
 
-In the scope of the GrønSL project, this repository has been developed to have an automated quality check algorithm for sea level data in Greenland using state of the art machine learning approaches.
+In the scope of the GrønSL project, this repository has been developed to have an automated quality check algorithm for sea level data in Greenland including state of the art machine learning approaches.
 
 ## Goal
 The goal of this work is to generate an automated QC algorithm which can detect and adapt faulty measurements in timeseries using ML. The first version will be focusing on checking sea level measurements in Greenland.
 
 ## Motivation
-Quality checking of many time series is at the moment only sparsly done and often manually. However, with the increasing amount of data, it is important to have an automated approach to assess the quality of measurements/recieved values - as a model can only be as accurate as the input. Thus, it is important to have cleaned input data especially in regions with little measurements as Greenland. This work will focus on developing an automated quality check algorithm for sea level data with a strong focus on detecting shifts and deshifting.
+Quality checking of many time series is at the moment only sparsly done and often manually. However, with the increasing amount of data, it is important to have an automated approach to assess the quality of measurements/recieved values - as a model can only be as accurate as the input. Thus, it is important to have cleaned input data especially in regions with little measurements as Greenland. This work will focus on developing an automated quality check algorithm for sea level data.
 
 ## Roadmap
-This project will start off by flagging and adapting tide gauge measurements in adequate groups by using basic assessment, common oceanographic packages and machine learning. Afterwards, the flagged data will be used as training data to develop a ML algorithm which can do quality checking. The timeline for this project is around 10 months.
+This project will start off by flagging and adapting tide gauge measurements in adequate groups by using basic assessment and common oceanographic packages. However, this will only manage to detect faulty values to a certain degree. Therefore,the goal is to use a supervised ML algorithm based on manually labelled data to mark the left-over faulty values. Afterwards, the mark series should be cleaned/ interpolated to generate a sound baseline timeseries for future research. The timeline for this project is around 11 months.
+
+## Overview
+
+This QC algorithm contains a lot of different and overlapping steps. The various test are listed and described below. The approach of better marking too much than too little is taken. Each test leads to a mask where the column is set to 1 meaning the condition is present, and the column set to 0 meaning the condition is absent. All masks for each QC step are pooled together, a so called bitmask. A bitmask is a compact way to store and represent multiple conditions using a single integer value. 
+
+This is an example and doesn't corresponds to the bits used here!! 
+
+See an example:
+
+- Bit 0 (Data missing): 00001
+- Bit 1 (Outlier): 00010
+- Bit 2 (Instrument error): 00100
+- Bit 3 (Drift detected): 01000
+- Bit 4 (Interference suspected): 10000
+
+When a data point has multiple issues, the corresponding bits are set to 1. So, for a data point wich is missing (0) and an outlier (2) the bitmask would be:
+- Data missing (0) and Outlier (1) : 00011
+
+Based on the bitmask, IOOS flags are assigned to the measurement point. F.e. missing data equals flag 9 in IOOS.
+
+1. Good data (00000)
+2. Not evaluated (no bitmask exists)
+3. Correctable data (01000, 10000, 11000)
+4. Bad data (00100, 00010, 00110)
+9. Missing data (00001)
+
+This appraoch is also followed in this project. There is config.json containing the used IOOS flags and the bitmask used for each QC test. Users can adapt the wanted flags in the config.json and then in the corresponing source code assign certain bitmasks to a flag.
 
 ## Applied Quality Tests
 The following steps are part of the quality check:
 1. Format & date control 
-2. Re-sampling of intervals
-3. Out-of-range values
-4. Stability test
-5. Spike Detection
+2. Check for missing values
+3. Re-sampling of intervals
+4. Stability test for constant values
+5. Out-of-range values
+6. Segmentation to active measurement periods - Drop short and bad periods
+7. Check for linear interpolation (=constant slope)
+8. Analysing change rate:
+8.1 Extreme change rate between consecutive measurements (more than physical possible)
+8.2 Noisy periods with a lot of stronger change points in short periods
+9. Spike detection:
+9.1 Statisitcal test
+9.2 Cotede
+9.3 Improved Cotede
+9.4 Adapted Selene - Spline analysis
+9.5 Harmonic spike detection
+10. Shift detection:
+10.1 Ruptures
+10.2 Statistical change detection via gradient (strong change, but no change back)
+11. Probably good data (=short periods of good data between long periods of bad data)
+
+In order to perform some of the quality check steps, filled timeseries without NaNs are needed. Thus, the following three filling appraoches are used:
+1. Polynomial filled series
+2. Polynomial fitting series based on polynomial filled series over 14 hours
+3. Spline fitting over roughly 14 hours based on existing measurements
 
 Upcoming steps to be included (potentially):
-1. Detection of shifts and deshifting 
-2. Gradient Test???
-3. Interpolation of short gabs
-4. Multi-Variate Test
-5. Tides
+1. Supervised ML to flag missed faulty measurements
+2. Deshifting of relevant periods
+3. Interpolation of missing periods
+
+# Execute the Python Scripts 
+This repository is structured in unittest (saved under tests) and main scripts in the source folder. All outcomes are saved in the output folder, but never committed to Gitlab. In order to run the code, the unittests needs to be executed.
+
+## Running unittests in command prompt
+1. In command line, change working directory to point to tests.
+2. Run tests in python. Several options:
+2.1 Run a specific test in a phython file (use when actively working on code)
+2.2 Run all tests in a specific python file (here: to run code for all stations)
+2.3 Run all tests in test folder (recommended for more complex changes when changed methods are used by several tests)
+
+```
+cd /dmidata/users/<DMI initials>/greenland_qc
+python -m unittest test_greenland_measurements_qc.Test_QA_Station.test_quality_check_qaqortoq
+python -m unittest test_greenland_measurements_qc.py
+python -m unittest
+```
 
 # Pull and Push Code
 The subsequent lines are describing how to pull and push changes to this repository.
@@ -67,4 +129,4 @@ This project is carried out by Franca Bauer under the supervision of Jian Su. By
 ???
 
 ## Project status
-This is just the beginning!
+The preprocessing of the data through statistical tools and existing python scripts is done. Now, it is looked into how to flag undetected measurement errors using supervied machine learning.

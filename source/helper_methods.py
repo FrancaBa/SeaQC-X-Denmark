@@ -1,3 +1,8 @@
+###################################################
+## Written by frb for GronSL project (2024-2025) ##
+## Contains methods for 4 different graphs       ##
+###################################################
+
 import os, sys
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,7 +18,23 @@ class HelperMethods():
     def set_output_folder(self, folder_path):
         self.folder_path = folder_path
 
+
     def zoomable_plot_df(self, x_axis, data, y_title, x_title, title, legend_name = None, x_axis_2=None, data_2=None, y_title_2=None):
+        """
+        Generates a zoomable graph for one or two series. This is very slow and memory intensive. Only use it remotely or when really needed.)
+
+        Input:
+        -x_axis [Pandas Series] (here: timestamp)
+        -data [Pandas Series] (here: measurement 1)
+        -y_title [str]
+        -x_title [str]
+        -Graph title [str]
+        -Legend [str] (to describe measurement 1)
+        -x_title_2 [str] (used for measurement 2) (default is None, but could be added)
+        -data_2 [Pandas Series] (here: measurement 2) (default is None, but could be added)
+        -y_title_2 [str] (describes measurement 2) (default is None, but could be added)
+        *If a second series is added, then all the corresponding values need to be defined.
+        """
 
         # Create a figure with Plotly
         fig = go.Figure()
@@ -50,8 +71,19 @@ class HelperMethods():
         # To ensure the file is created
         #print(f"HTML file created at: {html_file_path}")
 
+
     def plot_df(self, x_axis, data, y_title, x_title, title = None):
-        
+        """
+        Generates graph for a single series.
+
+        Input:
+        -x_axis [Pandas Series] (here: timestamp)
+        -data [Pandas Series] (here: measurement)
+        -y_title [str]
+        -x_title [str]
+        -title: default is None, but can be overwritten [str]
+        """
+                
         plt.figure(figsize=(18, 9))
         plt.plot(x_axis, data,  marker='o', markersize=1, linestyle='None')
         if title != None:
@@ -63,7 +95,20 @@ class HelperMethods():
         plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {x_axis.iloc[0]}.png"),  bbox_inches="tight")
         plt.close()  # Close the figure to release memory
 
+
     def plot_two_df(self, x_axis, data_1, y_title_1, data_2, y_title_2, x_title, title = None):
+        """
+        Generates graph for a two series on different y-axis.
+
+        Input:
+        -x_axis [Pandas Series] (here: timestamp)
+        -data_1 [Pandas Series] (here: measurement 1)
+        -y_title_1 [str]
+        -data_2 [Pandas Series] (here: measurement 2)
+        -y_title_2 [str]
+        -x_title [str]
+        -title: default is None, but can be overwritten [str]
+        """
 
         fig, ax1 = plt.subplots(figsize=(18, 10))
 
@@ -86,7 +131,21 @@ class HelperMethods():
         plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
         plt.close()  # Close the figure to release memory
 
+
     def plot_two_df_same_axis(self, x_axis, data_1, y_title, legend_1, data_2, x_title, legend_2,title = None):
+        """
+        Generates graph for a two series on same y-axis.
+
+        Input:
+        -x_axis [Pandas Series] (here: timestamp)
+        -data_1 [Pandas Series] (here: measurement 1)
+        -y_title [str] (overall title for measurement 1 and 2)
+        -legend_1 [str] (describes what measurement 1 is)
+        -data_2 [Pandas Series] (here: measurement 2)
+        -x_title [str]
+        -legend_2 [str] (describes what measurement 2 is)
+        -title: default is None, but can be overwritten [str]
+        """
 
         fig, ax1 = plt.subplots(figsize=(18, 10))
 
