@@ -48,17 +48,18 @@ The following steps are part of the quality check:
 6. Segmentation to active measurement periods - Drop short and bad periods
 7. Check for linear interpolation (=constant slope)
 8. Analysing change rate:
-8.1 Extreme change rate between consecutive measurements (more than physical possible)
-8.2 Noisy periods with a lot of stronger change points in short periods
+* 8.1 Extreme change rate between consecutive measurements (more than physical possible)
+* 8.2 Noisy periods with a lot of stronger change points in short periods
 9. Spike detection:
-9.1 Statisitcal test
-9.2 Cotede
-9.3 Improved Cotede
-9.4 Adapted Selene - Spline analysis
-9.5 Harmonic spike detection
+* 9.1 Statisitcal test
+* 9.2 Cotede
+* 9.3 Improved Cotede
+* 9.4 Adapted Selene - Spline analysis
+* 9.5 Harmonic spike detection
+* 9.6 Supervised ML on harmonic (not really relevant)
 10. Shift detection:
-10.1 Ruptures
-10.2 Statistical change detection via gradient (strong change, but no change back)
+* 10.1 Ruptures
+* 10.2 Statistical change detection via gradient (strong change, but no change back)
 11. Probably good data (=short periods of good data between long periods of bad data)
 
 In order to perform some of the quality check steps, filled timeseries without NaNs are needed. Thus, the following three filling appraoches are used:
@@ -77,14 +78,14 @@ This repository is structured in unittest (saved under tests) and main scripts i
 ## Running unittests in command prompt
 1. In command line, change working directory to point to tests.
 2. Run tests in python. Several options:
-2.1 Run a specific test in a phython file (use when actively working on code)
-2.2 Run all tests in a specific python file (here: to run code for all stations)
-2.3 Run all tests in test folder (recommended for more complex changes when changed methods are used by several tests)
+* 2.1. Run a specific test in a phython file (use when actively working on code)
+* 2.2. Run all tests in a specific python file (here: to run code for all stations)
+* 2.3. Run all tests in test folder (recommended for more complex changes when changed methods are used by several tests)
 
 ```
 cd /dmidata/users/<DMI initials>/greenland_qc
-python -m unittest test_greenland_measurements_qc.Test_QA_Station.test_quality_check_qaqortoq
-python -m unittest test_greenland_measurements_qc.py
+python -m unittest tests.test_greenland_measurements_qc.Test_QA_Station.test_quality_check_qaqortoq
+python -m unittest tests/test_greenland_measurements_qc.py
 python -m unittest
 ```
 

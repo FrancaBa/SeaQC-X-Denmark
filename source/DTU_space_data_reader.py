@@ -79,9 +79,9 @@ class DataConverter():
         self.load_data()
         df = self.convert_data_to_df()
         #sort df by time of measurements
-        df = df.sort_values(by='timestamp')
+        df = df.sort_values(by='Timestamp')
         #fix time as first column and error_flag as last colum
-        final_df = df[['timestamp'] + [col for col in df.columns if col not in ['timestamp', 'error_flag']] + ['error_flag']]
+        final_df = df[['Timestamp'] + [col for col in df.columns if col not in ['Timestamp', 'error_flag']] + ['error_flag']]
         self.export_to_csv(final_df)
 
 
@@ -98,11 +98,11 @@ class DataConverter():
         Based on the column count in the first line in the monthly file, decide on how to open the csv file.
 
         Currently, there are three options:
-        1. 4 columns: time, date, measurement & error_flag, Combine time and date to a timestamp column
-        2. 3 columns: time, date & measurement, add error_flag column in code and also combine time and date to a timestamp column
-        3. 2 columns: timestamp & measurement, add error_flag column in code
+        1. 4 columns: time, date, measurement & error_flag, Combine time and date to a Timestamp column
+        2. 3 columns: time, date & measurement, add error_flag column in code and also combine time and date to a Timestamp column
+        3. 2 columns: Timestamp & measurement, add error_flag column in code
 
-        Note: _met measurements are currently ignored as timestamp is off.
+        Note: _met measurements are currently ignored as Timestamp is off.
         """
 
         # Iterate through each file in the directory
@@ -131,7 +131,7 @@ class DataConverter():
                                     #Extract measurements the content of the .txt file
                                     monthly_df = pd.read_csv(txt_file, sep='\s+', header=None, names=['date', 'time', measurement_name, 'error_flag'])
                                     if '_met_' in base_filename:
-                                        print('At the moment, the _met meassurements are ignored as they are measured on a different timestamp. All other measurements come probably from the same sensor as they have the same registration periods.')
+                                        print('At the moment, the _met meassurements are ignored as they are measured on a different Timestamp. All other measurements come probably from the same sensor as they have the same registration periods.')
                                         continue
                                     initial_row_count = len(monthly_df)
                                     monthly_df['date'] = pd.to_datetime(monthly_df['date'], errors='coerce')
@@ -141,7 +141,7 @@ class DataConverter():
                                         print(f'{initial_row_count- len(monthly_df)} rows were deleted from measurements, because they had an invalid date (f.e. 32.01.2007).')
                                     monthly_df['time'] = monthly_df['time'].dt.time.astype(str)
                                     monthly_df['date'] = monthly_df['date'].dt.date.astype(str)
-                                    monthly_df['timestamp'] = pd.to_datetime(monthly_df['date']+ ' ' + monthly_df['time']).dt.strftime('%Y%m%d%H%M%S')
+                                    monthly_df['Timestamp'] = pd.to_datetime(monthly_df['date']+ ' ' + monthly_df['time']).dt.strftime('%Y%m%d%H%M%S')
                                     del monthly_df['date']
                                     del monthly_df['time']
                                 elif len(file_columns) == 3:
@@ -155,14 +155,14 @@ class DataConverter():
                                         print(f'{initial_row_count- len(monthly_df)} rows were deleted from measurements, because they had an invalid date (f.e. 32.01.2007).')
                                     monthly_df['time'] = monthly_df['time'].dt.time.astype(str)
                                     monthly_df['date'] = monthly_df['date'].dt.date.astype(str)
-                                    monthly_df['timestamp'] = pd.to_datetime(monthly_df['date']+ ' ' + monthly_df['time']).dt.strftime('%Y%m%d%H%M%S')
+                                    monthly_df['Timestamp'] = pd.to_datetime(monthly_df['date']+ ' ' + monthly_df['time']).dt.strftime('%Y%m%d%H%M%S')
                                     monthly_df['error_flag'] = np.nan
                                     del monthly_df['date']
                                     del monthly_df['time']
                                 elif len(file_columns)==2:
-                                    monthly_df = pd.read_csv(txt_file, sep=',', header=None, names=['timestamp', measurement_name])
-                                    monthly_df['timestamp'] = pd.to_datetime(monthly_df['timestamp'], format='%Y/%m/%d-%H:%M')
-                                    monthly_df['timestamp'] = monthly_df['timestamp'].dt.strftime('%Y%m%d%H%M%S')
+                                    monthly_df = pd.read_csv(txt_file, sep=',', header=None, names=['Timestamp', measurement_name])
+                                    monthly_df['Timestamp'] = pd.to_datetime(monthly_df['Timestamp'], format='%Y/%m/%d-%H:%M')
+                                    monthly_df['Timestamp'] = monthly_df['Timestamp'].dt.strftime('%Y%m%d%H%M%S')
                                     monthly_df['error_flag'] = np.nan
                                 else:
                                     raise Exception('Content of the .txt a format which is not compatibel with the current code version.')
@@ -187,16 +187,17 @@ class DataConverter():
             #if all measurement types exist in the big df, fill rows and columns for all months accordingly
             elif len(common_columns) == 3:
                 #Sort that common columns are always in the same order
-                unknown_column = [col for col in common_columns if col not in ['error_flag', 'timestamp']][0]
-                df = df[['error_flag', 'timestamp', unknown_column]]
-                df_only = df[~df['timestamp'].isin(result_df['timestamp'])]
+                unknown_column = [col for col in common_columns if col not in ['error_flag', 'Timestamp']][0]
+                df = df[['error_flag', 'Timestamp', unknown_column]]
+                df_only = df[~df['Timestamp'].isin(result_df['Timestamp'])]
                 if df_only.empty:
-                    # Merge df_A and df_B on 'error_flag' and 'timestamp', using a left join to retain all rows from df_A
-                    merged_df = pd.merge(result_df, df[list(common_columns)], on=[df.columns[1], df.columns[0]], how='left', suffixes=('', '_new'))
+                    # Merge df_A and df_B on 'error_flag' and 'Timestamp', using a left join to retain all rows from df_A
+                    merged_df = pd.merge(result_df, df[list(common_columns)], on=[df.columns[1]], how='left', suffixes=('', '_new'))
                     # Fill NaNs in the value column from big df with the values from the measurement df
                     merged_df[df.columns[2]] = merged_df[df.columns[2]].fillna(merged_df[f'{df.columns[2]}_new'])
+                    merged_df[df.columns[0]] = merged_df[df.columns[0]].fillna(merged_df[f'{df.columns[0]}_new'])
                     # Drop the extra column
-                    merged_df.drop(columns=[f'{df.columns[2]}_new'], inplace=True)
+                    merged_df.drop(columns=[f'{df.columns[2]}_new', f'{df.columns[0]}_new'], inplace=True)
                 else:
                     merged_df = pd.merge(result_df, df[list(common_columns)], on=[list(common_columns)[1], list(common_columns)[0], list(common_columns)[2]], how='outer')
             else:

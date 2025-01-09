@@ -14,7 +14,7 @@ import source.helper_methods as helper
 class DataExtractor():
     
     def __init__(self):
-        self.missing_meas_value = 999.000
+        self.missing_meas_value = None
         self.list_relev_section = []
         self.helper = helper.HelperMethods()
     
@@ -27,6 +27,10 @@ class DataExtractor():
 
         self.helper.set_output_folder(self.folder_path)
         self.station = station
+
+    def set_missing_value_filler(self, missing_meas_value):
+        #Dummy value for NaN-values in measurement series
+        self.missing_meas_value = missing_meas_value 
 
     #Main method 
     def run(self, df, time_column, data_column):
@@ -72,16 +76,16 @@ class DataExtractor():
 
         #modified gabs between relevant periods
         combined_df = self.list_relev_section[0]
-
+        
         for i in range(0,len(self.list_relev_section)-1):
-            end_date = pd.to_datetime(self.list_relev_section[i]['timestamp'].iloc[-1])
-            start_date = pd.to_datetime(self.list_relev_section[i+1]['timestamp'].iloc[0])
+            end_date = pd.to_datetime(self.list_relev_section[i][time_column].iloc[-1])
+            start_date = pd.to_datetime(self.list_relev_section[i+1][time_column].iloc[0])
             if (start_date - end_date).days < 10:
                 combined_df = pd.concat([combined_df, self.list_relev_section[i+1]], ignore_index=True)
             else:
                 diff_days = ((start_date - end_date).days)-10
-                self.list_relev_section[i+1].loc[:, 'timestamp'] = pd.to_datetime(self.list_relev_section[i+1]['timestamp']) - timedelta(days=diff_days)
-                self.list_relev_section[i+1].loc[:, 'timestamp'] = pd.to_datetime(self.list_relev_section[i+1]['timestamp']).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                self.list_relev_section[i+1].loc[:, time_column] = pd.to_datetime(self.list_relev_section[i+1][time_column]) - timedelta(days=diff_days)
+                self.list_relev_section[i+1].loc[:, time_column] = pd.to_datetime(self.list_relev_section[i+1][time_column]).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
                 combined_df = pd.concat([combined_df, self.list_relev_section[i+1]], ignore_index=True)
 
         # Save to a CSV file with comma-delimited format
@@ -119,11 +123,11 @@ class DataExtractor():
 
             relev_df_cleaned = relev_df.dropna(subset=[data_column])
 
-            relev_df_cleaned.loc[:, 'timestamp'] = relev_df_cleaned[time_column].dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+            relev_df_cleaned.loc[:, time_column] = relev_df_cleaned[time_column].dt.strftime('%Y-%m-%dT%H:%M:%SZ')
             relev_df_cleaned = relev_df_cleaned.rename(columns={data_column: "value"})
 
             # Select only the columns you want to save
-            columns_to_save = ['series', 'timestamp', 'value', 'label']  # Specify the desired columns
+            columns_to_save = ['series', time_column, 'value', 'label']  # Specify the desired columns
             filtered_df_short = relev_df_cleaned[columns_to_save]
 
             # Save to a CSV file with comma-delimited format

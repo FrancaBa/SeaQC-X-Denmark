@@ -6,7 +6,6 @@ import datetime
 import os
 import random
 import builtins
-from itertools import tee
 
 import source.helper_methods as helper
 
@@ -52,6 +51,7 @@ class ShiftDetector():
         #test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)]
                    
         for i in range(0,len(df['segments'][shift_points]), 1):
+            print(i)
             start_index = df['segments'][shift_points].index[i]
             if i == len(df['segments'][shift_points])-1:
                 end_index = len(df)
@@ -101,8 +101,8 @@ class ShiftDetector():
                             prev_wl = 0
                         now_wl = relev_df[measurement_column].loc[elem]
                         if (elem) == relev_df.index[-1]:
-                            next_wl = 100 #dummy values so that code works
-                            next2_wl = 200 #dummy values so that code works
+                            next_wl = 100 #dummy values for beginning of segment
+                            next2_wl = 200 #dummy values for beginning of segment
                         else:
                             next_wl = relev_df[measurement_column].loc[elem + 1:].dropna().iloc[0]
                             #print(relev_df.loc[elem + 1:].dropna(), relev_df.index[-1])
