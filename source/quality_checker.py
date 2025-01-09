@@ -30,9 +30,6 @@ class QualityFlagger():
 
         self.helper = helper.HelperMethods()
 
-        #Dummy value for NaN-values in measurement series
-        self.missing_meas_value = 999.000
-
         #to fit a spline
         self.splinelength = 14 #hours
         self.splinedegree = 2 #3
@@ -74,6 +71,10 @@ class QualityFlagger():
         self.measurement_column = measurement_column
         self.qc_column = qc_column
 
+    def set_missing_value_filler(self, missing_meas_value):
+        #Dummy value for NaN-values in measurement series
+        self.missing_meas_value = missing_meas_value 
+
     def import_data(self, path, file):
         """
         Importing the data from csv to df. And some first pre-processing:
@@ -89,14 +90,21 @@ class QualityFlagger():
         - path to file [str]
         - filename including ending [str]
         """
-        #Open file and fix the column names
-        self.df_meas = pd.read_csv(os.path.join(path,file), sep="\\s+", header=None, names=[self.time_column, self.measurement_column, self.qc_column])
-        self.df_meas = self.df_meas[[self.time_column, self.measurement_column]]
-        self.df_meas[self.time_column] = pd.to_datetime(self.df_meas[self.time_column], format='%Y%m%d%H%M%S')
+        if file.endswith(".csv"):
+            #Open .csv file and fix the column names
+            self.df_meas = pd.read_csv(os.path.join(path,file), sep=",", header=0)
+            self.df_meas = self.df_meas[[self.time_column, self.measurement_column]]
+            self.df_meas[self.time_column] = pd.to_datetime(self.df_meas[self.time_column], format='%Y%m%d%H%M%S')
+        else:
+            #Open .dat file and fix the column names
+            self.df_meas = pd.read_csv(os.path.join(path,file), sep="\\s+", header=None, names=[self.time_column, self.measurement_column, self.qc_column])
+            self.df_meas = self.df_meas[[self.time_column, self.measurement_column]]
+            self.df_meas[self.time_column] = pd.to_datetime(self.df_meas[self.time_column], format='%Y%m%d%H%M%S')
         
         #Extract data for manual labelling
         data_extractor = extractor.DataExtractor()
         data_extractor.set_output_folder(self.folder_path, self.station)
+        data_extractor.set_missing_value_filler(self.missing_meas_value)
         data_extractor.run(self.df_meas, self.time_column, self.measurement_column)
 
         #drop seconds
@@ -158,25 +166,10 @@ class QualityFlagger():
         df[self.adapted_meas_col_name] = df[self.measurement_column]
         df_comp = df.copy()
         
-        #Segmentation of ts in empty and measurement segments
-        #Extract measurement segments and fill them accordingly
-        self.segment_column = 'segments'
-        fill_data_qc = qc_fill_data.MissingDataFiller()
-        fill_data_qc.set_output_folder(self.folder_path)
-        df = fill_data_qc.segmentation_ts(df, self.adapted_meas_col_name, self.segment_column)
-
-        #Set short measurement periods between missing data periods as not trustworthy periods
-        df = self.short_bad_measurement_periods(df, self.segment_column)
-
-        df = fill_data_qc.polynomial_fill_data_column(df, self.adapted_meas_col_name, self.time_column, self.segment_column)
-        df = fill_data_qc.polynomial_fitted_data_column(df, self.adapted_meas_col_name, self.time_column, self.segment_column, 'poly_interpolated_data')
-        df = fill_data_qc.spline_fitted_measurement_column(df, self.adapted_meas_col_name, self.time_column, self.segment_column)
-        fill_data_qc.compare_filled_measurements(df, self.time_column, self.segment_column)
-        
         #Runs the different steps in the QC algorithm
         self.run_qc(df)
 
-        #Convert information of passed anf failed tests to flags
+        #Convert information of passed and failed tests to flags
         #TBD
 
         #Check what unsupervised ML would do
@@ -190,7 +183,7 @@ class QualityFlagger():
         #Detect stuck values in ts
         stuck_values = qc_stuck_values.StuckValuesDetector()
         stuck_values.set_output_folder(self.folder_path)
-        df = stuck_values.run(df, self.measurement_column, self.time_column, self.adapted_meas_col_name)
+        df = stuck_values.run(df, self.time_column, self.adapted_meas_col_name)
 
         #Detect global outliers in ts
         global_outliers = qc_global_outliers.OutlierRemover()
@@ -201,12 +194,28 @@ class QualityFlagger():
         interpolated_qc = qc_interpolated.Interpolation_Detector()
         interpolated_qc.set_output_folder(self.folder_path)
         df = interpolated_qc.run_interpolation_detection(df, self.adapted_meas_col_name, self.time_column)
+       
+        #Segmentation of ts in empty and measurement segments
+        #Extract measurement segments and fill them accordingly
+        self.segment_column = 'segments'
+        fill_data_qc = qc_fill_data.MissingDataFiller()
+        fill_data_qc.set_output_folder(self.folder_path)
+        df = fill_data_qc.segmentation_ts(df, self.adapted_meas_col_name, self.segment_column)
+
+        #Set short measurement periods between missing data periods as not trustworthy periods
+        df = self.short_bad_measurement_periods(df, self.segment_column)
+
+        #Add continuous helper columns
+        df = fill_data_qc.polynomial_fill_data_column(df, self.adapted_meas_col_name, self.time_column, self.segment_column)
+        df = fill_data_qc.polynomial_fitted_data_column(df, self.adapted_meas_col_name, self.time_column, self.segment_column, 'poly_interpolated_data')
+        df = fill_data_qc.spline_fitted_measurement_column(df, self.adapted_meas_col_name, self.time_column, self.segment_column)
+        fill_data_qc.compare_filled_measurements(df, self.time_column, self.segment_column)
 
         #Detect implausible change rate over period
         implausible_change = qc_implausible_change.ImplausibleChangeDetector()
         implausible_change.set_output_folder(self.folder_path)
         df = implausible_change.run(df, self.adapted_meas_col_name, self.time_column)
-        
+
         #Detect spike values
         spike_detection = qc_spike.SpikeDetector()
         spike_detection.set_output_folder(self.folder_path)
@@ -214,15 +223,15 @@ class QualityFlagger():
         df = spike_detection.remove_spikes_cotede(df, self.adapted_meas_col_name, self.time_column)
         df = spike_detection.remove_spikes_cotede_improved(df, self.adapted_meas_col_name, self.time_column)
         df = spike_detection.selene_spike_detection(df, self.adapted_meas_col_name, self.time_column, 'spline_fitted_data')
-        #Not really ML and doesn't improve anything (Thus, it is not used!)
-        #df = spike_detection.remove_spikes_ml(df, 'poly_fitted_data', self.adapted_meas_col_name, self.time_column)
         df = spike_detection.remove_spikes_harmonic(df, 'poly_fitted_data', self.adapted_meas_col_name, self.time_column)
-
+        #Not really ML and doesn't improve anything (Thus, it is not used!)
+        df = spike_detection.remove_spikes_ml(df, 'poly_fitted_data', self.adapted_meas_col_name, self.time_column)
+        
         #Detect shifts & deshift values
         shift_detection = qc_shifts.ShiftDetector()
         shift_detection.set_output_folder(self.folder_path)
         #df = shift_detection.detect_shifts_ruptures(df, self.adapted_meas_col_name, 'poly_interpolated_data')
-        df = shift_detection.detect_shifts_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
+        #df = shift_detection.detect_shifts_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
 
         #Probably good data
         #Mark all data as probably good data if it is only a short measurement period between bad data
@@ -316,7 +325,7 @@ class QualityFlagger():
 
     def unsupervised_outlier_detection(self, df, data_column_name, interpolated_data_colum, time_column):
         """
-        Run a simple unsupervised ML algorithm to see how it performs.
+        Run a simple unsupervised ML algorithm to see how it performs in grouping the measurments.
         """
 
         shift_points = (df['segments'] != df['segments'].shift())
