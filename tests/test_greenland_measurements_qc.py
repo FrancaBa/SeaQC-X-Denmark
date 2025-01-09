@@ -1,6 +1,8 @@
-####################################################################
-## Test quality check script for sea level tide gauge data by frb ##
-####################################################################
+########################################################################################
+## Test quality check script for sea level tide gauge data by frb for GronSL (2024/25)##
+## This script runs the QC for all 4/5 stations (1 method for each station)           ##
+########################################################################################
+
 import os, sys
 from pathlib import Path
 import shutil
@@ -17,25 +19,38 @@ class Test_QA_Station(unittest.TestCase):
     #Always run for each test
     def setUp(self):
         #All existing measurements in Greenland
-        self.stations = ['Qaqortoq', 'Ittoqqortoormiit', 'Nuuk', 'Pituffik', 'Upernavik'] 
+        self.stations = ['Qaqortoq', 'Ittoqqortoormiit', 'Nuuk', 'Nuuk1', 'Pituffik', 'Upernavik'] 
 
-        # Coordinates of stations
+        #Coordinates of stations
         coord = {
             'Qaqortoq': (60.7, -46),
             'Ittoqqortoormiit': (70.48, -21.98),
             'Nuuk': (64.16, -51.73),
+            'Nuuk1': (64.16, -51.73),
             'Pituffik': (76.54, -68.8626),
-            'Upernavik': (np.nan, np.nan),
+            'Upernavik': (np.nan, np.nan)
         }
 
-        # dic containing all stations
+        #Generates a dic containing all stations
         dic_stations = {station: coord[station] for station in self.stations}
         print(dic_stations)
 
-        #get measurements
-        self.datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
+        #Set path to measurements
+        self.datadir = '/dmidata/users/frb/greenland_data_raw/Collected_Oct2024'
+        #self.datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
 
-        #get config json
+        #Set other parameter accordingly
+        if self.datadir.endswith('Collected_Oct2024'):
+            self.missing_meas_value = 999.999
+            self.ending = '_data.csv'
+            self.param = 'Height'
+
+        if self.datadir.endswith('Collected_raw'):
+            self.missing_meas_value = 999.000
+            self.ending = '.dba'
+            self.param = 'WaterLevel'
+
+        #Set path to config json
         self.json_path = os.path.join(os.getcwd(), 'config.json')
 
     def test_quality_check_qaqortoq(self):
@@ -43,8 +58,8 @@ class Test_QA_Station(unittest.TestCase):
         #select the station (here: Qaqortoq)
         index_station=0 
         station = self.stations[index_station]
-        sta_filename = station +'.dba'
-
+        sta_filename = station + self.ending
+        
         print(os.getcwd())
 
         #select output folder
@@ -54,7 +69,9 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging = qc_generator.QualityFlagger()
         data_flagging.set_output_folder(output_path)
         data_flagging.load_qf_classification(self.json_path)
-        data_flagging.set_column_names('Timestamp', 'WaterLevel', 'Flag')
+        data_flagging.set_column_names('Timestamp', self.param, 'Flag')
+        data_flagging.set_station(station)
+        data_flagging.set_missing_value_filler(self.missing_meas_value)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -63,7 +80,29 @@ class Test_QA_Station(unittest.TestCase):
         #select the station (here: Ittoqqortoormiit)
         index_station=1
         station = self.stations[index_station]
-        sta_filename = station +'.dba'
+        sta_filename = station + self.ending
+        
+        print(os.getcwd())
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_flagging = qc_generator.QualityFlagger()
+        data_flagging.set_output_folder(output_path)
+        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.set_column_names('Timestamp', self.param, 'Flag')
+        data_flagging.set_station(station)
+        data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.import_data(self.datadir, sta_filename)
+        data_flagging.run()
+    
+    def test_quality_check_nuuk(self):
+
+        #select the station (here: Nuuk)
+        index_station=2
+        station = self.stations[index_station]
+        sta_filename = station + self.ending
 
         print(os.getcwd())
 
@@ -74,9 +113,78 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging = qc_generator.QualityFlagger()
         data_flagging.set_output_folder(output_path)
         data_flagging.load_qf_classification(self.json_path)
-        data_flagging.set_column_names('Timestamp', 'WaterLevel', 'Flag')
+        data_flagging.set_column_names('Timestamp', self.param, 'Flag')
+        data_flagging.set_station(station)
+        data_flagging.set_missing_value_filler(self.missing_meas_value)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
+
+    def test_quality_check_nuuk1(self):
+
+        #select the station (here: Nuuk1)
+        index_station=3
+        station = self.stations[index_station]
+        sta_filename = station + self.ending
+
+        print(os.getcwd())
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_flagging = qc_generator.QualityFlagger()
+        data_flagging.set_output_folder(output_path)
+        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.set_column_names('Timestamp', self.param, 'Flag')
+        data_flagging.set_station(station)
+        data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.import_data(self.datadir, sta_filename)
+        data_flagging.run()
+
+    def test_quality_check_pituffik(self):
+
+        #select the station (here: Pituffik)
+        index_station=4
+        station = self.stations[index_station]
+        sta_filename = station + self.ending
+
+        print(os.getcwd())
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_flagging = qc_generator.QualityFlagger()
+        data_flagging.set_output_folder(output_path)
+        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.set_column_names('Timestamp', self.param, 'Flag')
+        data_flagging.set_station(station)
+        data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.import_data(self.datadir, sta_filename)
+        data_flagging.run()
+
+    def test_quality_check_upernavik(self):
+
+        #select the station (here: Upernavik)
+        index_station=5
+        station = self.stations[index_station]
+        sta_filename = station + self.ending
+
+        print(os.getcwd())
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_flagging = qc_generator.QualityFlagger()
+        data_flagging.set_output_folder(output_path)
+        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.set_column_names('Timestamp', self.param, 'Flag')
+        data_flagging.set_station(station)
+        data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.import_data(self.datadir, sta_filename)
+        data_flagging.run()
+
 
 if __name__ == '__main__':
     unittest.main()
