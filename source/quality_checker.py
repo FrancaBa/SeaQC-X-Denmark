@@ -173,7 +173,7 @@ class QualityFlagger():
         #TBD
 
         #Check what unsupervised ML would do
-        self.unsupervised_outlier_detection(df_comp, self.measurement_column, 'poly_interpolated_data', self.time_column)
+        self.unsupervised_outlier_detection(df_comp, self.measurement_column, 'poly_interpolated_data', self.time_column, self.segment_column)
 
 
     def run_qc(self, df):
@@ -230,8 +230,8 @@ class QualityFlagger():
         #Detect shifts & deshift values
         shift_detection = qc_shifts.ShiftDetector()
         shift_detection.set_output_folder(self.folder_path)
-        #df = shift_detection.detect_shifts_ruptures(df, self.adapted_meas_col_name, 'poly_interpolated_data')
-        #df = shift_detection.detect_shifts_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name)
+        df = shift_detection.detect_shifts_ruptures(df, self.adapted_meas_col_name, 'poly_interpolated_data', self.segment_column)
+        df = shift_detection.detect_shifts_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name, self.segment_column)
 
         #Probably good data
         #Mark all data as probably good data if it is only a short measurement period between bad data
@@ -278,7 +278,7 @@ class QualityFlagger():
         Check if segments are very short or contain a ot of NaN values. If yes, drop those segments as bad segments.
 
         Input:
-        - main dataframe [pandas df]
+        -Main dataframe [pandas df]
         -Column name of segmentation information [str]
         """
         
@@ -323,20 +323,20 @@ class QualityFlagger():
         return data
 
 
-    def unsupervised_outlier_detection(self, df, data_column_name, interpolated_data_colum, time_column):
+    def unsupervised_outlier_detection(self, df, data_column_name, interpolated_data_colum, time_column, segment_column):
         """
         Run a simple unsupervised ML algorithm to see how it performs in grouping the measurments.
         """
 
-        shift_points = (df['segments'] != df['segments'].shift())
+        shift_points = (df[segment_column] != df[segment_column].shift())
 
-        for i in range(0,len(df['segments'][shift_points]), 1):
-            start_index = df['segments'][shift_points].index[i]
-            if i == len(df['segments'][shift_points])-1:
+        for i in range(0,len(df[segment_column][shift_points]), 1):
+            start_index = df[segment_column][shift_points].index[i]
+            if i == len(df[segment_column][shift_points])-1:
                 end_index = len(df)
             else:
-                end_index = df['segments'][shift_points].index[i+1]
-            if df['segments'][start_index] == 0:
+                end_index = df[segment_column][shift_points].index[i+1]
+            if df[segment_column][start_index] == 0:
                 relev_df = df[start_index:end_index]
                 # Prepare data for Isolation Forest
                 # Isolation Forest expects input in a 2D array form

@@ -1,5 +1,5 @@
 {
-  "date_alteration": "09.10.2024",
+  "date_alteration": "10.01.2025",
   "qc_flag_classification": {
     "no_qc": 0,
     "good_data": 1,
@@ -16,11 +16,12 @@
     "missing_data": 1,
     "interpolated_value": 2,
     "stuck_value": 3,
-    "outliers": 4,
+    "global_outliers": 4,
     "spikes": 5,
     "incorrect_format": 6,
-    "drifting_data": 7,
-    "shifted_value": 8,
-    "probably_good_data": 9
+    "bad_segment": 7,
+    "noisy_period": 8,
+    "shifted_value": 9,
+    "probably_good_data": 0
   }
 }

@@ -9,6 +9,8 @@ import builtins
 
 import source.helper_methods as helper
 
+os.environ["PYDEVD_WARN_EVALUATION_TIMEOUT"] = "10"
+
 class ShiftDetector():
 
     def __init__(self):
@@ -42,22 +44,21 @@ class ShiftDetector():
         except StopIteration:
             pass
 
-    def detect_shifts_statistical(self, df, data_column_name, time_column, measurement_column):
+    def detect_shifts_statistical(self, df, data_column_name, time_column, measurement_column, segment_column):
         
         df['shifted_period'] = False
         df['remove_shifted_period'] = df[measurement_column].copy()
-        shift_points = (df['segments'] != df['segments'].shift())
+        segment_points = (df[segment_column] != df[segment_column].shift())
 
         #test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)]
                    
-        for i in range(0,len(df['segments'][shift_points]), 1):
-            print(i)
-            start_index = df['segments'][shift_points].index[i]
-            if i == len(df['segments'][shift_points])-1:
+        for i in range(0,len(df[segment_column][segment_points]), 1):
+            start_index = df[segment_column][segment_points].index[i]
+            if i == len(df[segment_column][segment_points])-1:
                 end_index = len(df)
             else:
-                end_index = df['segments'][shift_points].index[i+1]
-            if df['segments'][start_index] == 0:
+                end_index = df[segment_column][segment_points].index[i+1]
+            if df[segment_column][start_index] == 0:
                 relev_df = df[start_index:end_index]
                 #Get shifted points based on strong gradient
                 relev_df['change'] = np.abs(np.diff(relev_df[data_column_name], append=np.nan))
@@ -69,26 +70,31 @@ class ShiftDetector():
                     # Get indices of non-NaN values in measurement column
                     non_nan_indices = relev_df[~relev_df[measurement_column].isna()].index.to_numpy()
 
-                    chunk_size = 100  # Adjust this based on memory capacity
-                    distances = []
+                    relev_indices = []
 
-                    for i in range(0, len(non_nan_indices), chunk_size): #This loop is only needed because of memory issues.
-                        chunk = non_nan_indices[i:i+chunk_size]
-                        chunk_distances = np.abs(filtered_changepoints[:, np.newaxis] - chunk)
-                        distances.append(chunk_distances)
+                    for elem in filtered_changepoints:
+                        closest_index = np.argmin(np.abs(non_nan_indices - elem))
+                        closest_value = non_nan_indices[closest_index]
+                        relev_indices.append(closest_value)
+
+                    #for i in range(0, len(non_nan_indices), chunk_size): #This loop is only needed because of memory issues.
+                    #    chunk = non_nan_indices[i:i+chunk_size]
+                    #    chunk_distances = np.abs(filtered_changepoints[:, np.newaxis] - chunk)
+                    #    distances.append(chunk_distances)
 
                     # Concatenate the chunks into the final distances array
-                    distances = np.concatenate(distances, axis=1)
+                    #distances = np.concatenate(distances, axis=1)
                     # Compute the absolute difference between target indices and non-NaN indices using broadcasting
                     #Below line causes memory issues, thus use code above
                     #distances = np.abs(np.array(filtered_changepoints)[:, np.newaxis] - non_nan_indices)
 
                     # Find the index of the minimum distance for each target index
-                    numbers = np.unique(non_nan_indices[np.argmin(distances, axis=1)])
-                    print(numbers)
+                    #numbers = np.unique(non_nan_indices[np.argmin(distances, axis=1)])
+                    relev_indices = np.unique(relev_indices)
+                    print(relev_indices)
 
-                    test = []
-                    for elem in numbers:
+                    shift_points = []
+                    for elem in relev_indices:
                         previous_data = relev_df[measurement_column].loc[:elem - 1].dropna()
                         if len(previous_data) >= 2:
                             prev2_wl = previous_data.iloc[-2]
@@ -111,21 +117,16 @@ class ShiftDetector():
                             else:
                                 next2_wl = relev_df[measurement_column].loc[elem + 1:].dropna().iloc[1]
                         if abs(next2_wl-next_wl) < 0.06 and abs(now_wl-next_wl) > 0.3 and abs(prev_wl-now_wl) < 0.06:
-                            test.append(elem)
+                            shift_points.append(elem)
                         elif abs(next_wl-now_wl) < 0.06 and abs(prev_wl-now_wl) > 0.3 and abs(prev2_wl-prev_wl) < 0.06:
-                            test.append(elem)
+                            shift_points.append(elem)
+
+                    if shift_points:
+                        filtered_elements = [shift_points[0]] + [current for previous, current in zip(shift_points, shift_points[1:]) if current - previous <= 60]
+                        for elem in filtered_elements:
+                            df['shifted_period'][elem-60:elem+60] = True
+                            df['remove_shifted_period'][elem-60:elem+60] = np.nan
                     
-                    print(len(test))
-                    if test:
-                        #Trying to remove shift back from short shifts
-                        filtered_elements = self.filter_elements_lazy(test)
-                        #filtered_elements = [test[0]] + [current for previous, current in zip(test, test[1:]) if current - previous <= 60]
-                        print('hey2')
-                        df['shifted_period'][filtered_elements] = True
-                        df['remove_shifted_period'][filtered_elements] = np.nan
-                    print('here2')   
-                    
-        print('here')
         true_indices = df['shifted_period'][df['shifted_period']].index
         for i in range(0, 41):
             min = builtins.max(0,(random.choice(true_indices))-2000)
@@ -142,17 +143,17 @@ class ShiftDetector():
         return df
 
 
-    def detect_shifts_ruptures(self, df, data_column_name, interpolated_data_colum):
+    def detect_shifts_ruptures(self, df, data_column_name, interpolated_data_colum, segment_column):
 
-        shift_points = (df['segments'] != df['segments'].shift())
+        shift_points = (df[segment_column] != df[segment_column].shift())
 
-        for i in range(0,len(df['segments'][shift_points]), 1):
-            start_index = df['segments'][shift_points].index[i]
-            if i == len(df['segments'][shift_points])-1:
+        for i in range(0,len(df[segment_column][shift_points]), 1):
+            start_index = df[segment_column][shift_points].index[i]
+            if i == len(df[segment_column][shift_points])-1:
                 end_index = len(df)
             else:
-                end_index = df['segments'][shift_points].index[i+1]
-            if df['segments'][start_index] == 0:
+                end_index = df[segment_column][shift_points].index[i+1]
+            if df[segment_column][start_index] == 0:
                 if not np.isnan(df[data_column_name][start_index]):
                     # Detect shifts in mean using Pruned Exact Linear Time approach
                     #l2: For detecting shifts in the mean.
