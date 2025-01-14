@@ -15,8 +15,8 @@ class ProbablyGoodDataFlagger():
     def __init__(self):
         self.helper = helper.HelperMethods()
 
-        #Define periods with less then 1 hour of good measurements between bad measurements as probably good 
-        self.probably_good_threshold = 60
+        #Define periods with less then 10 min of good measurements between bad measurements as probably good 
+        self.probably_good_threshold = 10
 
     def set_output_folder(self, folder_path):
         folder_path = os.path.join(folder_path,'probably good periods')
@@ -28,7 +28,7 @@ class ProbablyGoodDataFlagger():
         self.helper.set_output_folder(folder_path)
 
 
-    def run(self, data, adapted_meas_col_name, time_column, measurement_column):
+    def run(self, data, adapted_meas_col_name, time_column, measurement_column, information):
         """
         Based on a mask counting the consecutive false (good data as tests have been negativ), define probably good periods. Data is good, 
         but surrounded by a lot of bad data which makes it a little bit less important.
@@ -41,6 +41,12 @@ class ProbablyGoodDataFlagger():
         """
 
         boolean_columns = data.select_dtypes(include='bool')
+        #statement for analysis
+        all_combined = boolean_columns.any(axis=1)
+        ratio = (all_combined.sum()/len(data))*100
+        print(f"There are {all_combined.sum()} elements in this timeseries which have been flagged by different QC tests. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {all_combined.sum()} elements in this timeseries which have been flagged by different QC tests. This is {ratio}% of the overall dataset."])
+        
         del boolean_columns['missing_values']
         combined = boolean_columns.any(axis=1)
         data['combined_mask'] = combined
@@ -48,12 +54,16 @@ class ProbablyGoodDataFlagger():
         # Apply the function to the column
         data['probably_good_mask'] = self.mask_fewer_than_x_consecutive_false(data['combined_mask'])
 
-        #Check if selection is a noisy period and yes, remove value
+        #Check if selection is a probably good period and yes, remove value
         data[adapted_meas_col_name] = np.where(data['probably_good_mask'], np.nan, data[adapted_meas_col_name])
 
         ratio = (data['probably_good_mask'].sum()/len(data))*100
         print(f"There are {data['probably_good_mask'].sum()} elements in this timeseries which have failed subtests around them and split the segements to not by default trustworthy. This is {ratio}% of the overall dataset.")
-
+        information.append([f"There are {data['probably_good_mask'].sum()} elements in this timeseries which have failed subtests around them and split the segements to not by default trustworthy. This is {ratio}% of the overall dataset."])
+        ratio = ((data['probably_good_mask'].sum()+all_combined.sum())/len(data))*100
+        print(f"In total, there are {(data['probably_good_mask'].sum()+all_combined.sum())} flagged elements in this timeseries. This is {ratio}% of the overall dataset.")
+        information.append([f"In total, there are {(data['probably_good_mask'].sum()+all_combined.sum())} flagged elements in this timeseries. This is {ratio}% of the overall dataset."])
+        
         #Plot marked periods to check
         if data['probably_good_mask'].any():
             true_indices = data['probably_good_mask'][data['probably_good_mask']].index
@@ -90,4 +100,7 @@ class ProbablyGoodDataFlagger():
             if end - start >= self.probably_good_threshold:
                 mask[start:end] = False
 
-        return mask
+        #If value already true in previous test and not only now because of neighbours, set them to False
+        mask_corrected = np.where((mask == True) & (is_false == False), False, mask)
+
+        return mask_corrected

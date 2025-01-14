@@ -45,7 +45,7 @@ class MissingDataFiller():
         self.helper.set_output_folder(folder_path)
 
 
-    def segmentation_ts(self, data, data_column, segment_column):
+    def segmentation_ts(self, data, data_column, segment_column, information):
         """
         Splits timeseries in various segments based on empty periods between measurements. If empty period longer than self.nan_threshold (here: 375 min or 6 hours), then make a new segment.
 
@@ -74,6 +74,7 @@ class MissingDataFiller():
         #Get number of segments
         shift_points = (data[segment_column] != data[segment_column].shift())
         print(f'This measurement series contains {len(data[segment_column][shift_points])/2} segments with measurements.')
+        information.append([f'This measurement series contains {len(data[segment_column][shift_points])/2} segments with measurements.'])
 
         return data
     

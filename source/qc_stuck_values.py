@@ -26,7 +26,7 @@ class StuckValuesDetector():
         self.helper.set_output_folder(self.folder_path)
 
 
-    def run(self, df_meas_long, time_column, adapted_meas_col_name):
+    def run(self, df_meas_long, time_column, adapted_meas_col_name, information):
 
         df_meas_long['test'] = df_meas_long[adapted_meas_col_name].copy()
 
@@ -54,7 +54,8 @@ class StuckValuesDetector():
         if constant_mask.any():
             ratio = (constant_mask.sum()/len(df_meas_long))*100
             print(f"There are {constant_mask.sum()} constant values in this timeseries. This is {ratio}% of the overall dataset.")
-        
+            information.append([f"There are {constant_mask.sum()} constant values in this timeseries. This is {ratio}% of the overall dataset."])
+            
         del df_meas_long['test']
 
         return df_meas_long

@@ -1,3 +1,9 @@
+#########################################################################################################
+## Written by frb for GronSL project (2024-2025)                                                       ##
+## This scipt chaecks for shifts from the mean measurement searies.                                    ##
+## Two approaches (Ruptures and a statistical offset) are applied, but they direct diffferent offsets. ##
+#########################################################################################################
+
 import numpy as np
 import pandas as pandas
 import ruptures as rpt
@@ -31,20 +37,7 @@ class ShiftDetector():
 
         self.helper.set_output_folder(folder_path)
 
-    def filter_elements_lazy(self, test):
-        """Yields filtered elements lazily to save memory."""
-        it = iter(test)  # Turn the input into an iterator
-        try:
-            previous = next(it)  # Get the first element
-            yield previous  # Always include the first element
-            for current in it:  # Iterate through the rest
-                if current - previous <= 60:
-                    yield current
-                previous = current
-        except StopIteration:
-            pass
-
-    def detect_shifts_statistical(self, df, data_column_name, time_column, measurement_column, segment_column):
+    def detect_shifts_statistical(self, df, data_column_name, time_column, measurement_column, segment_column, information):
         
         df['shifted_period'] = False
         df['remove_shifted_period'] = df[measurement_column].copy()
@@ -77,21 +70,7 @@ class ShiftDetector():
                         closest_value = non_nan_indices[closest_index]
                         relev_indices.append(closest_value)
 
-                    #for i in range(0, len(non_nan_indices), chunk_size): #This loop is only needed because of memory issues.
-                    #    chunk = non_nan_indices[i:i+chunk_size]
-                    #    chunk_distances = np.abs(filtered_changepoints[:, np.newaxis] - chunk)
-                    #    distances.append(chunk_distances)
-
-                    # Concatenate the chunks into the final distances array
-                    #distances = np.concatenate(distances, axis=1)
-                    # Compute the absolute difference between target indices and non-NaN indices using broadcasting
-                    #Below line causes memory issues, thus use code above
-                    #distances = np.abs(np.array(filtered_changepoints)[:, np.newaxis] - non_nan_indices)
-
-                    # Find the index of the minimum distance for each target index
-                    #numbers = np.unique(non_nan_indices[np.argmin(distances, axis=1)])
                     relev_indices = np.unique(relev_indices)
-                    print(relev_indices)
 
                     shift_points = []
                     for elem in relev_indices:
@@ -128,24 +107,28 @@ class ShiftDetector():
                             df['remove_shifted_period'][elem-60:elem+60] = np.nan
                     
         true_indices = df['shifted_period'][df['shifted_period']].index
-        for i in range(0, 41):
-            min = builtins.max(0,(random.choice(true_indices))-2000)
-            max = min + 2000                
-            self.helper.plot_two_df_same_axis(df.loc[min:max,time_column], df.loc[min:max, 'remove_shifted_period'],'Water Level', 'Water Level (corrected)', df.loc[min:max, measurement_column], 'Timestamp ', 'Values removed', f'Statistical Shift {i}')
-        
-        #print details on the small distribution check
+
+        if true_indices.any():
+            for i in range(0, 41):
+                min = builtins.max(0,(random.choice(true_indices))-2000)
+                max = min + 2000                
+                self.helper.plot_two_df_same_axis(df.loc[min:max,time_column], df.loc[min:max, 'remove_shifted_period'],'Water Level', 'Water Level (corrected)', df.loc[min:max, measurement_column], 'Timestamp ', 'Values removed', f'Statistical Shift {i}')
+            
+        #print details on the smaller (and shorter shifts)
         if df['shifted_period'].any():
             ratio = (df['shifted_period'].sum()/len(df))*100
             print(f"There are {df['shifted_period'].sum()} shifted values in periods. This is {ratio}% of the overall dataset.")
+            information.append([f"There are {df['shifted_period'].sum()} shifted values in periods. This is {ratio}% of the overall dataset."])
 
         del df['remove_shifted_period']
 
         return df
 
 
-    def detect_shifts_ruptures(self, df, data_column_name, interpolated_data_colum, segment_column):
+    def detect_shifts_ruptures(self, df, data_column_name, time_column, interpolated_data_colum, segment_column, information):
 
         shift_points = (df[segment_column] != df[segment_column].shift())
+        all_changepoints = []
 
         for i in range(0,len(df[segment_column][shift_points]), 1):
             start_index = df[segment_column][shift_points].index[i]
@@ -174,24 +157,40 @@ class ShiftDetector():
                     #change_points = algo.predict(n_bkps=test)
                     #print(datetime.datetime.now())
                     #change_points = algo.predict(pen=500)
-                    change_points = algo.predict(pen=2500)
+                    change_points = algo.predict(pen= 1500)
                     print(datetime.datetime.now())
 
-                    # Plot the results
+                    #Remove end point from a segment as shift point and correct index
                     if change_points:
-                        for z in range(0, len(change_points)-1):
+                        change_points = [x + start_index for x in change_points]
+                        change_points = [x for x in change_points if x != end_index]
+                        if change_points:
+                            #Collect all shift points
+                            all_changepoints.append(change_points)
+                            # Plot the results
+                            for z in range(0, len(change_points)-1):
+                                plt.figure(figsize=(10, 6))
+                                rpt.display(df[interpolated_data_colum][start_index:end_index].values, change_points)
+                                plt.xlim(change_points[z]-1500, change_points[z]+1500)  # Limit the x-axis to focus on  certain indices
+                                plt.title(f"Ruptures - Change Point Detection in Time Series - Graph {i, z}")
+                                plt.savefig(os.path.join(self.folder_path_ruptures,f"change_point_detection_plot{i, z}.png"))
+                                plt.close()
+
+                            # Step 3: Visualize the detected change points
                             plt.figure(figsize=(10, 6))
                             rpt.display(df[interpolated_data_colum][start_index:end_index].values, change_points)
-                            plt.xlim(change_points[z]-1500, change_points[z]+1500)  # Limit the x-axis to focus on  certain indices
-                            plt.title(f"Change Point Detection in Time Series - Graph {i, z}")
-                            plt.savefig(os.path.join(self.folder_path_ruptures,f"change_point_detection_plot{i, z}.png"))
+                            plt.title(f"Ruptures - Change Point Detection in Time Series - Graph {i}")
+                            plt.savefig(os.path.join(self.folder_path_ruptures,f"change_point_detection_plot{i}.png")) 
                             plt.close()
 
-                    # Step 3: Visualize the detected change points
-                    plt.figure(figsize=(10, 6))
-                    rpt.display(df[interpolated_data_colum][start_index:end_index].values, change_points)
-                    plt.title(f"Change Point Detection in Time Series - Graph {i}")
-                    plt.savefig(os.path.join(self.folder_path_ruptures,f"change_point_detection_plot{i}.png")) 
-                    plt.close()
-
+        if all_changepoints:
+            ratio = (len(all_changepoints)/len(df))*100
+            print(f"There are {len(all_changepoints)} changepoints according to Ruptures in this period. This is {ratio}% of the overall dataset.")
+            information.append([f"There are {len(all_changepoints)} changepoints according to Ruptures in this period. This is {ratio}% of the overall dataset."])
+            length = builtins.min(30, len(all_changepoints))
+            for i in range(0, length):
+                min = builtins.max(0,(all_changepoints[i])-2000)
+                max = min + 2000                
+                self.helper.plot_df(df.loc[min:max,time_column], df.loc[min:max, data_column_name],'Water Level', 'Timestamp ', f'Reptures - Shift {i}')
+                        
         return df

@@ -1,5 +1,5 @@
 {
-  "date_alteration": "10.01.2025",
+  "date_alteration": "13.01.2025",
   "qc_flag_classification": {
     "no_qc": 0,
     "good_data": 1,
@@ -7,21 +7,21 @@
     "bad_data_correctable": 3,
     "bad_data": 4,
     "shifted_value": 5,
-    "outliers": 6, 
+    "spikes": 6, 
     "stuck_value": 7,
     "interpolated_value": 8,
     "missing_data": 9
   },
    "qc_binary_classification": {
-    "missing_data": 1,
-    "interpolated_value": 2,
-    "stuck_value": 3,
-    "global_outliers": 4,
-    "spikes": 5,
-    "incorrect_format": 6,
-    "bad_segment": 7,
-    "noisy_period": 8,
-    "shifted_value": 9,
-    "probably_good_data": 0
+    "shifted_value": 1,
+    "noisy_period": 2,
+    "probably_good_data": 4,
+    "stuck_value": 8,
+    "global_outliers": 16,
+    "spikes": 32,
+    "incorrect_format": 64,
+    "bad_segment": 128,
+    "interpolated_value": 256,
+    "missing_data": 512
   }
 }

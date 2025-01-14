@@ -19,24 +19,48 @@ This is an example and doesn't corresponds to the bits used here!!
 
 See an example:
 
-- Bit 0 (Data missing): 00001
-- Bit 1 (Outlier): 00010
-- Bit 2 (Instrument error): 00100
-- Bit 3 (Drift detected): 01000
-- Bit 4 (Interference suspected): 10000
+- Bit 0: Shifted period
+- Bit 1: Noisy data period
+- Bit 2: Probably good data
+- Bit 3: Stuck value
+- Bit 4: Global outlier
+- Bit 5: Spike
+- Bit 6: Incorrect format
+- Bit 7: Bad segment
+- Bit 8: Interpolated value
+- Bit 9: Missing data
 
-When a data point has multiple issues, the corresponding bits are set to 1. So, for a data point wich is missing (0) and an outlier (2) the bitmask would be:
-- Data missing (0) and Outlier (1) : 00011
+Each of these conditions can be represented as a specific bit in a 10-bit binary number. The bits are assigned the following powers of 2:
 
-Based on the bitmask, IOOS flags are assigned to the measurement point. F.e. missing data equals flag 9 in IOOS.
+- Bit 0 (Shifted period): 00000 00001 → 1
+- Bit 1 (Noisy data period): 00000 00010 → 2
+- Bit 2 (Probably good data): 00000 00100 → 4
+- Bit 3 (Stuck value): 00000 01000 → 8
+- Bit 4 (Global outlier): 00000 10000 → 16
+- Bit 5 (Spike): 00001 00000 → 32
+- Bit 6 (Incorrect format): 00010 00000 → 64
+- Bit 7 (Bad segment): 00100 00000 → 128
+- Bit 8 (Interpolated data): 01000 0000 → 256
+- Bit 9 (Missing data): 10000 00000 → 512
 
-1. Good data (00000)
-2. Not evaluated (no bitmask exists)
-3. Correctable data (01000, 10000, 11000)
-4. Bad data (00100, 00010, 00110)
-9. Missing data (00001)
+When a data point has multiple issues, the corresponding bits are set to 1, and the flags are combined using the bitwise OR operation. For example, if a data point is both a stuck value and a global outlier, you would combine the flags as follows:
 
-This appraoch is also followed in this project. There is config.json containing the used IOOS flags and the bitmask used for each QC test. Users can adapt the wanted flags in the config.json and then in the corresponing source code assign certain bitmasks to a flag.
+- Stuck Value(3) | Global Outlier (4): 00000 11000 → 24
+
+Based on the bitmask, IOC flags are assigned to the measurement point. F.e. missing data equals flag 9 in IOC.
+
+0. no quality check carried out
+1. good_data (no bit)
+2. probably good data (Bit 2)
+3. bad data, but correctable through other parameters or knowledge (Bit 1 and Bit 7)
+4. bad data (Bit 4 and Bit 6)
+5. shifted value (= period of series is offset towards to mean) (Bit 0)
+6. spikes (= smaller local outlier) (Bit 5)
+7. stuck value (= constant value over a time) (Bit 3)
+8. linear interpolated value (Bit 8)
+9. missing data in timeseries, but timestamp is there (Bit 9)
+
+This approach is also followed in this project. There is config.json containing the used IOC flags and the bitmask used for each QC test. Users can adapt the wanted flags in the config.json and then in the corresponing source code assign certain bitmasks to a flag.
 
 ## Applied Quality Tests
 The following steps are part of the quality check:
