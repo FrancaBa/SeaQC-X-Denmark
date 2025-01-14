@@ -60,14 +60,29 @@ class DataExtractor():
             self.extract_period(filtered_df, time_column, data_column, '2023', '10', '10', '01', '10')
             self.extract_period(filtered_df, time_column, data_column, '2023', '11', '11', '13', '30')
             self.extract_period(filtered_df, time_column, data_column, '2023', '12', '12', '25', '31')
-
         elif self.station == 'Qaqortoq':
             self.extract_period(filtered_df, time_column, data_column, '2008', '10', '10', '1', '10')
             self.extract_period(filtered_df, time_column, data_column, '2014', '01', '01', '22', '30')
             self.extract_period(filtered_df, time_column, data_column, '2015', '07', '07', '02', '23')  
             self.extract_period(filtered_df, time_column, data_column, '2018', '05', '05', '03', '20')
             self.extract_period(filtered_df, time_column, data_column, '2023', '07', '07', '01', '10')
-                     
+        elif self.station == 'Nuuk':
+            print('hey')
+            return
+        elif self.station == 'Nuuk1':
+            print('hey')
+            return
+        elif self.station == 'Pituffik':
+            print('hey')
+            return
+        elif self.station == 'Upernavik1':
+            print('hey')
+            return
+        elif self.station == 'Upernavik2':   
+            print('hey')
+            return        
+        else:
+            return 
 
         #Combine all relevant sections to a long ts
         long_df = pd.concat(self.list_relev_section, ignore_index=True)

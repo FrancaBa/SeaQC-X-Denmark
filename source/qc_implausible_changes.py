@@ -34,7 +34,7 @@ class ImplausibleChangeDetector():
         self.helper.set_output_folder(self.folder_path)
 
 
-    def run(self, df, adapted_meas_col_name, time_column):
+    def run(self, df, adapted_meas_col_name, time_column, information):
         """
         Based on neighboring values, detect the change in cm per time. If single big change over a longer period, mark it as spike. 
         If several smaller changes in a period, mark it as noisy period.
@@ -58,8 +58,8 @@ class ImplausibleChangeDetector():
         outlier_change_rate= df['change'] > self.threshold_max_change
         distributed_periods = df['change'] > self.shifting_periods
 
-        self.run_single_spikes(df, outlier_change_rate, adapted_meas_col_name, time_column)
-        self.run_noisy_periods(df, distributed_periods, adapted_meas_col_name, time_column)
+        self.run_single_spikes(df, outlier_change_rate, adapted_meas_col_name, time_column, information)
+        self.run_noisy_periods(df, distributed_periods, adapted_meas_col_name, time_column, information)
 
         del df['change']
         del df['next_neighbour']
@@ -95,7 +95,7 @@ class ImplausibleChangeDetector():
 
         return outlier_change_rate
     
-    def run_single_spikes(self, df, outlier_change_rate, adapted_meas_col_name, time_column):
+    def run_single_spikes(self, df, outlier_change_rate, adapted_meas_col_name, time_column, information):
         df['test'] = df[adapted_meas_col_name].copy()
         # When shifting back from outliers, there is a large jump again. Make sure that those jumps are not marked as outlier! This is not working 100%
         outlier_change_rate = self.extract_outlier(outlier_change_rate)
@@ -129,11 +129,12 @@ class ImplausibleChangeDetector():
 
             ratio = (df['outlier_change_rate'].sum()/len(df))*100
             print(f"There are {df['outlier_change_rate'].sum()} outliers in this timeseries which change their level within 15 min too much. This is {ratio}% of the overall dataset.")
-        
+            information.append([f"There are {df['outlier_change_rate'].sum()} outliers in this timeseries which change their level within 15 min too much. This is {ratio}% of the overall dataset."])
+
         del df['test']
 
 
-    def run_noisy_periods(self, df, distributed_periods, adapted_meas_col_name, time_column):
+    def run_noisy_periods(self, df, distributed_periods, adapted_meas_col_name, time_column, information):
 
         df['noisy_period'] = False
         df['test'] = df[adapted_meas_col_name].copy()
@@ -156,6 +157,7 @@ class ImplausibleChangeDetector():
 
         ratio = (df['noisy_period'].sum()/len(df))*100
         print(f"There are {df['noisy_period'].sum()} noisy periods in this timeseries which change their level within a short timeframe a lot. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {df['noisy_period'].sum()} noisy periods in this timeseries which change their level within a short timeframe a lot. This is {ratio}% of the overall dataset."])
 
         #Plot marked periods to check
         if df['noisy_period'].any():

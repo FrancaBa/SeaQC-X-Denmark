@@ -26,7 +26,7 @@ class OutlierRemover():
 
         self.helper.set_output_folder(self.folder_path)
     
-    def run(self, df_meas_long, adapted_meas_col_name, time_column, measurement_column):
+    def run(self, df_meas_long, adapted_meas_col_name, time_column, measurement_column, information):
 
         # Quantile Detection for large range outliers
         # Calculate the interquartile range (IQR)
@@ -56,7 +56,8 @@ class OutlierRemover():
           
             ratio = (outlier_mask.sum()/len(df_meas_long))*100
             print(f"There are {outlier_mask.sum()} outliers in this timeseries. This is {ratio}% of the overall dataset.")
-        
+            information.append([f"There are {outlier_mask.sum()} outliers in this timeseries. This is {ratio}% of the overall dataset."])
+
         #Plot distribution for analysis after outlier removal
         plt.hist(df_meas_long[adapted_meas_col_name] , bins=300, edgecolor='black', alpha=0.7)
         plt.title('Distribution of Values')

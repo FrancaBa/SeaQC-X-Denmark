@@ -34,7 +34,7 @@ class Interpolation_Detector():
         self.helper.set_output_folder(folder_path)
 
 
-    def run_interpolation_detection(self, data, value_column, column_time):
+    def run_interpolation_detection(self, data, value_column, column_time, information):
         """
         Mark all periods which are probably linear interpolated. This means periods that have a constant slope over self.window_size_const_gradient (now 7 timesteps).
 
@@ -54,7 +54,8 @@ class Interpolation_Detector():
         if gradient_mask.any():
             ratio = (gradient_mask.sum()/len(data))*100
             print(f"There are {gradient_mask.sum()} interpolated values in this timeseries. This is {ratio}% of the overall dataset.")
-        
+            information.append([f"There are {gradient_mask.sum()} interpolated values in this timeseries. This is {ratio}% of the overall dataset."])
+
         return data
     
 
