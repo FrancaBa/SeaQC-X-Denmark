@@ -51,10 +51,9 @@ class Interpolation_Detector():
         #Flag the interpolated periods in boolean mask
         data['interpolated_value'] = gradient_mask
 
-        if gradient_mask.any():
-            ratio = (gradient_mask.sum()/len(data))*100
-            print(f"There are {gradient_mask.sum()} interpolated values in this timeseries. This is {ratio}% of the overall dataset.")
-            information.append([f"There are {gradient_mask.sum()} interpolated values in this timeseries. This is {ratio}% of the overall dataset."])
+        ratio = (gradient_mask.sum()/len(data))*100
+        print(f"There are {gradient_mask.sum()} interpolated values in this timeseries. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {gradient_mask.sum()} interpolated values in this timeseries. This is {ratio}% of the overall dataset."])
 
         return data
     

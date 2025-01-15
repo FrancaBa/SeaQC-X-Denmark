@@ -127,9 +127,9 @@ class ImplausibleChangeDetector():
                 max = min + 400
                 self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[adapted_meas_col_name][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-Implausible change rate detected {i}')
 
-            ratio = (df['outlier_change_rate'].sum()/len(df))*100
-            print(f"There are {df['outlier_change_rate'].sum()} outliers in this timeseries which change their level within 15 min too much. This is {ratio}% of the overall dataset.")
-            information.append([f"There are {df['outlier_change_rate'].sum()} outliers in this timeseries which change their level within 15 min too much. This is {ratio}% of the overall dataset."])
+        ratio = (df['outlier_change_rate'].sum()/len(df))*100
+        print(f"There are {df['outlier_change_rate'].sum()} outliers in this timeseries which change their level within 15 min too much. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {df['outlier_change_rate'].sum()} outliers in this timeseries which change their level within 15 min too much. This is {ratio}% of the overall dataset."])
 
         del df['test']
 

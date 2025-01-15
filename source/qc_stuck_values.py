@@ -48,13 +48,12 @@ class StuckValuesDetector():
         if constant_mask.any():
             true_indices = constant_mask[constant_mask].index
             self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[0]-30:true_indices[0]+50], df_meas_long['test'][true_indices[0]-30:true_indices[0]+50],'Water Level', 'Water Level',  df_meas_long[adapted_meas_col_name][true_indices[0]-30:true_indices[0]+50], 'Timestamp', 'WL removed','Constant period in TS')
-            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[-1]-30:true_indices[-1]+50], df_meas_long['test'][true_indices[-1]-30:true_indices[-1]+50],'Water Level', 'Water Level', df_meas_long[adapted_meas_col_name][true_indices[0]-30:true_indices[0]+50], 'Timestamp', 'WL removed','Constant period in TS (2)')
+            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[-1]-30:true_indices[-1]+50], df_meas_long['test'][true_indices[-1]-30:true_indices[-1]+50],'Water Level', 'Water Level', df_meas_long[adapted_meas_col_name][true_indices[-1]-30:true_indices[-1]+50], 'Timestamp', 'WL removed','Constant period in TS (2)')
 
         #print details on the constant value check
-        if constant_mask.any():
-            ratio = (constant_mask.sum()/len(df_meas_long))*100
-            print(f"There are {constant_mask.sum()} constant values in this timeseries. This is {ratio}% of the overall dataset.")
-            information.append([f"There are {constant_mask.sum()} constant values in this timeseries. This is {ratio}% of the overall dataset."])
+        ratio = (constant_mask.sum()/len(df_meas_long))*100
+        print(f"There are {constant_mask.sum()} constant values in this timeseries. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {constant_mask.sum()} constant values in this timeseries. This is {ratio}% of the overall dataset."])
             
         del df_meas_long['test']
 
