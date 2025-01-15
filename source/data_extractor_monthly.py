@@ -50,37 +50,70 @@ class DataExtractor():
         filtered_df['series'] = 'seriesA'
 
         if self.station == 'Ittoqqortoormiit':
-            self.extract_period(filtered_df, time_column, data_column, '2009', '06', '06', '07', '13')
-            self.extract_period(filtered_df, time_column, data_column, '2011', '03', '03', '05', '17')
-            self.extract_period(filtered_df, time_column, data_column, '2013', '08', '11', '20', '08')
-            self.extract_period(filtered_df, time_column, data_column, '2017', '03', '05', '10', '25')        
-            self.extract_period(filtered_df, time_column, data_column, '2019', '06', '06', '01', '10')
-            self.extract_period(filtered_df, time_column, data_column, '2022', '06', '06', '25', '30')
+            self.extract_period(filtered_df, time_column, data_column, '2011', '03', '03', '01', '17')
+            self.extract_period(filtered_df, time_column, data_column, '2011', '05', '05', '01', '07')
+            self.extract_period(filtered_df, time_column, data_column, '2012', '06', '07', '15', '03')
+            self.extract_period(filtered_df, time_column, data_column, '2013', '08', '11', '10', '20')
+            self.extract_period(filtered_df, time_column, data_column, '2015', '07', '07', '01', '05')
+            self.extract_period(filtered_df, time_column, data_column, '2017', '03', '05', '10', '25')  
+            self.extract_period(filtered_df, time_column, data_column, '2019', '01', '01', '16', '23')      
+            self.extract_period(filtered_df, time_column, data_column, '2019', '05', '05', '11', '26') 
+            self.extract_period(filtered_df, time_column, data_column, '2019', '06', '06', '01', '20')
+            self.extract_period(filtered_df, time_column, data_column, '2020', '12', '12', '22', '31')
+            self.extract_period(filtered_df, time_column, data_column, '2022', '03', '03', '14', '18')
+            self.extract_period(filtered_df, time_column, data_column, '2022', '06', '07', '25', '05')
             self.extract_period(filtered_df, time_column, data_column, '2023', '03', '04', '30', '05')
+            self.extract_period(filtered_df, time_column, data_column, '2023', '06', '07', '07', '05')
             self.extract_period(filtered_df, time_column, data_column, '2023', '10', '10', '01', '10')
             self.extract_period(filtered_df, time_column, data_column, '2023', '11', '11', '13', '30')
             self.extract_period(filtered_df, time_column, data_column, '2023', '12', '12', '25', '31')
         elif self.station == 'Qaqortoq':
-            self.extract_period(filtered_df, time_column, data_column, '2008', '10', '10', '1', '10')
+            self.extract_period(filtered_df, time_column, data_column, '2006', '02', '03', '01', '10')
+            self.extract_period(filtered_df, time_column, data_column, '2008', '06', '07', '20', '05')
+            self.extract_period(filtered_df, time_column, data_column, '2008', '10', '10', '01', '20')
+            self.extract_period(filtered_df, time_column, data_column, '2011', '11', '11', '15', '24')
             self.extract_period(filtered_df, time_column, data_column, '2014', '01', '01', '22', '30')
             self.extract_period(filtered_df, time_column, data_column, '2015', '07', '07', '02', '23')  
             self.extract_period(filtered_df, time_column, data_column, '2018', '05', '05', '03', '20')
+            self.extract_period(filtered_df, time_column, data_column, '2022', '10', '10', '01', '20')
+            self.extract_period(filtered_df, time_column, data_column, '2023', '10', '10', '20', '30')
             self.extract_period(filtered_df, time_column, data_column, '2023', '07', '07', '01', '10')
+            self.extract_period(filtered_df, time_column, data_column, '2024', '06', '07', '25', '10')
         elif self.station == 'Nuuk':
-            print('hey')
-            return
+            self.extract_period(filtered_df, time_column, data_column, '2014', '11', '11', '20', '22')
+            self.extract_period(filtered_df, time_column, data_column, '2014', '12', '12', '27', '29')
+            self.extract_period(filtered_df, time_column, data_column, '2016', '09', '10', '01', '25') 
+            self.extract_period(filtered_df, time_column, data_column, '2017', '04', '04', '15', '25') 
+            self.extract_period(filtered_df, time_column, data_column, '2020', '11', '11', '15', '30') 
+            self.extract_period(filtered_df, time_column, data_column, '2020', '12', '12', '15', '30')
+            self.extract_period(filtered_df, time_column, data_column, '2022', '02', '02', '01', '10') 
         elif self.station == 'Nuuk1':
-            print('hey')
-            return
+            self.extract_period(filtered_df, time_column, data_column, '2022', '11', '12', '27', '12')
+            self.extract_period(filtered_df, time_column, data_column, '2023', '04', '04', '10', '25') 
+            self.extract_period(filtered_df, time_column, data_column, '2023', '11', '11', '15', '25') 
+            self.extract_period(filtered_df, time_column, data_column, '2024', '02', '02', '15', '20') 
         elif self.station == 'Pituffik':
-            print('hey')
-            return
+            self.extract_period(filtered_df, time_column, data_column, '2007', '07', '08', '22', '05')
+            self.extract_period(filtered_df, time_column, data_column, '2007', '09', '09', '09', '21')
+            self.extract_period(filtered_df, time_column, data_column, '2008', '08', '08', '10', '20')        
+            self.extract_period(filtered_df, time_column, data_column, '2016', '02', '02', '01', '29')
+            self.extract_period(filtered_df, time_column, data_column, '2016', '03', '03', '01', '30')
+            self.extract_period(filtered_df, time_column, data_column, '2017', '11', '11', '01', '05')
+            self.extract_period(filtered_df, time_column, data_column, '2019', '01', '01', '13', '19')
+            self.extract_period(filtered_df, time_column, data_column, '2020', '09', '09', '01', '30')
+            self.extract_period(filtered_df, time_column, data_column, '2022', '09', '09', '13', '25')
+            self.extract_period(filtered_df, time_column, data_column, '2023', '09', '09', '01', '15')
+            self.extract_period(filtered_df, time_column, data_column, '2023', '12', '12', '10', '20')
+            self.extract_period(filtered_df, time_column, data_column, '2024', '03', '03', '01', '10')
+            self.extract_period(filtered_df, time_column, data_column, '2024', '05', '05', '20', '30')
+            self.extract_period(filtered_df, time_column, data_column, '2024', '10', '10', '25', '31')
         elif self.station == 'Upernavik1':
-            print('hey')
-            return
+            self.extract_period(filtered_df, time_column, data_column, '2023', '08', '08', '01', '10')
+            self.extract_period(filtered_df, time_column, data_column, '2023', '08', '08', '10', '20')
+            self.extract_period(filtered_df, time_column, data_column, '2023', '08', '08', '20', '31')
         elif self.station == 'Upernavik2':   
-            print('hey')
-            return        
+            self.extract_period(filtered_df, time_column, data_column, '2024', '09', '09', '20', '30')
+            self.extract_period(filtered_df, time_column, data_column, '2024', '10', '10', '20', '31')       
         else:
             return 
 

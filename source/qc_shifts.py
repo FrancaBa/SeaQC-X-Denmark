@@ -90,7 +90,6 @@ class ShiftDetector():
                             next2_wl = 200 #dummy values for beginning of segment
                         else:
                             next_wl = relev_df[measurement_column].loc[elem + 1:].dropna().iloc[0]
-                            #print(relev_df.loc[elem + 1:].dropna(), relev_df.index[-1])
                             if relev_df.loc[elem + 1:].dropna().empty:
                                 next2_wl = next_wl
                             else:
@@ -115,10 +114,9 @@ class ShiftDetector():
                 self.helper.plot_two_df_same_axis(df.loc[min:max,time_column], df.loc[min:max, 'remove_shifted_period'],'Water Level', 'Water Level (corrected)', df.loc[min:max, measurement_column], 'Timestamp ', 'Values removed', f'Statistical Shift {i}')
             
         #print details on the smaller (and shorter shifts)
-        if df['shifted_period'].any():
-            ratio = (df['shifted_period'].sum()/len(df))*100
-            print(f"There are {df['shifted_period'].sum()} shifted values in periods. This is {ratio}% of the overall dataset.")
-            information.append([f"There are {df['shifted_period'].sum()} shifted values in periods. This is {ratio}% of the overall dataset."])
+        ratio = (df['shifted_period'].sum()/len(df))*100
+        print(f"There are {df['shifted_period'].sum()} shifted values in periods. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {df['shifted_period'].sum()} shifted values in periods. This is {ratio}% of the overall dataset."])
 
         del df['remove_shifted_period']
 
@@ -183,14 +181,16 @@ class ShiftDetector():
                             plt.savefig(os.path.join(self.folder_path_ruptures,f"change_point_detection_plot{i}.png")) 
                             plt.close()
 
+        ratio = (len(all_changepoints)/len(df))*100
+        print(f"There are {len(all_changepoints)} changepoints according to Ruptures in this period. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {len(all_changepoints)} changepoints according to Ruptures in this period. This is {ratio}% of the overall dataset."])
+            
         if all_changepoints:
-            ratio = (len(all_changepoints)/len(df))*100
-            print(f"There are {len(all_changepoints)} changepoints according to Ruptures in this period. This is {ratio}% of the overall dataset.")
-            information.append([f"There are {len(all_changepoints)} changepoints according to Ruptures in this period. This is {ratio}% of the overall dataset."])
+            all_changepoints = [item for sublist in all_changepoints for item in sublist]
             length = builtins.min(30, len(all_changepoints))
             for i in range(0, length):
-                min = builtins.max(0,(all_changepoints[i])-2000)
+                min = builtins.max(0,all_changepoints[i]-2000)
                 max = min + 2000                
-                self.helper.plot_df(df.loc[min:max,time_column], df.loc[min:max, data_column_name],'Water Level', 'Timestamp ', f'Reptures - Shift {i}')
+                self.helper.plot_df(df.loc[min:max,time_column], df.loc[min:max, data_column_name],'Water Level', 'Timestamp ', f'Ruptures - Shift {i}')
                         
         return df

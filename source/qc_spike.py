@@ -118,10 +118,9 @@ class SpikeDetector():
             self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[measurement_column][min:max], 'Timestamp', 'Water Level (measured)',f'Statistical spike Graph-local spike detected via statistics {min}')
 
         #print details on the statistical spike check
-        if df['spike_value_statistical'].any():
-            ratio = (df['spike_value_statistical'].sum()/len(df))*100
-            print(f"There are {df['spike_value_statistical'].sum()} spikes in periods based on a changepoint detection. This is {ratio}% of the overall dataset.")
-            information.append([f"There are {df['spike_value_statistical'].sum()} spikes in periods based on a changepoint detection. This is {ratio}% of the overall dataset."])
+        ratio = (df['spike_value_statistical'].sum()/len(df))*100
+        print(f"There are {df['spike_value_statistical'].sum()} spikes in periods based on a changepoint detection. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {df['spike_value_statistical'].sum()} spikes in periods based on a changepoint detection. This is {ratio}% of the overall dataset."])
 
         del df['test']
 
@@ -187,10 +186,10 @@ class SpikeDetector():
             sea_level_spike_bool = (~np.isnan(sea_level_spike)) & (sea_level_spike != 0)
             df_meas_long['test'] = np.where(sea_level_spike_bool, np.nan, df_meas_long['test'])
             df_meas_long['cotede_spikes'] = sea_level_spike_bool
-            if df_meas_long['cotede_spikes'].any():
-                ratio = (df_meas_long['cotede_spikes'].sum()/len(df_meas_long))*100
-                print(f"There are {df_meas_long['cotede_spikes'].sum()} spikes in this timeseries according to cotede. This is {ratio}% of the overall dataset.")
-                information.append([f"There are {df_meas_long['cotede_spikes'].sum()} spikes in this timeseries according to cotede. This is {ratio}% of the overall dataset."])
+            
+            ratio = (df_meas_long['cotede_spikes'].sum()/len(df_meas_long))*100
+            print(f"There are {df_meas_long['cotede_spikes'].sum()} spikes in this timeseries according to cotede. This is {ratio}% of the overall dataset.")
+            information.append([f"There are {df_meas_long['cotede_spikes'].sum()} spikes in this timeseries according to cotede. This is {ratio}% of the overall dataset."])
 
             #Plots to analyse spikes
             for i in range(1, 41):
@@ -213,6 +212,10 @@ class SpikeDetector():
         else:
             self.min_value_plotting = 0
             self.max_value_plotting = 10000
+            ratio = 0
+            print(f"There are 0 spikes in this timeseries according to cotede. This is {ratio}% of the overall dataset.")
+            information.append([f"There are 0 spikes in this timeseries according to cotede. This is {ratio}% of the overall dataset."])
+
 
         del df_meas_long['test']
 
@@ -266,10 +269,10 @@ class SpikeDetector():
         sea_level_spike_bool = (~np.isnan(sea_level_spikes)) & (sea_level_spikes != 0)
         df_meas_long['test'] = np.where(sea_level_spike_bool, np.nan, df_meas_long['test'])
         df_meas_long['cotede_improved_spikes'] = sea_level_spike_bool
-        if df_meas_long['cotede_improved_spikes'].any():
-            ratio = (df_meas_long['cotede_improved_spikes'].sum()/len(df_meas_long))*100
-            print(f"There are {df_meas_long['cotede_improved_spikes'].sum()} spikes in this timeseries according to improved cotede. This is {ratio}% of the overall dataset.")
-            information.append([f"There are {df_meas_long['cotede_improved_spikes'].sum()} spikes in this timeseries according to improved cotede. This is {ratio}% of the overall dataset."])
+       
+        ratio = (df_meas_long['cotede_improved_spikes'].sum()/len(df_meas_long))*100
+        print(f"There are {df_meas_long['cotede_improved_spikes'].sum()} spikes in this timeseries according to improved cotede. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {df_meas_long['cotede_improved_spikes'].sum()} spikes in this timeseries according to improved cotede. This is {ratio}% of the overall dataset."])
 
         #Analyse spike detection
         self.helper.plot_df(df_meas_long[time_column], df_meas_long['test'],'Water Level','Timestamp ','Improved Cotede - Measured water level wo outliers and spikes in 1 min timestamp')
@@ -364,10 +367,10 @@ class SpikeDetector():
         #Mark & remove outliers
         df_meas_long['test'] = np.where(outlier_mask, np.nan, df_meas_long['test'])
         df_meas_long['selene_improved_spikes'] = outlier_mask
-        if df_meas_long['selene_improved_spikes'].any():
-            ratio = (df_meas_long['selene_improved_spikes'].sum()/len(df_meas_long))*100
-            print(f"There are {df_meas_long['selene_improved_spikes'].sum()} spikes in this timeseries according to Selene. This is {ratio}% of the overall dataset.")
-            information.append([f"There are {df_meas_long['selene_improved_spikes'].sum()} spikes in this timeseries according to Selene. This is {ratio}% of the overall dataset."])
+        
+        ratio = (df_meas_long['selene_improved_spikes'].sum()/len(df_meas_long))*100
+        print(f"There are {df_meas_long['selene_improved_spikes'].sum()} spikes in this timeseries according to Selene. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {df_meas_long['selene_improved_spikes'].sum()} spikes in this timeseries according to Selene. This is {ratio}% of the overall dataset."])
 
         #Analyse spike detection
         self.helper.plot_df(df_meas_long[time_column], df_meas_long['test'],'Water Level','Timestamp ','SELENE: Measured water level wo outliers and spikes in 1 min timestamp (all) (improved)')
@@ -421,10 +424,10 @@ class SpikeDetector():
         #Mark & remove outliers
         data['test'] = np.where(outlier_mask, np.nan, data['test'])
         data['harmonic_detected_spikes'] = outlier_mask
-        if data['harmonic_detected_spikes'].any():
-            ratio = (data['harmonic_detected_spikes'].sum()/len(data))*100
-            print(f"There are {data['harmonic_detected_spikes'].sum()} spikes in this timeseries according to harmonic series. This is {ratio}% of the overall dataset.")
-            information.append([f"There are {data['harmonic_detected_spikes'].sum()} spikes in this timeseries according to harmonic series. This is {ratio}% of the overall dataset."])
+        
+        ratio = (data['harmonic_detected_spikes'].sum()/len(data))*100
+        print(f"There are {data['harmonic_detected_spikes'].sum()} spikes in this timeseries according to harmonic series. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {data['harmonic_detected_spikes'].sum()} spikes in this timeseries according to harmonic series. This is {ratio}% of the overall dataset."])
 
         #Analyse spike detection
         true_indices = data['harmonic_detected_spikes'][data['harmonic_detected_spikes']].index
@@ -501,10 +504,10 @@ class SpikeDetector():
         #Mark & remove outliers
         data['test'] = np.where(outlier_mask, np.nan, data['test'])
         data['ml_detected_spikes'] = outlier_mask
-        if data['ml_detected_spikes'].any():
-            ratio = (data['ml_detected_spikes'].sum()/len(data))*100
-            print(f"There are {data['ml_detected_spikes'].sum()} spikes in this timeseries according to the ML analysis. This is {ratio}% of the overall dataset.")
-            information.append([f"There are {data['ml_detected_spikes'].sum()} spikes in this timeseries according to the ML analysis. This is {ratio}% of the overall dataset."])
+        
+        ratio = (data['ml_detected_spikes'].sum()/len(data))*100
+        print(f"There are {data['ml_detected_spikes'].sum()} spikes in this timeseries according to the ML analysis. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {data['ml_detected_spikes'].sum()} spikes in this timeseries according to the ML analysis. This is {ratio}% of the overall dataset."])
 
         #Analyse spike detection
         true_indices = data['ml_detected_spikes'][data['ml_detected_spikes']].index

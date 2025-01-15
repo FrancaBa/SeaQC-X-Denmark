@@ -54,9 +54,9 @@ class OutlierRemover():
             self.helper.plot_df(df_meas_long[time_column][true_indices[0]-10000:true_indices[0]+10000], df_meas_long[adapted_meas_col_name][true_indices[0]-10000:true_indices[0]+10000],'Water Level','Timestamp ','Outlier period in TS (corrected)')
             self.helper.plot_df(df_meas_long[time_column], df_meas_long[adapted_meas_col_name],'Water Level','Timestamp ','Measured water level wo outliers in 1 min timestamp')
           
-            ratio = (outlier_mask.sum()/len(df_meas_long))*100
-            print(f"There are {outlier_mask.sum()} outliers in this timeseries. This is {ratio}% of the overall dataset.")
-            information.append([f"There are {outlier_mask.sum()} outliers in this timeseries. This is {ratio}% of the overall dataset."])
+        ratio = (outlier_mask.sum()/len(df_meas_long))*100
+        print(f"There are {outlier_mask.sum()} outliers in this timeseries. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {outlier_mask.sum()} outliers in this timeseries. This is {ratio}% of the overall dataset."])
 
         #Plot distribution for analysis after outlier removal
         plt.hist(df_meas_long[adapted_meas_col_name] , bins=300, edgecolor='black', alpha=0.7)
