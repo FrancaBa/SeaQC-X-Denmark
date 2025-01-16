@@ -108,12 +108,11 @@ class DataExtractor():
             self.extract_period(filtered_df, time_column, data_column, '2024', '05', '05', '20', '30')
             self.extract_period(filtered_df, time_column, data_column, '2024', '10', '10', '25', '31')
         elif self.station == 'Upernavik1':
-            self.extract_period(filtered_df, time_column, data_column, '2023', '08', '08', '01', '10')
-            self.extract_period(filtered_df, time_column, data_column, '2023', '08', '08', '10', '20')
-            self.extract_period(filtered_df, time_column, data_column, '2023', '08', '08', '20', '31')
+            self.extract_period(filtered_df, time_column, data_column, '2023', '08', '08', '01', '15')
+            self.extract_period(filtered_df, time_column, data_column, '2023', '08', '08', '15', '31')
         elif self.station == 'Upernavik2':   
-            self.extract_period(filtered_df, time_column, data_column, '2024', '09', '09', '20', '30')
-            self.extract_period(filtered_df, time_column, data_column, '2024', '10', '10', '20', '31')       
+            self.extract_period(filtered_df, time_column, data_column, '2024', '09', '09', '15', '30')
+            self.extract_period(filtered_df, time_column, data_column, '2024', '10', '10', '15', '31')       
         else:
             return 
 
@@ -179,7 +178,7 @@ class DataExtractor():
             filtered_df_short = relev_df_cleaned[columns_to_save]
 
             # Save to a CSV file with comma-delimited format
-            file_name = f"{self.station}-WLdata-{start_month,year}.csv"
+            file_name = f"{self.station}-WLdata-{start_day,start_month,year}.csv"
             filtered_df_short.to_csv(os.path.join(self.folder_path, file_name), index=False)
 
             #Feedback
