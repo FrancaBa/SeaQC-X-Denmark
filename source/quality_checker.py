@@ -119,6 +119,7 @@ class QualityFlagger():
         self.df_meas['time_diff'] = self.df_meas[self.time_column].diff()
         self.df_meas['resolution'] = self.df_meas['time_diff'].dt.total_seconds()/60
         self.df_meas.loc[self.df_meas['resolution'] > 3600, 'resolution'] = np.nan
+        self.information.append(['The measurement series is ', len(self.df_meas),'data entries long.'])
 
         #Plot the original ts to get an understanding
         self.helper.plot_df(self.df_meas[self.time_column][-2000:-1000], self.df_meas['resolution'][-2000:-1000],'step size','Timestamp ','Time resolution (zoomed)')
@@ -142,7 +143,7 @@ class QualityFlagger():
         self.df_meas.loc[self.df_meas[self.measurement_column] == self.missing_meas_value, self.measurement_column] = np.nan
         ratio = (self.df_meas['missing_values'].sum()/len(self.df_meas))*100
         print(f'The measurement series contains {self.df_meas['missing_values'].sum()} missing data entires. This is {ratio}% of the overall dataset.')
-        self.information.append([f'The measurement series contains {self.df_meas['missing_values'].sum()} missing data entires. This is {ratio}% of the overall dataset.'])
+        self.information.append([f'The measurement series contains {self.df_meas['missing_values'].sum()} missing data entries. This is {ratio}% of the overall dataset.'])
                                 
         #Plot for visualisation
         self.helper.plot_df(self.df_meas[self.time_column], self.df_meas[self.measurement_column],'Water Level','Timestamp ','Measured water level')

@@ -73,8 +73,8 @@ class MissingDataFiller():
 
         #Get number of segments
         shift_points = (data[segment_column] != data[segment_column].shift())
-        print(f'This measurement series contains {len(data[segment_column][shift_points])/2} segments with measurements.')
-        information.append([f'This measurement series contains {len(data[segment_column][shift_points])/2} segments with measurements.'])
+        print(f'This measurement series contains {(data[segment_column][shift_points]==1).sum()} segments with measurements.')
+        information.append([f'This measurement series contains {(data[segment_column][shift_points]==1).sum()} segments with measurements.'])
 
         return data
     
