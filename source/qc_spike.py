@@ -38,6 +38,8 @@ class SpikeDetector():
         #Selene spline approach needed constants
         self.nsigma = 3
 
+        self.splinelength = 7 #hours
+
     def set_output_folder(self, folder_path):
         folder_path = os.path.join(folder_path,'spike detection')
 
@@ -102,11 +104,11 @@ class SpikeDetector():
                     closest_indices = np.unique(closest_indices)
 
                     #Detect only changepoints and not any other shifts
-                    too_close_indices = np.where((np.diff(closest_indices) < 20))[0]
-                    remove_indices = set(too_close_indices).union(set(too_close_indices + 1))
-                    mask = np.array([i not in remove_indices for i in range(len(closest_indices))])
-                    result = closest_indices[mask]
-
+                    #too_close_indices = np.where((np.diff(closest_indices) < 20))[0]
+                    #remove_indices = set(too_close_indices).union(set(too_close_indices + 1))
+                    #mask = np.array([i not in remove_indices for i in range(len(closest_indices))])
+                    #result = closest_indices[mask]
+                    result = closest_indices
                     if result.any():
                         df.loc[result, 'spike_value_statistical'] = True
                         df.loc[result, 'test'] = np.nan
@@ -330,7 +332,85 @@ class SpikeDetector():
     Using Selene package approach for spike detection - code rewritten, but still spline idea. Parameter values are based on Selene.
     This tool can only detect spikes and not directly correct them.
     """   
+    def selene_outlier(self, data, adapted_meas_col_name, time_column, segment_column, filled_data, information):
+        """
+        In measurement segments, fit a polynomial curve over existing measurements. This genereates a constinuous curve without sudden jumps or missing values. A continuous ts is needed for some QCs later on.
+        
+        Input:
+        -Main dataframe [df]
+        -Column name with measurements to analyse [str]
+        -Column name for timestamp [str]
+        -Column name for segments [str]
+        -Column name for polynomial interpolated series (in pervious method) [str]
+        """
+        #Used dummy column to remove spikes to visual analyse the outcome
+        data['test'] = data[adapted_meas_col_name].copy()
 
+        #Get start and end point of each segment
+        shift_points = (data[segment_column] != data[segment_column].shift())
+        #Assuming a 1-min time step with spline length defined in hours
+        winsize = (self.splinelength*60)
+        data['selene_outcomes'] = False
+
+        #For measurement segment: polynomial fit (6th degree) to the polynomial interpolated measurement series
+        for i in range(0,len(data[segment_column][shift_points]), 1):  
+            start_index = data[segment_column][shift_points].index[i]
+            if i == len(data[segment_column][shift_points])-1:
+                end_index = len(data)
+            else:
+                end_index = data[segment_column][shift_points].index[i+1]
+            if data[segment_column][start_index] == 0:
+                #Fit a serie to each segment of x hours (= self.splinelength). Iterate the following steps:
+                #1. Get start and end index
+                #2. Extract connected x- and y-series
+                #3. Fit polynomial series to x- and y-series pair
+                #4. Overwrite beginning and end of segment with next segment for smoother transition
+                for start in range(start_index, end_index):
+                    print(start)
+                    if (start < ((winsize/2)+start_index)):
+                        ini=0
+                        end=winsize-1
+                        winix = start-start_index
+                    elif (start > len(data.index) - winsize/2):
+                        ini=len(data.index)-winsize
+                        end=len(data.index)-1
+                        winix = (winsize-1)-(end-start+1)
+                    else:
+                        ini = int(start - winsize/2)
+                        end = int(start + winsize/2)
+                        winix = int(winsize/2)
+                    x_window = data.loc[ini:end,time_column]
+                    x_numeric = (x_window - x_window.min()).dt.total_seconds() / 60  # Convert to minutes
+                    y_window = data.loc[ini:end, filled_data].ffill()
+
+                    if start == 4553:
+                        print('hey')
+                        
+                    coefficients = np.polyfit(x_numeric, y_window, 2)
+
+                    # Create a polynomial series based on the coefficients and timeseries
+                    y_fit = np.polyval(coefficients, x_numeric)
+                    rmse = self.rmse(y_fit, data.loc[ini:end, adapted_meas_col_name])
+                    if (abs(y_fit[winix]-data[adapted_meas_col_name][start]) >= self.nsigma*rmse):
+                        data['selene_outcomes'][start] = True
+                        data['test'][start] = np.nan
+
+        #Plot for visual analysis
+        ratio = (data['selene_outcomes'].sum()/len(data))*100
+        print(f"There are {data['selene_outcomes'].sum()} spikes in this timeseries according to improved SELENE. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {data['selene_outcomes'].sum()} spikes in this timeseries according to SELENE. This is {ratio}% of the overall dataset."])
+
+        true_indices = data['selene_outcomes'][data['selene_outcomes']].index
+        #More plots
+        for i in range(1, 41):
+            min = builtins.max(0,(random.choice(true_indices))-2000)
+            max = min + 2000
+            self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[adapted_meas_col_name][min:max], 'Timestamp ', 'Water Level (measured)', f'SELENE basic{i}- Measured water level wo outliers and spikes in 1 min timestamp vs orig')
+        
+        del data['test']
+
+        return data
+    
     def selene_spike_detection(self, df_meas_long, adapted_meas_col_name, time_column, filled_meas_col_name, information):
         """
         'filled_meas_col_name' is a column generated during preprocessing to have splines fitted to measurements. A spline is fitted to a 14-16 hours window.

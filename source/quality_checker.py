@@ -35,17 +35,15 @@ class QualityFlagger():
         self.splinelength = 14 #hours
         self.splinedegree = 2 #3
         
-        #Defines amounts of NaN-values needed before creating a new segment
-        #Need to depend on timestep, only constant if timestep is also constant
-        self.nan_threshold = 375
         #If segment is short, drop it
-        self.threshold_unusabel_segment = 1000
+        self.threshold_unusabel_segment = 750
         
         #Empty element to store different texts about QC tests and save as a summary document
         self.information = []
 
     def set_station(self, station):
         self.station = station
+        self.information.append(['The following text summarizes the QC perfromed on measurements from ',station,':'])
     
     #load config.json file to generate bitmask and flags after QC tests
     def load_qf_classification(self, json_path):
@@ -113,6 +111,7 @@ class QualityFlagger():
 
         #drop seconds
         self.df_meas[self.time_column] = self.df_meas[self.time_column].dt.round('min')
+        self.information.append(['The analyzed series goes from ',self.df_meas[self.time_column].iloc[0].strftime('%Y-%m-%d %H:%M:%S'),' to ', self.df_meas[self.time_column].iloc[-1].strftime('%Y-%m-%d %H:%M:%S'), '.'])
 
         # Extract the resolution in seconds, minutes, etc.
         # Here, we extract the time difference in minutes
@@ -136,7 +135,7 @@ class QualityFlagger():
         # Count the new NaN values after the transformation -> Where there any invalid characters?
         new_nan_count = self.df_meas[self.measurement_column].isna().sum() - original_nan_count
         print('The measurement series contained',new_nan_count,'invalid data entires.')
-        self.information.append(['The measurement series contained',new_nan_count,'invalid data entires.'])
+        self.information.append(['The measurement series contains',new_nan_count,'invalid data entires.'])
         
         #2. Replace the missing values with nan
         self.df_meas['missing_values'] = self.df_meas[self.measurement_column] == self.missing_meas_value
@@ -185,11 +184,11 @@ class QualityFlagger():
         df = conversion_bitmask.convert_bitmask_to_flags(df)
         conversion_bitmask.save_flagged_series(df, self.measurement_column, self.time_column, self.df_meas)
 
-        #Check what unsupervised ML would do
-        #self.unsupervised_outlier_detection(df, self.measurement_column, 'poly_interpolated_data', self.time_column, self.segment_column)
-
         #Save information from QC tests to txt file
         self.save_to_txt()
+
+        #Check what unsupervised ML would do
+        self.unsupervised_outlier_detection(df, self.measurement_column, 'poly_interpolated_data', self.time_column, self.segment_column, 'combined_mask')
 
 
     def run_qc(self, df):
@@ -240,6 +239,7 @@ class QualityFlagger():
         df = spike_detection.remove_spikes_cotede(df, self.adapted_meas_col_name, self.time_column, self.information)
         df = spike_detection.remove_spikes_cotede_improved(df, self.adapted_meas_col_name, self.time_column, self.information)
         df = spike_detection.selene_spike_detection(df, self.adapted_meas_col_name, self.time_column, 'spline_fitted_data', self.information)
+        df = spike_detection.selene_outlier(df, self.adapted_meas_col_name, self.time_column, self.segment_column, 'poly_interpolated_data', self.information)
         df = spike_detection.remove_spikes_harmonic(df, 'poly_fitted_data', self.adapted_meas_col_name, self.time_column, self.information)
         #Not really ML and doesn't improve anything (Thus, it is not used!)
         df = spike_detection.remove_spikes_ml(df, 'poly_fitted_data', self.adapted_meas_col_name, self.time_column, self.information)
@@ -339,8 +339,8 @@ class QualityFlagger():
 
         #for segment
         shift_points = (data[segment_column] != data[segment_column].shift())
-        print(f'Now there are still {len(data[segment_column][shift_points])/2} segments with measurements in this measurement series.')
-        self.information.append([f'Now there are still {len(data[segment_column][shift_points])/2} segments with measurements in this measurement series.'])
+        print(f'Now there are still {(data[segment_column][shift_points]==0).sum()} segments with measurements in this measurement series.')
+        self.information.append([f'Now there are still {(data[segment_column][shift_points]==0).sum()} segments with measurements in this measurement series.'])
 
         return data
 
@@ -365,11 +365,13 @@ class QualityFlagger():
         print(f"QC test statements have been saved to {file_path}")
 
 
-    def unsupervised_outlier_detection(self, df, data_column_name, interpolated_data_colum, time_column, segment_column):
+    def unsupervised_outlier_detection(self, df, data_column_name, interpolated_data_colum, time_column, segment_column, true_anomalies_column):
         """
         Run a simple unsupervised ML algorithm to see how it performs in grouping the measurments.
         """
         shift_points = (df[segment_column] != df[segment_column].shift())
+        #one high-high or low-low cyccle in tide
+        window_size = 735
 
         for i in range(0,len(df[segment_column][shift_points]), 1):
             start_index = df[segment_column][shift_points].index[i]
@@ -379,34 +381,47 @@ class QualityFlagger():
                 end_index = df[segment_column][shift_points].index[i+1]
             if df[segment_column][start_index] == 0:
                 relev_df = df[start_index:end_index]
-                true_anomalies = 1 #still needs to be defined
+                true_anomalies = relev_df[true_anomalies_column]
+
+                # Initialize a padded array
+                padding = window_size // 2
+                padded_values = np.pad(relev_df[interpolated_data_colum].ffill(), pad_width=padding, mode='edge') 
                 
-                # Prepare data for Isolation Forest
-                # Isolation Forest expects input in a 2D array form
-                X = df[interpolated_data_colum][start_index:end_index].values.reshape(-1, 1)
+                # Prepare data for Isolation Forest including reelv features
+                X = []
+                for i in range(len(relev_df)):
+                    content = padded_values[i:i + window_size]
+                    # Extract features (mean, std, min, max)
+                    #mean = np.array([np.mean(content)])
+                    #std = np.array([np.std(content)])
+                    #min_val = np.array([np.min(content)])
+                    #max_val = np.array([np.max(content)])
+                    #features =  np.append(content, [mean, std, min_val, max_val])
+                    X.append(content)
+                X = np.array(X)
 
                 # Grid search for optimal contamination
-                contamination_values = np.linspace(0.01, 0.1, 10)  # Test contamination levels from 1% to 10%
+                contamination_values = np.linspace(0.001, 0.1, 10)  # Test contamination levels from 0.1% to 10%
                 best_contamination = None
                 best_precision = 0
 
                 for contamination in contamination_values:
-                    isolation_forest = IsolationForest(contamination=contamination, random_state=42)
+                    isolation_forest = IsolationForest(contamination=contamination, n_estimators=200, random_state=42)
                     anomaly_score = isolation_forest.fit_predict(X)
-                    
+                        
                     # Convert anomaly scores to binary (1 for anomalies, 0 for normal)
                     predicted_anomalies = (anomaly_score == -1).astype(int)
-                    
+                        
                     # Compute precision score (you can also use recall or F1-score)
                     precision = precision_score(true_anomalies, predicted_anomalies, zero_division=0)
-                    
+                        
                     if precision > best_precision:
                         best_precision = precision
                         best_contamination = contamination
-
+                        print(best_contamination, best_precision)
 
                 # Fit Isolation Forest
-                model = IsolationForest(contamination=best_contamination, random_state=42)  # Adjust contamination as needed
+                model = IsolationForest(contamination=best_contamination, n_estimators=200, random_state=42)  # Adjust contamination as needed
                 anomaly = model.fit_predict(X)
 
                 print('hey')
@@ -418,22 +433,18 @@ class QualityFlagger():
                 #anomaly_entries = np.unique(non_nan_indices[np.argmin(distances, axis=1)])
 
                 # Identify anomalies
-                anomalies = df[anomaly == -1]
+                anomalies = relev_df[anomaly == -1]
+                print('number of detected outliers:', len(anomalies))
 
-                # Cluster the anomalies using DBSCAN
-                dbscan = DBSCAN(eps=1, min_samples=2)
-                clusters = dbscan.fit_predict(anomalies[['values']])
-                anomalies['cluster'] = clusters
-
-                # Add cluster information back to the main DataFrame
-                ts = ts.merge(anomalies[['time', 'cluster']], on='time', how='left')
-
-                # Plot the results
+                # Visualization
+                title = 'Anomaly Detection with Isolation Forest (Using Interpolation)'
                 plt.figure(figsize=(12, 6))
-                plt.plot(df[time_column], df[interpolated_data_colum][start_index:end_index], label='Time Series')
-                plt.scatter(anomalies[time_column], anomalies[interpolated_data_colum], color='red', label='Anomalies', zorder=5)
-                plt.title('Anomaly Detection with Isolation Forest')
-                plt.xlabel('Time')
-                plt.ylabel('Value')
+                plt.plot(relev_df[time_column], relev_df[data_column_name], label='Time Series', color='blue')
+                plt.scatter(anomalies[time_column], anomalies[data_column_name], color='red', label='Anomalies', zorder=1)
                 plt.legend()
-                plt.show()
+                plt.title(title)
+                plt.xlabel('Time')
+                plt.ylabel('Water Level')
+                plt.tight_layout()
+                plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {relev_df[time_column].iloc[0]}.png"),  bbox_inches="tight")
+                plt.close()

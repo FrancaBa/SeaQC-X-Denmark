@@ -47,8 +47,8 @@ class StuckValuesDetector():
         # Get indices where the mask is True (as check that approach works)
         if constant_mask.any():
             true_indices = constant_mask[constant_mask].index
-            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[0]-30:true_indices[0]+50], df_meas_long['test'][true_indices[0]-30:true_indices[0]+50],'Water Level', 'Water Level',  df_meas_long[adapted_meas_col_name][true_indices[0]-30:true_indices[0]+50], 'Timestamp', 'WL removed','Constant period in TS')
-            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[-1]-30:true_indices[-1]+50], df_meas_long['test'][true_indices[-1]-30:true_indices[-1]+50],'Water Level', 'Water Level', df_meas_long[adapted_meas_col_name][true_indices[-1]-30:true_indices[-1]+50], 'Timestamp', 'WL removed','Constant period in TS (2)')
+            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[0]-30:true_indices[0]+50], df_meas_long[adapted_meas_col_name][true_indices[0]-30:true_indices[0]+50],'Water Level', 'Water Level',  df_meas_long['test'][true_indices[0]-30:true_indices[0]+50], 'Timestamp', 'WL removed','Constant period in TS')
+            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[-1]-30:true_indices[-1]+50], df_meas_long[adapted_meas_col_name][true_indices[-1]-30:true_indices[-1]+50],'Water Level', 'Water Level', df_meas_long['test'][true_indices[-1]-30:true_indices[-1]+50], 'Timestamp', 'WL removed','Constant period in TS (2)')
 
         #print details on the constant value check
         ratio = (constant_mask.sum()/len(df_meas_long))*100

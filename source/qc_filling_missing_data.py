@@ -29,7 +29,7 @@ class MissingDataFiller():
 
         #to fit a spline
         self.splinelength = 7 #hours
-        self.splinedegree = 3 #2
+        self.splinedegree = 3 
 
         #to fit a polynomial curve
         self.order_ploynomial_fit = 2
@@ -73,8 +73,8 @@ class MissingDataFiller():
 
         #Get number of segments
         shift_points = (data[segment_column] != data[segment_column].shift())
-        print(f'This measurement series contains {(data[segment_column][shift_points]==1).sum()} segments with measurements.')
-        information.append([f'This measurement series contains {(data[segment_column][shift_points]==1).sum()} segments with measurements.'])
+        print(f'This measurement series contains {(data[segment_column][shift_points]==0).sum()} segments with measurements.')
+        information.append([f'This measurement series contains {(data[segment_column][shift_points]==0).sum()} segments with measurements.'])
 
         return data
     
@@ -150,7 +150,10 @@ class MissingDataFiller():
                 for start in range(start_index, end_index, winsize):
                     if (start + winsize*2) > end_index:
                         end = end_index
-                        start = start - 200
+                        if start - 200 < start_index:
+                            start = start_index
+                        else:
+                            start = start - 200
                     elif start != start_index:
                         end = start + winsize + 100
                         start = start - 200
@@ -163,8 +166,7 @@ class MissingDataFiller():
                     coefficients = np.polyfit(x_numeric, y_window, 6)
 
                     # Create a polynomial series based on the coefficients and timeseries
-                    poly = np.poly1d(coefficients)
-                    y_fit = poly(x_numeric)
+                    y_fit = np.polyval(coefficients, x_numeric)
                     if end == end_index:
                         data.loc[start+200:end,'poly_fitted_data'] = y_fit[200:]
                         break
@@ -248,7 +250,7 @@ class MissingDataFiller():
                         #Do not fit a spline then. (This can be assumed for now as it is barely the case.)
                         pass
                     else:
-                        #Fit spline to spline  segment
+                        #Fit spline to spline segment
                         spline = UnivariateSpline(x_known, y_known, s=1, k = self.splinedegree)
                                     
                         # Evaluate the spline at all original `x` points (incl. NaN's)

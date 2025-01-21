@@ -145,7 +145,7 @@ class ImplausibleChangeDetector():
         #For values exceeding the threshold, check proximity condition
         #To keep weird measurement periods, filter if other outliers are close by
         for idx in distributed_periods[distributed_periods].index:
-            # Extract indices of True values in the current window of 2 hours around the selected index
+            # Extract indices of True values in the current window of 4 hours around the selected index
             window_indices = range(builtins.max(df.index[0], idx - 119), builtins.min(idx + 120, df.index[-1]))
             true_indices = [i for i in window_indices if distributed_periods[i]]
 
