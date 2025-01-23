@@ -24,15 +24,13 @@ class MissingDataFiller():
 
 
     def __init__(self):
-
-        self.nan_threshold = 375
-
+        #Split ts in segments
+        self.nan_threshold = None
         #to fit a spline
-        self.splinelength = 7 #hours
-        self.splinedegree = 3 
-
+        self.splinelength = None #hours
+        self.splinedegree = None 
         #to fit a polynomial curve
-        self.order_ploynomial_fit = 2
+        self.order_ploynomial_fil = None
 
         self.helper = helper.HelperMethods()
 
@@ -44,6 +42,16 @@ class MissingDataFiller():
 
         self.helper.set_output_folder(folder_path)
 
+    #Load relevant parameters for this QC test from conig.json
+    def set_parameters(self, params):
+        #Threshold to split ts in segments
+        self.nan_threshold = params['segmentation']['nan_threshold']
+        #to fit a spline
+        self.splinelength = params['segmentation']['splinelength'] #min
+        self.splinedegree = params['segmentation']['splinedegree']
+        #to fit a polynomial curve
+        self.order_ploynomial_fil = params['segmentation']['order_ploynomial_fil']
+        self.polydegree = params['segmentation']['poly_fitted_degree']
 
     def segmentation_ts(self, data, data_column, segment_column, information):
         """
@@ -102,7 +110,7 @@ class MissingDataFiller():
             else:
                 end_index = data[segment_column][shift_points].index[i+1]
             if data[segment_column][start_index] == 0:
-                y_interpolated = data.loc[start_index:end_index, data_column].interpolate(method='polynomial', order= self.order_ploynomial_fit) #Polynomial order is defined here (currently: 2)
+                y_interpolated = data.loc[start_index:end_index, data_column].interpolate(method='polynomial', order= self.order_ploynomial_fil) #Polynomial order is defined here (currently: 2)
                 y_interpolated = y_interpolated.ffill()  #Last elem in segment is NaN as not enough neighboring values for interpolation, so forward-fill previous value
                 data.loc[start_index:end_index,'poly_interpolated_data'] = y_interpolated
                 
@@ -130,8 +138,8 @@ class MissingDataFiller():
 
         #Get start and end point of each segment
         shift_points = (data[segment_column] != data[segment_column].shift())
-        #Assuming a 1-min time step with spline length defined in hours
-        winsize = (self.splinelength*60)
+        #Spline length in min
+        winsize = self.splinelength
         data['poly_fitted_data'] = np.nan
 
         #For measurement segment: polynomial fit (6th degree) to the polynomial interpolated measurement series
@@ -163,7 +171,7 @@ class MissingDataFiller():
                     x_numeric = (x_window - x_window.min()).dt.total_seconds() / 60  # Convert to minutes
                     y_window = data.loc[start:end, filled_data]
 
-                    coefficients = np.polyfit(x_numeric, y_window, 6)
+                    coefficients = np.polyfit(x_numeric, y_window, self.polydegree)
 
                     # Create a polynomial series based on the coefficients and timeseries
                     y_fit = np.polyval(coefficients, x_numeric)
@@ -196,8 +204,8 @@ class MissingDataFiller():
         
         #Get start and end point of each segment
         shift_points = (data[segment_column] != data[segment_column].shift())
-        #Assuming a 1-min time step with spline length defined in hours
-        winsize = (self.splinelength*60)
+        #Window length in min
+        winsize = self.splinelength
 
         #For measurement segment: polynomial fit (6th degree) to the polynomial interpolated measurement series
         for i in range(0,len(data[segment_column][shift_points]), 1):  

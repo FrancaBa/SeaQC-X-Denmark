@@ -1,8 +1,8 @@
-#########################################################################################################
-## Written by frb for GronSL project (2024-2025)                                                       ##
-## This scipt chaecks for shifts from the mean measurement searies.                                    ##
-## Two approaches (Ruptures and a statistical offset) are applied, but they direct diffferent offsets. ##
-#########################################################################################################
+###############################################################################################################################
+## Written by frb for GronSL project (2024-2025)                                                                             ##
+## This scipt checks for shifts from the mean measurement series.                                                            ##
+## Two approaches (Ruptures and a statistical offset) are applied, but they check diffferent offsets and don't perform well. ##
+###############################################################################################################################
 
 import numpy as np
 import pandas as pandas
@@ -20,9 +20,12 @@ os.environ["PYDEVD_WARN_EVALUATION_TIMEOUT"] = "10"
 class ShiftDetector():
 
     def __init__(self):
-        self.zscore_threshold = 3
-        self.rolling_window = 725
-        self.min_periods = 30
+        #revel parameters for this QC test
+        self.change_threshold = None
+        self.one_hour = None
+        self.threshold_shift = None
+        self.threshold_continued = None
+
         self.helper = helper.HelperMethods()
 
     def set_output_folder(self, folder):
@@ -37,13 +40,22 @@ class ShiftDetector():
 
         self.helper.set_output_folder(folder_path)
 
-    def detect_shifts_statistical(self, df, data_column_name, time_column, measurement_column, segment_column, information):
+    #Load relevant parameters for this QC test from conig.json
+    def set_parameters(self, params):
+        #Detect a shift in measurement series which doesn't shift in the next timestep
+        #If yes: Mark a 2-hour window to true
+        self.change_threshold = params['shift_detection']['change_threshold']
+        self.one_hour = params['shift_detection']['one_hour']
+        self.threshold_shift = params['shift_detection']['threshold_shift']
+        self.threshold_continued = params['shift_detection']['threshold_continued']
+
+    def detect_shifts_statistical(self, df, data_column_name, time_column, measurement_column, segment_column, information, original_length):
         
         df['shifted_period'] = False
         df['remove_shifted_period'] = df[measurement_column].copy()
         segment_points = (df[segment_column] != df[segment_column].shift())
 
-        #test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)]
+        #test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)] for Qaqortoq
                    
         for i in range(0,len(df[segment_column][segment_points]), 1):
             start_index = df[segment_column][segment_points].index[i]
@@ -55,7 +67,7 @@ class ShiftDetector():
                 relev_df = df[start_index:end_index]
                 #Get shifted points based on strong gradient
                 relev_df['change'] = np.abs(np.diff(relev_df[data_column_name], append=np.nan))
-                change_points= relev_df[relev_df['change'] > 0.04].index
+                change_points= relev_df[relev_df['change'] > self.change_threshold].index
                 if change_points.any():
                     mask = np.diff(change_points, append=np.inf) > 1
                     filtered_changepoints = np.array(change_points[mask])
@@ -94,16 +106,16 @@ class ShiftDetector():
                                 next2_wl = next_wl
                             else:
                                 next2_wl = relev_df[measurement_column].loc[elem + 1:].dropna().iloc[1]
-                        if abs(next2_wl-next_wl) < 0.06 and abs(now_wl-next_wl) > 0.3 and abs(prev_wl-now_wl) < 0.06:
+                        if abs(next2_wl-next_wl) < self.threshold_continued and abs(now_wl-next_wl) > self.threshold_shift and abs(prev_wl-now_wl) < self.threshold_continued:
                             shift_points.append(elem)
-                        elif abs(next_wl-now_wl) < 0.06 and abs(prev_wl-now_wl) > 0.3 and abs(prev2_wl-prev_wl) < 0.06:
+                        elif abs(next_wl-now_wl) < self.threshold_continued and abs(prev_wl-now_wl) > self.threshold_shift and abs(prev2_wl-prev_wl) < self.threshold_continued:
                             shift_points.append(elem)
 
                     if shift_points:
                         filtered_elements = [shift_points[0]] + [current for previous, current in zip(shift_points, shift_points[1:]) if current - previous <= 60]
                         for elem in filtered_elements:
-                            df['shifted_period'][elem-60:elem+60] = True
-                            df['remove_shifted_period'][elem-60:elem+60] = np.nan
+                            df['shifted_period'][elem-self.one_hour:elem+self.one_hour] = True
+                            df['remove_shifted_period'][elem-self.one_hour:elem+self.one_hour] = np.nan
                     
         true_indices = df['shifted_period'][df['shifted_period']].index
 
@@ -114,7 +126,7 @@ class ShiftDetector():
                 self.helper.plot_two_df_same_axis(df.loc[min:max,time_column], df.loc[min:max, 'remove_shifted_period'],'Water Level', 'Water Level (corrected)', df.loc[min:max, measurement_column], 'Timestamp ', 'Values removed', f'Statistical Shift {i}')
             
         #print details on the smaller (and shorter shifts)
-        ratio = (df['shifted_period'].sum()/len(df))*100
+        ratio = (df['shifted_period'].sum()/original_length)*100
         print(f"There are {df['shifted_period'].sum()} shifted values in periods. This is {ratio}% of the overall dataset.")
         information.append([f"There are {df['shifted_period'].sum()} shifted values in periods. This is {ratio}% of the overall dataset."])
 
@@ -123,10 +135,11 @@ class ShiftDetector():
         return df
 
 
-    def detect_shifts_ruptures(self, df, data_column_name, time_column, interpolated_data_colum, segment_column, information):
+    def detect_shifts_ruptures(self, df, data_column_name, time_column, interpolated_data_colum, segment_column, information, original_length):
 
         shift_points = (df[segment_column] != df[segment_column].shift())
         all_changepoints = []
+        df['shifted_ruptures'] = False
 
         for i in range(0,len(df[segment_column][shift_points]), 1):
             start_index = df[segment_column][shift_points].index[i]
@@ -141,8 +154,8 @@ class ShiftDetector():
                     #l1: For detecting changes in the median.
                     #rbf: For non-linear changes.
                     #normal: For normal-distributed data.
-                    print(datetime.datetime.now())
-                    print(f'Segment is {end_index - start_index} entries long.')
+                    #print(datetime.datetime.now())
+                    #print(f'Segment is {end_index - start_index} entries long.')
                     #Search method for changepoint
                     algo = rpt.Binseg(model="l2").fit(np.array(df[interpolated_data_colum][start_index:end_index]))
                     #algo = rpt.Window(width=40, model="l2").fit(df[interpolated_data_colum][start_index:end_index].values)
@@ -156,7 +169,7 @@ class ShiftDetector():
                     #print(datetime.datetime.now())
                     #change_points = algo.predict(pen=500)
                     change_points = algo.predict(pen= 1500)
-                    print(datetime.datetime.now())
+                    #print(datetime.datetime.now())
 
                     #Remove end point from a segment as shift point and correct index
                     if change_points:
@@ -181,7 +194,8 @@ class ShiftDetector():
                             plt.savefig(os.path.join(self.folder_path_ruptures,f"change_point_detection_plot{i}.png")) 
                             plt.close()
 
-        ratio = (len(all_changepoints)/len(df))*100
+        df.loc[all_changepoints, 'shifted_ruptures'] = True
+        ratio = (len(all_changepoints)/original_length)*100
         print(f"There are {len(all_changepoints)} changepoints according to Ruptures in this period. This is {ratio}% of the overall dataset.")
         information.append([f"There are {len(all_changepoints)} changepoints according to Ruptures in this period. This is {ratio}% of the overall dataset."])
             

@@ -69,7 +69,7 @@ class Test_QA_Station(unittest.TestCase):
 
         data_flagging = qc_generator.QualityFlagger()
         data_flagging.set_output_folder(output_path)
-        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
@@ -91,7 +91,7 @@ class Test_QA_Station(unittest.TestCase):
 
         data_flagging = qc_generator.QualityFlagger()
         data_flagging.set_output_folder(output_path)
-        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
@@ -113,7 +113,7 @@ class Test_QA_Station(unittest.TestCase):
 
         data_flagging = qc_generator.QualityFlagger()
         data_flagging.set_output_folder(output_path)
-        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
@@ -135,7 +135,7 @@ class Test_QA_Station(unittest.TestCase):
 
         data_flagging = qc_generator.QualityFlagger()
         data_flagging.set_output_folder(output_path)
-        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
@@ -157,7 +157,7 @@ class Test_QA_Station(unittest.TestCase):
 
         data_flagging = qc_generator.QualityFlagger()
         data_flagging.set_output_folder(output_path)
-        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
@@ -179,7 +179,7 @@ class Test_QA_Station(unittest.TestCase):
 
         data_flagging = qc_generator.QualityFlagger()
         data_flagging.set_output_folder(output_path)
-        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
@@ -201,7 +201,7 @@ class Test_QA_Station(unittest.TestCase):
 
         data_flagging = qc_generator.QualityFlagger()
         data_flagging.set_output_folder(output_path)
-        data_flagging.load_qf_classification(self.json_path)
+        data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)

@@ -27,18 +27,22 @@ class SpikeDetector():
     def __init__(self):
         self.helper = helper.HelperMethods()
 
+        #Statistical spike detection
+        self.change_threshold = None
         #Cotede
-        self.cotede_threshold = 0.01
-        self.improved_cotede_threshold = 0.05 #0.02
-        self.max_window_neighbours = 60 #under the assumption that timestamp is in 1 min
-
+        self.cotede_threshold = None
+        self.improved_cotede_threshold = None
+        self.max_window_neighbours = None #under the assumption that timestamp is in 1 min
         # Parameters for ml (to split into training and testing set)
-        self.test_size = 0.85    # Size of the test set in percentage
-
+        self.test_size = 0.85 # Size of the test set in percentage
+        self.lag_05tide = None #min max amplitude
+        self.lag_1tide = None #min min cycle development
+        self.lag_2tide = None # 2 * min min cycle development
+        self.seven_days = None
         #Selene spline approach needed constants
         self.nsigma = 3
-
-        self.splinelength = 7 #hours
+        self.splinelength = None #min
+        self.splinedegree = 2 #typically 2 or 3
 
     def set_output_folder(self, folder_path):
         folder_path = os.path.join(folder_path,'spike detection')
@@ -49,11 +53,30 @@ class SpikeDetector():
 
         self.helper.set_output_folder(folder_path)
 
-        # Impute missing values
-    def filled_ts_tight(self, filled_ts):
-        self.filled_measured_ts = filled_ts
-    
-    def detect_spikes_statistical(self, df, data_column_name, time_column, measurement_column, information):
+    #Load relevant parameters for this QC test from conig.json
+    def set_parameters(self, params):
+        #Statistical spike detection
+        self.change_threshold = params['spike_detection']['change_threshold']
+
+        #Cotede
+        self.cotede_threshold = params['spike_detection']['cotede_threshold']
+        self.improved_cotede_threshold = params['spike_detection']['improved_cotede_threshold']
+        self.max_window_neighbours = params['spike_detection']['max_window_neighbours'] #under the assumption that timestamp is in 1 min
+
+        # Parameters for ml (to split into training and testing set)
+        self.test_size = params['spike_detection']['test_size'] # Size of the test set in percentage
+        self.lag_05tide = params['spike_detection']['lag_05tide'] #min max amplitude
+        self.lag_1tide = params['spike_detection']['lag_1tide'] #min min cycle development
+        self.lag_2tide = params['spike_detection']['lag_2tide'] # 2 * min min cycle development
+        self.seven_days = params['spike_detection']['seven_days']
+
+        #Selene spline approach needed constants
+        self.nsigma = params['spike_detection']['nsigma']
+        self.splinelength = params['spike_detection']['splinelength'] #min
+        self.splinedegree = params['spike_detection']['splinedegree']
+
+
+    def detect_spikes_statistical(self, df, data_column_name, time_column, measurement_column, information, original_length):
         """
         In measurement segments, find all stronger changepoints that fit to a real measurement data points. Make a condition to only mark changepoints
         and not other other shifts (here: too_close_indices)
@@ -80,10 +103,10 @@ class SpikeDetector():
             else:
                 end_index = df['segments'][shift_points].index[i+1]
             if df['segments'][start_index] == 0:
-                relev_df = df[start_index:end_index]
+                relev_df = df[start_index:end_index].copy()
                 #Get shifted points based on strong gradient in interpolated series (hard to define a gradient if a lot of NaN values.)
                 relev_df['change'] = np.abs(np.diff(relev_df[data_column_name], append=np.nan))
-                change_points= relev_df[relev_df['change'] > 0.05].index
+                change_points= relev_df[relev_df['change'] > self.change_threshold].index
                 if change_points.any():
                     #per change area only 1 changepoint
                     mask = np.diff(change_points, append=np.inf) > 1
@@ -103,11 +126,6 @@ class SpikeDetector():
 
                     closest_indices = np.unique(closest_indices)
 
-                    #Detect only changepoints and not any other shifts
-                    #too_close_indices = np.where((np.diff(closest_indices) < 20))[0]
-                    #remove_indices = set(too_close_indices).union(set(too_close_indices + 1))
-                    #mask = np.array([i not in remove_indices for i in range(len(closest_indices))])
-                    #result = closest_indices[mask]
                     result = closest_indices
                     if result.any():
                         df.loc[result, 'spike_value_statistical'] = True
@@ -120,7 +138,7 @@ class SpikeDetector():
             self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[measurement_column][min:max], 'Timestamp', 'Water Level (measured)',f'Statistical spike Graph-local spike detected via statistics {min}')
 
         #print details on the statistical spike check
-        ratio = (df['spike_value_statistical'].sum()/len(df))*100
+        ratio = (df['spike_value_statistical'].sum()/original_length)*100
         print(f"There are {df['spike_value_statistical'].sum()} spikes in periods based on a changepoint detection. This is {ratio}% of the overall dataset.")
         information.append([f"There are {df['spike_value_statistical'].sum()} spikes in periods based on a changepoint detection. This is {ratio}% of the overall dataset."])
 
@@ -128,7 +146,7 @@ class SpikeDetector():
 
         return df
     
-    def remove_spikes_cotede(self, df_meas_long, adapted_meas_col_name, time_column, information):
+    def remove_spikes_cotede(self, df_meas_long, adapted_meas_col_name, time_column, information, original_length):
         """
         Uses CoTeDe package to find spikes (qctests.spike). It decides based on a threshold in regards to the neighboring values, if the checked value is a spike. 
         Thus, this only works if a neighboring value exists (big limitation for incontinuous timeseries).
@@ -189,7 +207,7 @@ class SpikeDetector():
             df_meas_long['test'] = np.where(sea_level_spike_bool, np.nan, df_meas_long['test'])
             df_meas_long['cotede_spikes'] = sea_level_spike_bool
             
-            ratio = (df_meas_long['cotede_spikes'].sum()/len(df_meas_long))*100
+            ratio = (df_meas_long['cotede_spikes'].sum()/original_length)*100
             print(f"There are {df_meas_long['cotede_spikes'].sum()} spikes in this timeseries according to cotede. This is {ratio}% of the overall dataset.")
             information.append([f"There are {df_meas_long['cotede_spikes'].sum()} spikes in this timeseries according to cotede. This is {ratio}% of the overall dataset."])
 
@@ -231,7 +249,7 @@ class SpikeDetector():
     However, it is hard to choose a correct threshold as the time difference between central point and neighboring value is changing which makes different scales possible.
     """  
 
-    def remove_spikes_cotede_improved(self, df_meas_long, adapted_meas_col_name, time_column, information):
+    def remove_spikes_cotede_improved(self, df_meas_long, adapted_meas_col_name, time_column, information, original_length):
         """
         Input:
         -Main dataframe [df]
@@ -272,7 +290,7 @@ class SpikeDetector():
         df_meas_long['test'] = np.where(sea_level_spike_bool, np.nan, df_meas_long['test'])
         df_meas_long['cotede_improved_spikes'] = sea_level_spike_bool
        
-        ratio = (df_meas_long['cotede_improved_spikes'].sum()/len(df_meas_long))*100
+        ratio = (df_meas_long['cotede_improved_spikes'].sum()/original_length)*100
         print(f"There are {df_meas_long['cotede_improved_spikes'].sum()} spikes in this timeseries according to improved cotede. This is {ratio}% of the overall dataset.")
         information.append([f"There are {df_meas_long['cotede_improved_spikes'].sum()} spikes in this timeseries according to improved cotede. This is {ratio}% of the overall dataset."])
 
@@ -286,7 +304,7 @@ class SpikeDetector():
         true_indices = df_meas_long['cotede_improved_spikes'][df_meas_long['cotede_improved_spikes']].index
         #More plots
         for i in range(1, 41):
-            min = builtins.max(0,(random.choice(true_indices))-2000)
+            min = builtins.max(0,(random.choice(true_indices))-1000)
             max = min + 2000
             self.helper.plot_two_df_same_axis(df_meas_long[time_column][min:max], df_meas_long['test'][min:max],'Water Level', 'Water Level (corrected)', df_meas_long[adapted_meas_col_name][min:max], 'Timestamp ', 'Water Level (measured)', f'Improved Cotede Graph{i}- Measured water level wo outliers and spikes in 1 min timestamp vs orig')
           
@@ -332,7 +350,7 @@ class SpikeDetector():
     Using Selene package approach for spike detection - code rewritten, but still spline idea. Parameter values are based on Selene.
     This tool can only detect spikes and not directly correct them.
     """   
-    def selene_outlier(self, data, adapted_meas_col_name, time_column, segment_column, filled_data, information):
+    def selene_spike(self, data, adapted_meas_col_name, time_column, segment_column, filled_data, information, original_length):
         """
         In measurement segments, fit a polynomial curve over existing measurements. This genereates a constinuous curve without sudden jumps or missing values. A continuous ts is needed for some QCs later on.
         
@@ -349,8 +367,8 @@ class SpikeDetector():
         #Get start and end point of each segment
         shift_points = (data[segment_column] != data[segment_column].shift())
         #Assuming a 1-min time step with spline length defined in hours
-        winsize = (self.splinelength*60)
-        data['selene_outcomes'] = False
+        winsize = self.splinelength
+        data['selene_spikes'] = False
 
         #For measurement segment: polynomial fit (6th degree) to the polynomial interpolated measurement series
         for i in range(0,len(data[segment_column][shift_points]), 1):  
@@ -366,10 +384,9 @@ class SpikeDetector():
                 #3. Fit polynomial series to x- and y-series pair
                 #4. Overwrite beginning and end of segment with next segment for smoother transition
                 for start in range(start_index, end_index):
-                    print(start)
                     if (start < ((winsize/2)+start_index)):
-                        ini=0
-                        end=winsize-1
+                        ini=0+start_index
+                        end=start_index + winsize-1
                         winix = start-start_index
                     elif (start > len(data.index) - winsize/2):
                         ini=len(data.index)-winsize
@@ -383,27 +400,24 @@ class SpikeDetector():
                     x_numeric = (x_window - x_window.min()).dt.total_seconds() / 60  # Convert to minutes
                     y_window = data.loc[ini:end, filled_data].ffill()
 
-                    if start == 4553:
-                        print('hey')
-                        
-                    coefficients = np.polyfit(x_numeric, y_window, 2)
+                    coefficients = np.polyfit(x_numeric, y_window, self.splinedegree)
 
                     # Create a polynomial series based on the coefficients and timeseries
                     y_fit = np.polyval(coefficients, x_numeric)
                     rmse = self.rmse(y_fit, data.loc[ini:end, adapted_meas_col_name])
                     if (abs(y_fit[winix]-data[adapted_meas_col_name][start]) >= self.nsigma*rmse):
-                        data['selene_outcomes'][start] = True
-                        data['test'][start] = np.nan
+                        data.loc[start, 'selene_spikes'] = True
+                        data.loc[start, 'test'] = np.nan
 
         #Plot for visual analysis
-        ratio = (data['selene_outcomes'].sum()/len(data))*100
-        print(f"There are {data['selene_outcomes'].sum()} spikes in this timeseries according to improved SELENE. This is {ratio}% of the overall dataset.")
-        information.append([f"There are {data['selene_outcomes'].sum()} spikes in this timeseries according to SELENE. This is {ratio}% of the overall dataset."])
+        ratio = (data['selene_spikes'].sum()/original_length)*100
+        print(f"There are {data['selene_spikes'].sum()} spikes in this timeseries according to original SELENE. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {data['selene_spikes'].sum()} spikes in this timeseries according to original SELENE. This is {ratio}% of the overall dataset."])
 
-        true_indices = data['selene_outcomes'][data['selene_outcomes']].index
+        true_indices = data['selene_spikes'][data['selene_spikes']].index
         #More plots
         for i in range(1, 41):
-            min = builtins.max(0,(random.choice(true_indices))-2000)
+            min = builtins.max(0,(random.choice(true_indices))-1000)
             max = min + 2000
             self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[adapted_meas_col_name][min:max], 'Timestamp ', 'Water Level (measured)', f'SELENE basic{i}- Measured water level wo outliers and spikes in 1 min timestamp vs orig')
         
@@ -411,7 +425,7 @@ class SpikeDetector():
 
         return data
     
-    def selene_spike_detection(self, df_meas_long, adapted_meas_col_name, time_column, filled_meas_col_name, information):
+    def selene_spike_detection(self, df_meas_long, adapted_meas_col_name, time_column, filled_meas_col_name, information, original_length):
         """
         'filled_meas_col_name' is a column generated during preprocessing to have splines fitted to measurements. A spline is fitted to a 14-16 hours window.
         Afterwards, the RMSE is calculated between spline and value and spike assessed based on it.
@@ -448,16 +462,16 @@ class SpikeDetector():
         df_meas_long['test'] = np.where(outlier_mask, np.nan, df_meas_long['test'])
         df_meas_long['selene_improved_spikes'] = outlier_mask
         
-        ratio = (df_meas_long['selene_improved_spikes'].sum()/len(df_meas_long))*100
-        print(f"There are {df_meas_long['selene_improved_spikes'].sum()} spikes in this timeseries according to Selene. This is {ratio}% of the overall dataset.")
-        information.append([f"There are {df_meas_long['selene_improved_spikes'].sum()} spikes in this timeseries according to Selene. This is {ratio}% of the overall dataset."])
+        ratio = (df_meas_long['selene_improved_spikes'].sum()/original_length)*100
+        print(f"There are {df_meas_long['selene_improved_spikes'].sum()} spikes in this timeseries according to improved Selene. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {df_meas_long['selene_improved_spikes'].sum()} spikes in this timeseries according to improved Selene. This is {ratio}% of the overall dataset."])
 
         #Analyse spike detection
         self.helper.plot_df(df_meas_long[time_column], df_meas_long['test'],'Water Level','Timestamp ','SELENE: Measured water level wo outliers and spikes in 1 min timestamp (all) (improved)')
         true_indices = df_meas_long['selene_improved_spikes'][df_meas_long['selene_improved_spikes']].index
         #More plots
         for i in range(1, 41):
-            min = builtins.max(0,(random.choice(true_indices))-2000)
+            min = builtins.max(0,(random.choice(true_indices))-1000)
             max = min + 2000
             self.helper.plot_two_df_same_axis(df_meas_long[time_column][min:max], df_meas_long['test'][min:max],'Water Level', 'Water Level (corrected)', df_meas_long[adapted_meas_col_name][min:max], 'Timestamp ', 'Water Level (measured)', f'SELENE Graph{i}- Corredted spikesS')
             self.helper.plot_two_df_same_axis(df_meas_long[time_column][min:max], df_meas_long['test'][min:max],'Water Level', 'Water Level (corrected)', df_meas_long[filled_meas_col_name][min:max], 'Timestamp ', 'Modelled Water Level', f'SELENE Graph{i}- Spline vs measurement)')
@@ -474,7 +488,7 @@ class SpikeDetector():
     During preprocessing, the polynomial fitted series has been generated over 7 hour windows of measurements like the spline fitting.
     """    
 
-    def remove_spikes_harmonic(self, data, filled_data_column, adapted_meas_col_name, time_column, information):
+    def remove_spikes_harmonic(self, data, filled_data_column, adapted_meas_col_name, time_column, information, original_length):
         """
         Input:
         -Main dataframe [df]
@@ -505,7 +519,7 @@ class SpikeDetector():
         data['test'] = np.where(outlier_mask, np.nan, data['test'])
         data['harmonic_detected_spikes'] = outlier_mask
         
-        ratio = (data['harmonic_detected_spikes'].sum()/len(data))*100
+        ratio = (data['harmonic_detected_spikes'].sum()/original_length)*100
         print(f"There are {data['harmonic_detected_spikes'].sum()} spikes in this timeseries according to harmonic series. This is {ratio}% of the overall dataset.")
         information.append([f"There are {data['harmonic_detected_spikes'].sum()} spikes in this timeseries according to harmonic series. This is {ratio}% of the overall dataset."])
 
@@ -513,7 +527,7 @@ class SpikeDetector():
         true_indices = data['harmonic_detected_spikes'][data['harmonic_detected_spikes']].index
         #More plots
         for i in range(1, 41):
-            min = builtins.max(0,(random.choice(true_indices))-2000)
+            min = builtins.max(0,(random.choice(true_indices))-1000)
             max = min + 2000
             self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[adapted_meas_col_name][min:max], 'Timestamp ', 'Water Level (measured)', f'Harmonic spike Graph{i}- Corrected spikes')
             self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[filled_data_column][min:max], 'Timestamp ', 'Modelled Water Level', f'Harmonic Spike Graph{i}- Spline vs measurement)')
@@ -531,7 +545,7 @@ class SpikeDetector():
     This approach has, in the end, barely any difference to a direct comparison to the polynomial fitted series.
     """    
 
-    def remove_spikes_ml(self, data, filled_data_column, adapted_meas_col_name, time_column, information):
+    def remove_spikes_ml(self, data, filled_data_column, adapted_meas_col_name, time_column, information, original_length):
         """
         Input:
         -Main dataframe [df]
@@ -551,14 +565,14 @@ class SpikeDetector():
             else:
                 end_index = data['segments'][shift_points].index[i+1]
             if data['segments'][start_index] == 0:
-                relev_df = data[start_index:end_index]
+                relev_df = data[start_index:end_index].copy()
 
                 #Add relevant features
-                relev_df['lag_05tide'] = relev_df[filled_data_column].shift(372)  #min max amplitude
-                relev_df['lag_1tide'] = relev_df[filled_data_column].shift(745)  #min min cycle development
-                relev_df['lag_2tide'] = relev_df[filled_data_column].shift(1490)  # 2 * min min cycle development
-                relev_df['rolling_mean'] = relev_df[filled_data_column].rolling(window=10430).mean() # 7-day mean
-                relev_df['rolling_std'] = relev_df[filled_data_column].rolling(window=10430).std() # 7-day std
+                relev_df.loc[:,'lag_05tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_05tide).bfill()  #min max amplitude
+                relev_df.loc[:,'lag_1tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_1tide).bfill()   #min min cycle development
+                relev_df.loc[:,'lag_2tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_2tide).bfill()   # 2 * min min cycle development
+                relev_df.loc[:,'rolling_mean'] = relev_df.loc[:,filled_data_column].rolling(window=self.seven_days).mean().bfill() # 7-day mean
+                relev_df.loc[:,'rolling_std'] = relev_df.loc[:,filled_data_column].rolling(window=self.seven_days).std().bfill() # 7-day std
 
                 #Extract relevant output and input features
                 X = relev_df[[filled_data_column, 'lag_1tide', 'lag_05tide', 'lag_2tide', 'rolling_mean', 'rolling_std']]
@@ -585,7 +599,7 @@ class SpikeDetector():
         data['test'] = np.where(outlier_mask, np.nan, data['test'])
         data['ml_detected_spikes'] = outlier_mask
         
-        ratio = (data['ml_detected_spikes'].sum()/len(data))*100
+        ratio = (data['ml_detected_spikes'].sum()/original_length)*100
         print(f"There are {data['ml_detected_spikes'].sum()} spikes in this timeseries according to the ML analysis. This is {ratio}% of the overall dataset.")
         information.append([f"There are {data['ml_detected_spikes'].sum()} spikes in this timeseries according to the ML analysis. This is {ratio}% of the overall dataset."])
 
@@ -593,7 +607,7 @@ class SpikeDetector():
         true_indices = data['ml_detected_spikes'][data['ml_detected_spikes']].index
         #More plots
         for i in range(1, 41):
-            min = builtins.max(0,(random.choice(true_indices))-2000)
+            min = builtins.max(0,(random.choice(true_indices))-1000)
             max = min + 2000
             self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[adapted_meas_col_name][min:max], 'Timestamp ', 'Water Level (measured)', f'ML spike Graph{i}- Corrected spikes')
             self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[filled_data_column][min:max], 'Timestamp ', 'Modelled Water Level', f'ML Spike Graph{i}- Spline vs measurement)')

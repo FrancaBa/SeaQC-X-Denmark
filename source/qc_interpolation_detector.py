@@ -20,7 +20,7 @@ class Interpolation_Detector():
         
     def __init__(self):
         # Define the window size to check for a constant slope (= linear interpolation)
-        self.window_size_const_gradient = 7
+        self.window_size_const_gradient = None
 
         self.helper = helper.HelperMethods()
 
@@ -33,8 +33,12 @@ class Interpolation_Detector():
 
         self.helper.set_output_folder(folder_path)
 
+    #Load relevant parameters for this QC test from conig.json
+    def set_parameters(self, params):
+        # Define the window size to check for a constant slope (= linear interpolation)
+        self.window_size_const_gradient = params['window_size_const_gradient']
 
-    def run_interpolation_detection(self, data, value_column, column_time, information):
+    def run_interpolation_detection(self, data, value_column, column_time, information, original_length):
         """
         Mark all periods which are probably linear interpolated. This means periods that have a constant slope over self.window_size_const_gradient (now 7 timesteps).
 
@@ -51,7 +55,7 @@ class Interpolation_Detector():
         #Flag the interpolated periods in boolean mask
         data['interpolated_value'] = gradient_mask
 
-        ratio = (gradient_mask.sum()/len(data))*100
+        ratio = (gradient_mask.sum()/original_length)*100
         print(f"There are {gradient_mask.sum()} interpolated values in this timeseries. This is {ratio}% of the overall dataset.")
         information.append([f"There are {gradient_mask.sum()} interpolated values in this timeseries. This is {ratio}% of the overall dataset."])
 

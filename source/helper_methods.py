@@ -85,7 +85,7 @@ class HelperMethods():
         """
                 
         plt.figure(figsize=(18, 9))
-        plt.plot(x_axis, data,  marker='o', markersize=1, linestyle='None')
+        plt.plot(x_axis, data,  marker='o', markersize=2, linestyle='None')
         if title != None:
             plt.title(f"{title} - Date: {x_axis.iloc[0]}")
         plt.xlabel(x_title)
@@ -112,17 +112,17 @@ class HelperMethods():
 
         fig, ax1 = plt.subplots(figsize=(18, 10))
 
-        color = 'tab:green'
+        color = 'black'
         ax1.set_xlabel(x_title)
         ax1.set_ylabel(y_title_1 , color=color)
-        ax1.plot(x_axis, data_1, marker='+', markersize=3, color=color, linestyle='None')
+        ax1.plot(x_axis, data_1, marker='+', markersize=5, color=color, linestyle='None')
         ax1.tick_params(axis='y', labelcolor=color)
 
         ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 
-        color = 'tab:orange'
+        color = 'tab:green'
         ax2.set_ylabel(y_title_2, color=color)  # we already handled the x-label with ax1
-        ax2.plot(x_axis, data_2, marker='o', markersize=1, color=color, linestyle='None', alpha=0.6)
+        ax2.plot(x_axis, data_2, marker='o', markersize=2, color=color, linestyle='None', alpha=0.6)
         ax2.tick_params(axis='y', labelcolor=color)
 
         fig.tight_layout() 
@@ -149,14 +149,14 @@ class HelperMethods():
 
         fig, ax1 = plt.subplots(figsize=(18, 10))
 
-        color = 'tab:green'
+        color = 'black'
         ax1.set_xlabel(x_title)
         ax1.set_ylabel(y_title)
-        ax1.plot(x_axis, data_1, marker='+', markersize=3, color=color, linestyle='None', label= legend_1)
+        ax1.plot(x_axis, data_1, marker='+', markersize=5, color=color, linestyle='None', label= legend_1)
         ax1.tick_params(axis='y')
 
-        color = 'tab:orange'
-        ax1.plot(x_axis, data_2, marker='o', markersize=1, color=color, linestyle='None', alpha=0.6, label= legend_2)
+        color = 'tab:green'
+        ax1.plot(x_axis, data_2, marker='o', markersize=2, color=color, linestyle='None', alpha=0.6, label= legend_2)
         ax1.legend(loc='upper right')  # Position the legend as desired
 
         fig.tight_layout() 

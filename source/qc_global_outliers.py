@@ -15,7 +15,7 @@ class OutlierRemover():
         self.helper = helper.HelperMethods()
 
         #to assess global outliers
-        self.bound_interquantile = 3.5
+        self.bound_interquantile = None
 
     def set_output_folder(self, folder_path):
         self.folder_path = os.path.join(folder_path,'global outliers')
@@ -25,8 +25,13 @@ class OutlierRemover():
             os.makedirs(self.folder_path)
 
         self.helper.set_output_folder(self.folder_path)
-    
-    def run(self, df_meas_long, adapted_meas_col_name, time_column, measurement_column, information):
+
+    #Load relevant parameters for this QC test from conig.json
+    def set_parameters(self, params):
+        #to assess global outliers
+        self.bound_interquantile = params['bound_interquantile']
+
+    def run(self, df_meas_long, adapted_meas_col_name, time_column, measurement_column, information, original_length):
 
         # Quantile Detection for large range outliers
         # Calculate the interquartile range (IQR)
@@ -54,7 +59,7 @@ class OutlierRemover():
             self.helper.plot_df(df_meas_long[time_column][true_indices[0]-10000:true_indices[0]+10000], df_meas_long[adapted_meas_col_name][true_indices[0]-10000:true_indices[0]+10000],'Water Level','Timestamp ','Outlier period in TS (corrected)')
             self.helper.plot_df(df_meas_long[time_column], df_meas_long[adapted_meas_col_name],'Water Level','Timestamp ','Measured water level wo outliers in 1 min timestamp')
           
-        ratio = (outlier_mask.sum()/len(df_meas_long))*100
+        ratio = (outlier_mask.sum()/original_length)*100
         print(f"There are {outlier_mask.sum()} outliers in this timeseries. This is {ratio}% of the overall dataset.")
         information.append([f"There are {outlier_mask.sum()} outliers in this timeseries. This is {ratio}% of the overall dataset."])
 

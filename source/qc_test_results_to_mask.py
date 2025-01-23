@@ -32,30 +32,33 @@ class QualityMasking():
     def set_station(self, station):
         self.station = station
 
+    def set_active_tests(self, active_tests):
+        self.active_tests = active_tests
+
     def convert_boolean_to_bitmask(self, df):
 
         zero_bit = 0
 
         for col_name in df.columns:
-            if col_name == 'incorrect_format':
+            if col_name == 'incorrect_format' and self.active_tests['incorrect_format']:
                 bitmask_elem = self.bitmask_def['incorrect_format']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'missing_values':
+            elif col_name == 'missing_values' and self.active_tests['missing_data']:
                 bitmask_elem = self.bitmask_def['missing_data']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'stuck_value':
+            elif col_name == 'stuck_value' and self.active_tests['stuck_value']:
                 bitmask_elem = self.bitmask_def['stuck_value']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'outlier':
+            elif col_name == 'outlier' and self.active_tests['global_outliers']:
                 bitmask_elem = self.bitmask_def['global_outliers']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'interpolated_value':
+            elif col_name == 'interpolated_value' and self.active_tests['interpolated_value']:
                 bitmask_elem = self.bitmask_def['interpolated_value']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'short_bad_measurement_series':
+            elif col_name == 'short_bad_measurement_series' and self.active_tests['bad_segment']:
                 bitmask_elem = self.bitmask_def['bad_segment']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'outlier_change_rate':
+            elif col_name == 'outlier_change_rate' and self.active_tests['outlier_change_rate']:
                 bitmask_elem = self.bitmask_def['spikes']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
@@ -63,10 +66,10 @@ class QualityMasking():
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'noisy_period':
+            elif col_name == 'noisy_period' and self.active_tests['noisy_period']:
                 bitmask_elem = self.bitmask_def['noisy_period']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'spike_value_statistical':
+            elif col_name == 'spike_value_statistical' and self.active_tests['spike_value_statistical']:
                 bitmask_elem = self.bitmask_def['spikes']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
@@ -74,7 +77,7 @@ class QualityMasking():
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'cotede_spikes':
+            elif col_name == 'cotede_spikes' and self.active_tests['cotede_spikes']:
                 bitmask_elem = self.bitmask_def['spikes']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
@@ -82,7 +85,7 @@ class QualityMasking():
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'cotede_improved_spikes':
+            elif col_name == 'cotede_improved_spikes' and self.active_tests['cotede_improved_spikes']:
                 bitmask_elem = self.bitmask_def['spikes']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
@@ -90,7 +93,7 @@ class QualityMasking():
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'selene_improved_spikes':
+            elif col_name == 'selene_spikes' and self.active_tests['selene_spikes']:
                 bitmask_elem = self.bitmask_def['spikes']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
@@ -98,7 +101,7 @@ class QualityMasking():
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'harmonic_detected_spikes':
+            elif col_name == 'selene_improved_spikes' and self.active_tests['selene_improved_spikes']:
                 bitmask_elem = self.bitmask_def['spikes']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
@@ -106,7 +109,7 @@ class QualityMasking():
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'ml_detected_spikes':
+            elif col_name == 'harmonic_detected_spikes' and self.active_tests['harmonic_detected_spikes']:
                 bitmask_elem = self.bitmask_def['spikes']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
@@ -114,10 +117,31 @@ class QualityMasking():
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'shifted_period':
+            elif col_name == 'ml_detected_spikes' and self.active_tests['ml_detected_spikes']:
+                bitmask_elem = self.bitmask_def['spikes']
+                df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
+                if f'bit_{bitmask_elem}' in df.columns:
+                    df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
+                else:
+                    df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
+                del df['new']
+            elif col_name == 'shifted_period' and self.active_tests['shifted_value']:
                 bitmask_elem = self.bitmask_def['shifted_value']
-                df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'probably_good_mask':
+                df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
+                if f'bit_{bitmask_elem}' in df.columns:
+                    df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
+                else:
+                    df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
+                del df['new']
+            elif col_name == 'shifted_ruptures' and self.active_tests['shifted_ruptures']:
+                bitmask_elem = self.bitmask_def['shifted_value']
+                df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
+                if f'bit_{bitmask_elem}' in df.columns:
+                    df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
+                else:
+                    df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
+                del df['new']
+            elif col_name == 'probably_good_mask' and self.active_tests['probably_good_data']:
                 bitmask_elem = self.bitmask_def['probably_good_data']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
 
