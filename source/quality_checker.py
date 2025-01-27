@@ -23,6 +23,7 @@ import source.qc_global_outliers as qc_global_outliers
 import source.qc_stuck_values as qc_stuck_values
 import source.data_extractor_monthly as extractor
 import source.qc_test_results_to_mask as qc_test_results_to_mask
+import source.tidal_signal_generation as tidal_signal_generation
 
 from sklearn.ensemble import IsolationForest
 from sklearn.metrics import precision_score
@@ -57,6 +58,8 @@ class QualityFlagger():
         self.all_params = config_data['parameter_definition']
         #Defines which tests are active in the script
         self.active_tests = config_data['qc_active_tests']
+        #Defines if certain tests should be carried out on detided data as well
+        self.detide_mode = config_data['detide_mode']
 
     #Create output folder to save results
     def set_output_folder(self, folder_path):
@@ -79,6 +82,9 @@ class QualityFlagger():
         #Dummy value for NaN-values in measurement series
         self.missing_meas_value = missing_meas_value 
 
+    def set_tidal_constituents(self, tidal_constituents_path):
+        #Define tidal constituents needed for Utide
+        self.tidal_constituents_path = tidal_constituents_path
 
     def import_data(self, path, file):
         """
@@ -188,10 +194,17 @@ class QualityFlagger():
     def run(self):
         #Set relevant column names
         self.adapted_meas_col_name = 'altered'
-        
+
         #Padding of ts to a homogenous timestep
         df = self.set_global_timestamp(self.df_meas)
         df[self.adapted_meas_col_name] = df[self.measurement_column]
+
+        #Create corresponding tide signal
+        if self.detide_mode == True:
+            tidal_signal_construction = tidal_signal_generation.TidalSignalGenerator()
+            tidal_signal_construction.set_parameter_path(self.tidal_constituents_path)
+            tidal_signal_construction.set_station(self.station)
+            tidal_signal_construction.run(df, self.time_column, self.information)
         
         #Runs the different steps in the QC algorithm
         df = self.run_qc(df)

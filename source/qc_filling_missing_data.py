@@ -156,7 +156,7 @@ class MissingDataFiller():
                 #3. Fit polynomial series to x- and y-series pair
                 #4. Overwrite beginning and end of segment with next segment for smoother transition
                 for start in range(start_index, end_index, winsize):
-                    if (start + winsize*2) > end_index:
+                    if (start + winsize*2) >= end_index:
                         end = end_index
                         if start - 200 < start_index:
                             start = start_index
@@ -175,7 +175,10 @@ class MissingDataFiller():
 
                     # Create a polynomial series based on the coefficients and timeseries
                     y_fit = np.polyval(coefficients, x_numeric)
-                    if end == end_index:
+                    if end == end_index and start == start_index:
+                        data.loc[start:end,'poly_fitted_data'] = y_fit
+                        break
+                    elif end == end_index:
                         data.loc[start+200:end,'poly_fitted_data'] = y_fit[200:]
                         break
                     elif start == start_index:

@@ -566,17 +566,31 @@ class SpikeDetector():
                 end_index = data['segments'][shift_points].index[i+1]
             if data['segments'][start_index] == 0:
                 relev_df = data[start_index:end_index].copy()
+                print(relev_df)
+                if len(relev_df) >= self.seven_days:
+                    #Add relevant features
+                    relev_df.loc[:,'lag_05tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_05tide).bfill()  #min max amplitude
+                    relev_df.loc[:,'lag_1tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_1tide).bfill()   #min min cycle development
+                    relev_df.loc[:,'lag_2tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_2tide).bfill()   # 2 * min min cycle development
+                    relev_df.loc[:,'rolling_mean'] = relev_df.loc[:,filled_data_column].rolling(window=self.seven_days).mean().bfill() # 7-day mean
+                    relev_df.loc[:,'rolling_std'] = relev_df.loc[:,filled_data_column].rolling(window=self.seven_days).std().bfill() # 7-day std
 
-                #Add relevant features
-                relev_df.loc[:,'lag_05tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_05tide).bfill()  #min max amplitude
-                relev_df.loc[:,'lag_1tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_1tide).bfill()   #min min cycle development
-                relev_df.loc[:,'lag_2tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_2tide).bfill()   # 2 * min min cycle development
-                relev_df.loc[:,'rolling_mean'] = relev_df.loc[:,filled_data_column].rolling(window=self.seven_days).mean().bfill() # 7-day mean
-                relev_df.loc[:,'rolling_std'] = relev_df.loc[:,filled_data_column].rolling(window=self.seven_days).std().bfill() # 7-day std
+                    #Extract relevant output and input features
+                    #X = relev_df[[filled_data_column, 'lag_1tide', 'lag_05tide', 'lag_2tide', 'rolling_mean', 'rolling_std']]
 
-                #Extract relevant output and input features
-                X = relev_df[[filled_data_column, 'lag_1tide', 'lag_05tide', 'lag_2tide', 'rolling_mean', 'rolling_std']]
-                y = relev_df[filled_data_column]
+                    # Create sliding windows
+                    X, y = [], []
+                    for i in range(len(relev_df) - self.lag_05tide):
+                        X.append(relev_df.iloc[i:i + self.lag_05tide][[filled_data_column, 'lag_1tide', 'lag_05tide', 'lag_2tide', 'rolling_mean', 'rolling_std']].values.flatten())
+                        y.append(relev_df.iloc[i + self.lag_05tide][filled_data_column])
+
+                    X = np.array(X)
+                    y = np.array(y)
+                else:
+                    relev_df.loc[:,'lag_05tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_05tide).bfill()  #min max amplitude
+                    #Extract relevant output and input features
+                    X = relev_df[[filled_data_column, 'lag_05tide']]
+                    y = relev_df[filled_data_column].values
 
                 # Split into train and test
                 X_train = X[:-int((self.test_size*len(relev_df)))]

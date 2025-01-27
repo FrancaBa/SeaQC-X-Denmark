@@ -1,5 +1,6 @@
 {
   "date_alteration": "23.01.2025",
+  "detide_mode": false,
   "qc_flag_classification": {
     "no_qc": 0,
     "good_data": 1,
@@ -71,7 +72,7 @@
         "cotede_threshold": 0.01,
         "improved_cotede_threshold": 0.06,
         "max_window_neighbours":60,
-        "test_size": 0.85,
+        "test_size": 0.15,
         "lag_05tide": 375,
         "lag_1tide": 750,
         "lag_2tide": 1500,

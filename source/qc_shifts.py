@@ -194,13 +194,13 @@ class ShiftDetector():
                             plt.savefig(os.path.join(self.folder_path_ruptures,f"change_point_detection_plot{i}.png")) 
                             plt.close()
 
+        all_changepoints = [item for sublist in all_changepoints for item in sublist]
         df.loc[all_changepoints, 'shifted_ruptures'] = True
         ratio = (len(all_changepoints)/original_length)*100
         print(f"There are {len(all_changepoints)} changepoints according to Ruptures in this period. This is {ratio}% of the overall dataset.")
         information.append([f"There are {len(all_changepoints)} changepoints according to Ruptures in this period. This is {ratio}% of the overall dataset."])
             
         if all_changepoints:
-            all_changepoints = [item for sublist in all_changepoints for item in sublist]
             length = builtins.min(30, len(all_changepoints))
             for i in range(0, length):
                 min = builtins.max(0,all_changepoints[i]-2000)

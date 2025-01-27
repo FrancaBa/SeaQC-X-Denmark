@@ -51,8 +51,9 @@ class Test_QA_Station(unittest.TestCase):
             self.ending = '.dba'
             self.param = 'WaterLevel'
 
-        #Set path to config json
+        #Set path to config json and tidal constituents
         self.json_path = os.path.join(os.getcwd(), 'config.json')
+        self.tidal_constituents_path = os.path.join(os.getcwd(), 'tides_constituents.local')
 
     def test_quality_check_qaqortoq(self):
 
@@ -73,6 +74,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -95,6 +97,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
     
@@ -117,6 +120,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -139,6 +143,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -161,6 +166,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -183,6 +189,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -205,6 +212,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
