@@ -31,7 +31,7 @@ class OutlierRemover():
         #to assess global outliers
         self.bound_interquantile = params['bound_interquantile']
 
-    def run(self, df_meas_long, adapted_meas_col_name, time_column, measurement_column, information, original_length):
+    def run(self, df_meas_long, adapted_meas_col_name, time_column, measurement_column, information, original_length, suffix):
 
         # Quantile Detection for large range outliers
         # Calculate the interquartile range (IQR)
@@ -50,7 +50,7 @@ class OutlierRemover():
         # Mask the outliers
         df_meas_long[adapted_meas_col_name] = np.where(outlier_mask, np.nan, df_meas_long[adapted_meas_col_name])
         #Add outlier mask as a column
-        df_meas_long['outlier'] = outlier_mask
+        df_meas_long[f'outlier{suffix}'] = outlier_mask
 
         # Get indices where the mask is True (as check that approach works)
         if outlier_mask.any():
@@ -68,7 +68,7 @@ class OutlierRemover():
         plt.title('Distribution of Values')
         plt.xlabel('Water Level')
         plt.ylabel('Frequency')
-        plt.savefig(os.path.join(self.folder_path,"Distribuiton - WL measurements (no outliers).png"),  bbox_inches="tight")
+        plt.savefig(os.path.join(self.folder_path,f"Distribuiton - WL measurements (no outliers)-{suffix}.png"),  bbox_inches="tight")
         plt.close() 
 
         return df_meas_long

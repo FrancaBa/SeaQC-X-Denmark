@@ -32,10 +32,6 @@ class Test_QA_Station(unittest.TestCase):
             'Upernavik2': (np.nan, np.nan)
         }
 
-        #Generates a dic containing all stations
-        dic_stations = {station: coord[station] for station in self.stations}
-        print(dic_stations)
-
         #Set path to measurements
         self.datadir = '/dmidata/users/frb/greenland_data_raw/Collected_Oct2024'
         #self.datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
@@ -53,7 +49,7 @@ class Test_QA_Station(unittest.TestCase):
 
         #Set path to config json and tidal constituents
         self.json_path = os.path.join(os.getcwd(), 'config.json')
-        self.tidal_constituents_path = os.path.join(os.getcwd(), 'tides_constituents.local')
+        self.gauge_details_path = os.path.join(os.getcwd(), 'tides.local')
 
     def test_quality_check_qaqortoq(self):
 
@@ -73,8 +69,8 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
+        data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -96,8 +92,8 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
+        data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
     
@@ -119,8 +115,8 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
+        data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -142,8 +138,8 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
+        data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -165,8 +161,8 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
+        data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -188,8 +184,8 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
+        data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -211,8 +207,8 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.load_config_json(self.json_path)
         data_flagging.set_column_names('Timestamp', self.param, 'Flag')
         data_flagging.set_station(station)
+        data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_constituents(self.tidal_constituents_path)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 

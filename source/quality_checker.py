@@ -43,6 +43,9 @@ class QualityFlagger():
         self.station = station
         self.information.append(['The following text summarizes the QC perfromed on measurements from ',station,':'])
     
+    def set_gauge_details(self, gauge_details_path):
+        self.gauge_details_path = gauge_details_path
+
     #load config.json file to generate bitmask and flags after QC tests and to load threshold/parameters used for the QC tests
     def load_config_json(self, json_path):
 
@@ -81,10 +84,6 @@ class QualityFlagger():
     def set_missing_value_filler(self, missing_meas_value):
         #Dummy value for NaN-values in measurement series
         self.missing_meas_value = missing_meas_value 
-
-    def set_tidal_constituents(self, tidal_constituents_path):
-        #Define tidal constituents needed for Utide
-        self.tidal_constituents_path = tidal_constituents_path
 
     def import_data(self, path, file):
         """
@@ -198,109 +197,27 @@ class QualityFlagger():
         #Padding of ts to a homogenous timestep
         df = self.set_global_timestamp(self.df_meas)
         df[self.adapted_meas_col_name] = df[self.measurement_column]
-
-        #Create corresponding tide signal
-        if self.detide_mode == True:
-            tidal_signal_construction = tidal_signal_generation.TidalSignalGenerator()
-            tidal_signal_construction.set_parameter_path(self.tidal_constituents_path)
-            tidal_signal_construction.set_station(self.station)
-            tidal_signal_construction.run(df, self.time_column, self.information)
         
         #Runs the different steps in the QC algorithm
-        df = self.run_qc(df)
+        df = self.run_qc(df, self.adapted_meas_col_name)
 
-        #Convert information of passed and failed tests to flags
-        conversion_bitmask = qc_test_results_to_mask.QualityMasking()
-        conversion_bitmask.set_output_folder(self.folder_path)
-        conversion_bitmask.set_station(self.station)
-        conversion_bitmask.set_flags(self.qc_classes)
-        conversion_bitmask.set_bitmask(self.qc_bit_definition)
-        conversion_bitmask.set_active_tests(self.active_tests)
-        df = conversion_bitmask.convert_boolean_to_bitmask(df)
-        df = conversion_bitmask.convert_bitmask_to_flags(df)
-        conversion_bitmask.save_flagged_series(df, self.measurement_column, self.time_column, self.df_meas)
-
-        #Save information from QC tests to txt file
-        self.save_to_txt()
-
-        #Check what unsupervised ML would do
-        self.unsupervised_outlier_detection(df, self.measurement_column, 'poly_interpolated_data', self.time_column, self.segment_column, 'combined_mask')
-
-
-    def run_qc(self, df):
-        """
-        As main QC method, it calls the different steps taken in the QC approach. See commented text.
-        """
-        #Detect stuck values in ts
-        stuck_values = qc_stuck_values.StuckValuesDetector()
-        stuck_values.set_output_folder(self.folder_path)
-        stuck_values.set_parameters(self.params)
-        df = stuck_values.run(df, self.time_column, self.adapted_meas_col_name, self.information, self.original_length)
-
-        #Detect global outliers in ts
-        global_outliers = qc_global_outliers.OutlierRemover()
-        global_outliers.set_output_folder(self.folder_path)
-        global_outliers.set_parameters(self.params)
-        df = global_outliers.run(df, self.adapted_meas_col_name, self.time_column, self.measurement_column, self.information, self.original_length)
-
-        #Detect interpolated values
-        interpolated_qc = qc_interpolated.Interpolation_Detector()
-        interpolated_qc.set_output_folder(self.folder_path)
-        interpolated_qc.set_parameters(self.params)
-        df = interpolated_qc.run_interpolation_detection(df, self.adapted_meas_col_name, self.time_column, self.information, self.original_length)
-       
-        #Segmentation of ts in empty and measurement segments
-        #Extract measurement segments and fill them accordingly
-        self.segment_column = 'segments'
-        fill_data_qc = qc_fill_data.MissingDataFiller()
-        fill_data_qc.set_output_folder(self.folder_path)
-        fill_data_qc.set_parameters(self.params)
-        df = fill_data_qc.segmentation_ts(df, self.adapted_meas_col_name, self.segment_column, self.information)
-
-        #Set short measurement periods between missing data periods as not trustworthy periods
-        df = self.short_bad_measurement_periods(df, self.segment_column)
-
-        #Add continuous helper columns
-        df = fill_data_qc.polynomial_fill_data_column(df, self.adapted_meas_col_name, self.time_column, self.segment_column)
-        df = fill_data_qc.polynomial_fitted_data_column(df, self.adapted_meas_col_name, self.time_column, self.segment_column, 'poly_interpolated_data')
-        df = fill_data_qc.spline_fitted_measurement_column(df, self.adapted_meas_col_name, self.time_column, self.segment_column)
-        #fill_data_qc.compare_filled_measurements(df, self.time_column, self.segment_column)
-
-        #Detect implausible change rate over period
-        implausible_change = qc_implausible_change.ImplausibleChangeDetector()
-        implausible_change.set_output_folder(self.folder_path)
-        implausible_change.set_parameters(self.params)
-        df = implausible_change.run(df, self.adapted_meas_col_name, self.time_column, self.information, self.original_length)
-
-        #Detect spike values
-        spike_detection = qc_spike.SpikeDetector()
-        spike_detection.set_output_folder(self.folder_path)
-        spike_detection.set_parameters(self.params)
-        self.information.append(['Various Spike detection approaches and their outcomes:'])
-        if self.active_tests['spike_value_statistical']:
-            df = spike_detection.detect_spikes_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name, self.information, self.original_length)
-        if self.active_tests['cotede_spikes']:
-            df = spike_detection.remove_spikes_cotede(df, self.adapted_meas_col_name, self.time_column, self.information, self.original_length)
-        if self.active_tests['cotede_improved_spikes']:
-            df = spike_detection.remove_spikes_cotede_improved(df, self.adapted_meas_col_name, self.time_column, self.information, self.original_length)
-        if self.active_tests['selene_spikes']:
-            df = spike_detection.selene_spike(df, self.adapted_meas_col_name, self.time_column, self.segment_column, 'poly_interpolated_data', self.information, self.original_length)
-        if self.active_tests['selene_improved_spikes']:
-            df = spike_detection.selene_spike_detection(df, self.adapted_meas_col_name, self.time_column, 'spline_fitted_data', self.information, self.original_length)
-        if self.active_tests['harmonic_detected_spikes']:
-            df = spike_detection.remove_spikes_harmonic(df, 'poly_fitted_data', self.adapted_meas_col_name, self.time_column, self.information, self.original_length)
-        if self.active_tests['ml_detected_spikes']:
-            #Not really ML and doesn't improve anything (Thus, it is not used!)
-            df = spike_detection.remove_spikes_ml(df, 'poly_fitted_data', self.adapted_meas_col_name, self.time_column, self.information, self.original_length)
-        
-        #Detect shifts & deshift values
-        shift_detection = qc_shifts.ShiftDetector()
-        shift_detection.set_output_folder(self.folder_path)
-        shift_detection.set_parameters(self.params)
-        if self.active_tests['shifted_ruptures']:
-            df = shift_detection.detect_shifts_ruptures(df, self.adapted_meas_col_name, self.time_column, 'poly_interpolated_data', self.segment_column, self.information, self.original_length)
-        if self.active_tests['shifted_value']:
-            df = shift_detection.detect_shifts_statistical(df, 'poly_interpolated_data', self.time_column, self.adapted_meas_col_name, self.segment_column, self.information, self.original_length)
+        #Run the different steps in the QC algorithm for detided data
+        if self.detide_mode == True:
+            suffix = '_detided'
+            self.information.append(['The QC steps are now performed again for detided data.'])
+            #1.Generate tidal signal and detided time series
+            tidal_signal_construction = tidal_signal_generation.TidalSignalGenerator()
+            tidal_signal_construction.set_station(self.station)
+            tidal_signal_construction.set_gauge_details_path(self.gauge_details_path)
+            tidal_signal_construction.set_output_folder(self.folder_path)
+            tidal_signal_construction.run(df, self.measurement_column, self.time_column, self.information)
+            #2.Export the new series to csv files for manual labelling
+            data_extractor = extractor.DataExtractor()
+            data_extractor.set_output_folder(self.folder_path, self.station)
+            data_extractor.set_missing_value_filler(self.missing_meas_value)
+            data_extractor.run(self.df_meas, self.time_column, 'detided_series', suffix)
+            #3. Carry out QC steps on detided series as well
+            df = self.run_qc(df, 'detided_series',suffix)
 
         #Probably good data
         #Mark all data as probably good data if it is only a short measurement period between bad data
@@ -309,6 +226,99 @@ class QualityFlagger():
             prob_good.set_output_folder(self.folder_path)
             prob_good.set_parameters(self.params)
             df = prob_good.run(df, self.adapted_meas_col_name, self.time_column, self.information, self.original_length)
+
+        #Convert information of passed and failed tests to flags
+        conversion_bitmask = qc_test_results_to_mask.QualityMasking()
+        conversion_bitmask.set_output_folder(self.folder_path)
+        conversion_bitmask.set_station(self.station)
+        conversion_bitmask.set_flags(self.qc_classes)
+        conversion_bitmask.set_bitmask(self.qc_bit_definition)
+        conversion_bitmask.set_active_tests(self.active_tests)
+        df = conversion_bitmask.convert_boolean_to_bitmasks(df)
+        df = conversion_bitmask.convert_boolean_to_bitmasks(df, '_detided')
+        df = conversion_bitmask.merge_bitmasks(df)
+        df = conversion_bitmask.convert_bitmask_to_flags(df)
+        conversion_bitmask.save_flagged_series(df, self.measurement_column, self.time_column, self.df_meas)
+
+        #Save information from QC tests to txt file
+        self.save_to_txt()
+
+    def run_qc(self, df, relevant_measurements, suffix=''):
+        """
+        As main QC method, it calls the different steps taken in the QC approach. See commented text.
+        """
+        #Detect stuck values in ts
+        stuck_values = qc_stuck_values.StuckValuesDetector()
+        stuck_values.set_output_folder(self.folder_path)
+        stuck_values.set_parameters(self.params)
+        df = stuck_values.run(df, self.time_column, relevant_measurements, self.information, self.original_length, suffix)
+
+        #Detect global outliers in ts
+        global_outliers = qc_global_outliers.OutlierRemover()
+        global_outliers.set_output_folder(self.folder_path)
+        global_outliers.set_parameters(self.params)
+        df = global_outliers.run(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
+
+        #Detect interpolated values
+        interpolated_qc = qc_interpolated.Interpolation_Detector()
+        interpolated_qc.set_output_folder(self.folder_path)
+        interpolated_qc.set_parameters(self.params)
+        df = interpolated_qc.run_interpolation_detection(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
+       
+        #Segmentation of ts in empty and measurement segments
+        #Extract measurement segments and fill them accordingly
+        self.segment_column = f'segments{suffix}'
+        fill_data_qc = qc_fill_data.MissingDataFiller()
+        fill_data_qc.set_output_folder(self.folder_path)
+        fill_data_qc.set_parameters(self.params)
+        df = fill_data_qc.segmentation_ts(df, relevant_measurements, self.segment_column, self.information, suffix)
+
+        #Set short measurement periods between missing data periods as not trustworthy periods
+        df = self.short_bad_measurement_periods(df, relevant_measurements, self.segment_column, suffix)
+
+        #Add continuous helper columns
+        df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
+        df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
+        df = fill_data_qc.spline_fitted_measurement_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
+        fill_data_qc.compare_filled_measurements(df, self.time_column, self.segment_column, suffix)
+
+        #Detect implausible change rate over period
+        implausible_change = qc_implausible_change.ImplausibleChangeDetector()
+        implausible_change.set_output_folder(self.folder_path)
+        implausible_change.set_parameters(self.params)
+        df = implausible_change.run(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
+
+        #Detect spike values
+        spike_detection = qc_spike.SpikeDetector()
+        spike_detection.set_output_folder(self.folder_path)
+        spike_detection.set_parameters(self.params)
+        self.information.append(['Various Spike detection approaches and their outcomes:'])
+        if self.active_tests['spike_value_statistical']:
+            df = spike_detection.detect_spikes_statistical(df, f'poly_interpolated_data{suffix}', self.time_column, relevant_measurements, self.information, self.original_length, suffix)
+        if self.active_tests['cotede_spikes']:
+            df = spike_detection.remove_spikes_cotede(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
+        if self.active_tests['cotede_improved_spikes']:
+            df = spike_detection.remove_spikes_cotede_improved(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
+        if self.active_tests['selene_spikes']:
+            df = spike_detection.selene_spike(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', self.information, self.original_length, suffix)
+        if self.active_tests['selene_improved_spikes']:
+            df = spike_detection.selene_spike_detection(df, relevant_measurements, self.time_column, f'spline_fitted_data{suffix}', self.information, self.original_length, suffix)
+        if self.active_tests['harmonic_detected_spikes']:
+            df = spike_detection.remove_spikes_harmonic(df, f'poly_fitted_data{suffix}', self.adapted_meas_col_name, self.time_column, self.information, self.original_length, suffix)
+        if self.active_tests['ml_detected_spikes']:
+            df = spike_detection.remove_spikes_ml(df, f'poly_fitted_data{suffix}', self.adapted_meas_col_name, self.time_column, self.information, self.original_length, suffix)
+        
+        #Detect shifts & deshift values
+        shift_detection = qc_shifts.ShiftDetector()
+        shift_detection.set_output_folder(self.folder_path)
+        shift_detection.set_parameters(self.params)
+        if self.active_tests['shifted_ruptures']:
+            df = shift_detection.detect_shifts_ruptures(df, relevant_measurements, self.time_column, f'poly_interpolated_data{suffix}', self.segment_column, self.information, self.original_length, suffix)
+        if self.active_tests['shifted_value']:
+            df = shift_detection.detect_shifts_statistical(df, f'poly_interpolated_data{suffix}', self.time_column, relevant_measurements, self.segment_column, self.information, self.original_length, suffix)
+
+        #Check what unsupervised ML would do
+        self.unsupervised_outlier_detection(df, self.measurement_column, f'poly_interpolated_data{suffix}', self.time_column, self.segment_column)
 
         return df
 
@@ -347,7 +357,7 @@ class QualityFlagger():
         return df_meas_long
 
 
-    def short_bad_measurement_periods(self, data, segment_column):
+    def short_bad_measurement_periods(self, data, data_column, segment_column, suffix):
         """
         Check if segments are very short or contain a lot of NaN values. If yes, drop those segments as bad segments.
 
@@ -360,7 +370,7 @@ class QualityFlagger():
         self.threshold_unusabel_segment_nan = self.params['threshold_empty_bad_segment']
 
         #for extractinglooping over segments
-        data['short_bad_measurement_series'] = False
+        data[f'short_bad_measurement_series{suffix}'] = False
         shift_points = (data[segment_column] != data[segment_column].shift())
         z = 0
 
@@ -371,26 +381,26 @@ class QualityFlagger():
             else:
                 end_index = data[segment_column][shift_points].index[i+1]
             if data[segment_column][start_index] == 0:
-                self.helper.plot_df(data[self.time_column][start_index:end_index], data[self.adapted_meas_col_name][start_index:end_index],'Water Level', 'Timestamp',f'Segment graph {start_index}')
+                self.helper.plot_df(data[self.time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Timestamp',f'Segment graph {start_index} -{suffix}')
                 #test_df = data[(data[time_column].dt.year == 2007) & (data[time_column].dt.month == 9)]
                 #self.helper.plot_two_df_same_axis(test_df[time_column],test_df[data_column],'Water Level', 'Water Level', test_df[segment_column], 'Timestamp', 'Segment',f'Test Graph 0')
                 print(f'Segment is {end_index - start_index} entries long.')
                 print(f'This bad period sarts with index {start_index}.')
-                print(np.sum(~np.isnan(data[self.adapted_meas_col_name][start_index:end_index]))/len(data[self.adapted_meas_col_name][start_index:end_index]))
+                print(np.sum(~np.isnan(data[data_column][start_index:end_index]))/len(data[data_column][start_index:end_index]))
                 if end_index - start_index < self.threshold_short_bad_segment:
-                    data.loc[start_index:end_index, 'short_bad_measurement_series'] = True
-                    data.loc[start_index:end_index, self.adapted_meas_col_name] = np.nan
+                    data.loc[start_index:end_index, f'short_bad_measurement_series{suffix}'] = True
+                    data.loc[start_index:end_index, data_column] = np.nan
                     data.loc[start_index:end_index, segment_column] = 1
                     z += 1
-                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[self.measurement_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and short periods (monthly) - Graph {i}')
-                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[self.adapted_meas_col_name][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and short periods (monthly)- Cleaned - Graph{i}')
-                elif np.sum(~np.isnan(data[self.adapted_meas_col_name][start_index:end_index]))/len(data[self.adapted_meas_col_name][start_index:end_index]) < self.threshold_unusabel_segment_nan:
-                    data.loc[start_index:end_index, 'short_bad_measurement_series'] = True
-                    data.loc[start_index:end_index, self.adapted_meas_col_name] = np.nan
+                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[data_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and short periods (monthly) - Graph {i} -{suffix}')
+                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[data_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and short periods (monthly)- Cleaned - Graph{i} -{suffix}')
+                elif np.sum(~np.isnan(data[data_column][start_index:end_index]))/len(data[data_column][start_index:end_index]) < self.threshold_unusabel_segment_nan:
+                    data.loc[start_index:end_index, f'short_bad_measurement_series{suffix}'] = True
+                    data.loc[start_index:end_index, data_column] = np.nan
                     data.loc[start_index:end_index, segment_column] = 1
                     z += 1
-                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[self.measurement_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and empty periods (monthly) - Graph {i}')
-                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[self.adapted_meas_col_name][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and empty periods (monthly)- Cleaned - Graph{i}')
+                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[self.measurement_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and empty periods (monthly) - Graph {i} -{suffix}')
+                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[data_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and empty periods (monthly)- Cleaned - Graph{i} -{suffix}')
         print(f"There are {z} bad segments in this timeseries.")
         self.information.append([f"There are {z} bad segments in this timeseries."])
 
@@ -422,7 +432,7 @@ class QualityFlagger():
         print(f"QC test statements have been saved to {file_path}")
 
 
-    def unsupervised_outlier_detection(self, df, data_column_name, interpolated_data_colum, time_column, segment_column, true_anomalies_column):
+    def unsupervised_outlier_detection(self, df, data_column_name, interpolated_data_colum, time_column, segment_column, suffix):
         """
         Run a simple unsupervised ML algorithm to see how it performs in grouping the measurments.
         """
@@ -430,7 +440,7 @@ class QualityFlagger():
         self.window_size = self.params['window_size_slicing_unsupervised_ml']
 
         shift_points = (df[segment_column] != df[segment_column].shift())
-        df['unsupervised_ml_outliers'] = False
+        df[f'unsupervised_ml_outliers{suffix}'] = False
         df['test'] = df[data_column_name].copy()
 
         for i in range(0,len(df[segment_column][shift_points]), 1):
@@ -441,7 +451,7 @@ class QualityFlagger():
                 end_index = df[segment_column][shift_points].index[i+1]
             if df[segment_column][start_index] == 0:
                 relev_df = df[start_index:end_index]
-                true_anomalies = relev_df[true_anomalies_column]
+                #true_anomalies = relev_df[true_anomalies_column]
 
                 # Initialize a padded array
                 padding = self.window_size // 2
@@ -461,27 +471,27 @@ class QualityFlagger():
                 X = np.array(X)
 
                 # Grid search for optimal contamination
-                contamination_values = np.linspace(0.001, 0.1, 10)  # Test contamination levels from 0.1% to 10%
-                best_contamination = None
-                best_precision = 0
+                #contamination_values = np.linspace(0.001, 0.1, 10)  # Test contamination levels from 0.1% to 10%
+                #best_contamination = None
+                #best_precision = 0
 
-                for contamination in contamination_values:
-                    isolation_forest = IsolationForest(contamination=contamination, n_estimators=200, random_state=42)
-                    anomaly_score = isolation_forest.fit_predict(X)
+                #for contamination in contamination_values:
+                #    isolation_forest = IsolationForest(contamination=contamination, n_estimators=200, random_state=42)
+                #    anomaly_score = isolation_forest.fit_predict(X)
                         
                     # Convert anomaly scores to binary (1 for anomalies, 0 for normal)
-                    predicted_anomalies = (anomaly_score == -1).astype(int)
+                #    predicted_anomalies = (anomaly_score == -1).astype(int)
                         
                     # Compute precision score (you can also use recall or F1-score)
-                    precision = precision_score(true_anomalies, predicted_anomalies, zero_division=0)
+                #    precision = precision_score(true_anomalies, predicted_anomalies, zero_division=0)
                         
-                    if precision > best_precision:
-                        best_precision = precision
-                        best_contamination = contamination
-                        print(best_contamination, best_precision)
+                #    if precision > best_precision:
+                #        best_precision = precision
+                #        best_contamination = contamination
+                #        print(best_contamination, best_precision)
 
                 # Fit Isolation Forest
-                model = IsolationForest(contamination=best_contamination, n_estimators=200, random_state=42)  # Adjust contamination as needed
+                model = IsolationForest(contamination=0.1, n_estimators=200, random_state=42)  # Adjust contamination as needed
                 anomaly = model.fit_predict(X)
 
                 # Identify anomalies
@@ -491,7 +501,7 @@ class QualityFlagger():
                 relev_index = anomalies.index
                 non_nan_indices = relev_df[~relev_df[data_column_name].isna()].index.to_numpy()
                 common_indices = relev_index.intersection(non_nan_indices)
-                df.loc[common_indices, 'unsupervised_ml_outliers'] = True
+                df.loc[common_indices, f'unsupervised_ml_outliers{suffix}'] = True
 
                 # Visualization
                 title = 'Anomaly Detection with Isolation Forest (Using Interpolation)'
@@ -503,17 +513,17 @@ class QualityFlagger():
                 plt.xlabel('Time')
                 plt.ylabel('Water Level')
                 plt.tight_layout()
-                plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {relev_df[time_column].iloc[0]}.png"),  bbox_inches="tight")
+                plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {relev_df[time_column].iloc[0]} -{suffix}.png"),  bbox_inches="tight")
                 plt.close()
 
         #Analyse spike detectionunsupervised ML outcomes
-        df['test'] = np.where(df['unsupervised_ml_outliers'], np.nan, df['test'])
-        true_indices = df['unsupervised_ml_outliers'][df['unsupervised_ml_outliers']].index
+        df['test'] = np.where(df[f'unsupervised_ml_outliers{suffix}'], np.nan, df['test'])
+        true_indices = df[f'unsupervised_ml_outliers{suffix}'][df[f'unsupervised_ml_outliers{suffix}']].index
         #More plots
         for i in range(1, 41):
             min = builtins.max(0,(random.choice(true_indices))-2000)
             max = min + 2000
-            self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[data_column_name][min:max], 'Timestamp ', 'Water Level (all)', f'Unsupervised ML Graph {i}')
+            self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[data_column_name][min:max], 'Timestamp ', 'Water Level (all)', f'Unsupervised ML Graph {i} -{suffix}')
             
         print('There are', len(true_indices),'incorrect values in the timeserie.')
         self.information.append([f'There are {len(true_indices)} incorrect values in the timeserie.'])

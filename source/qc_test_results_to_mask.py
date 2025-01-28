@@ -35,139 +35,150 @@ class QualityMasking():
     def set_active_tests(self, active_tests):
         self.active_tests = active_tests
 
-    def convert_boolean_to_bitmask(self, df):
+    def convert_boolean_to_bitmasks(self, df, suffix=''):
 
         zero_bit = 0
 
         for col_name in df.columns:
-            if col_name == 'incorrect_format' and self.active_tests['incorrect_format']:
-                bitmask_elem = self.bitmask_def['incorrect_format']
+            if col_name == f'incorrect_format{suffix}' and self.active_tests['incorrect_format']:
+                bitmask_elem = self.bitmask_def[f'incorrect_format{suffix}']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'missing_values' and self.active_tests['missing_data']:
-                bitmask_elem = self.bitmask_def['missing_data']
+            elif col_name == f'missing_values' and self.active_tests['missing_data']:
+                bitmask_elem = self.bitmask_def[f'missing_data{suffix}']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'stuck_value' and self.active_tests['stuck_value']:
-                bitmask_elem = self.bitmask_def['stuck_value']
+            elif col_name == f'stuck_value{suffix}' and self.active_tests['stuck_value']:
+                bitmask_elem = self.bitmask_def[f'stuck_value{suffix}']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'outlier' and self.active_tests['global_outliers']:
-                bitmask_elem = self.bitmask_def['global_outliers']
+            elif col_name == f'outlier{suffix}' and self.active_tests['global_outliers']:
+                bitmask_elem = self.bitmask_def[f'global_outliers{suffix}']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'interpolated_value' and self.active_tests['interpolated_value']:
-                bitmask_elem = self.bitmask_def['interpolated_value']
+            elif col_name == f'interpolated_value{suffix}' and self.active_tests['interpolated_value']:
+                bitmask_elem = self.bitmask_def[f'interpolated_value{suffix}']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'short_bad_measurement_series' and self.active_tests['bad_segment']:
-                bitmask_elem = self.bitmask_def['bad_segment']
+            elif col_name == f'short_bad_measurement_series{suffix}' and self.active_tests['bad_segment']:
+                bitmask_elem = self.bitmask_def[f'bad_segment{suffix}']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'outlier_change_rate' and self.active_tests['outlier_change_rate']:
-                bitmask_elem = self.bitmask_def['spikes']
+            elif col_name == f'outlier_change_rate{suffix}' and self.active_tests['outlier_change_rate']:
+                bitmask_elem = self.bitmask_def[f'spikes{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
                     df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'noisy_period' and self.active_tests['noisy_period']:
-                bitmask_elem = self.bitmask_def['noisy_period']
+            elif col_name == f'noisy_period{suffix}' and self.active_tests['noisy_period']:
+                bitmask_elem = self.bitmask_def[f'noisy_period{suffix}']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == 'spike_value_statistical' and self.active_tests['spike_value_statistical']:
-                bitmask_elem = self.bitmask_def['spikes']
+            elif col_name == f'spike_value_statistical{suffix}' and self.active_tests['spike_value_statistical']:
+                bitmask_elem = self.bitmask_def[f'spikes{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
                     df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'cotede_spikes' and self.active_tests['cotede_spikes']:
-                bitmask_elem = self.bitmask_def['spikes']
+            elif col_name == f'cotede_spikes{suffix}' and self.active_tests['cotede_spikes']:
+                bitmask_elem = self.bitmask_def[f'spikes{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
                     df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'cotede_improved_spikes' and self.active_tests['cotede_improved_spikes']:
-                bitmask_elem = self.bitmask_def['spikes']
+            elif col_name == f'cotede_improved_spikes{suffix}' and self.active_tests['cotede_improved_spikes']:
+                bitmask_elem = self.bitmask_def[f'spikes{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
                     df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'selene_spikes' and self.active_tests['selene_spikes']:
-                bitmask_elem = self.bitmask_def['spikes']
+            elif col_name == f'selene_spikes{suffix}' and self.active_tests['selene_spikes']:
+                bitmask_elem = self.bitmask_def[f'spikes{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
                     df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'selene_improved_spikes' and self.active_tests['selene_improved_spikes']:
-                bitmask_elem = self.bitmask_def['spikes']
+            elif col_name == f'selene_improved_spikes{suffix}' and self.active_tests['selene_improved_spikes']:
+                bitmask_elem = self.bitmask_def[f'spikes{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
                     df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'harmonic_detected_spikes' and self.active_tests['harmonic_detected_spikes']:
-                bitmask_elem = self.bitmask_def['spikes']
+            elif col_name == f'harmonic_detected_spikes{suffix}' and self.active_tests['harmonic_detected_spikes']:
+                bitmask_elem = self.bitmask_def[f'spikes{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
                     df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'ml_detected_spikes' and self.active_tests['ml_detected_spikes']:
-                bitmask_elem = self.bitmask_def['spikes']
+            elif col_name == f'ml_detected_spikes{suffix}' and self.active_tests['ml_detected_spikes']:
+                bitmask_elem = self.bitmask_def[f'spikes{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
                     df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'shifted_period' and self.active_tests['shifted_value']:
-                bitmask_elem = self.bitmask_def['shifted_value']
+            elif col_name == f'shifted_period{suffix}' and self.active_tests['shifted_value']:
+                bitmask_elem = self.bitmask_def[f'shifted_value{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
                     df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'shifted_ruptures' and self.active_tests['shifted_ruptures']:
-                bitmask_elem = self.bitmask_def['shifted_value']
+            elif col_name == f'shifted_ruptures{suffix}' and self.active_tests['shifted_ruptures']:
+                bitmask_elem = self.bitmask_def[f'shifted_value{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}' in df.columns:
                     df[f'bit_{bitmask_elem}'] = df.apply(lambda row: row[f'bit_{bitmask_elem}'] if row[f'bit_{bitmask_elem}'] == bitmask_elem else row['new'], axis=1)
                 else:
                     df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == 'probably_good_mask' and self.active_tests['probably_good_data']:
-                bitmask_elem = self.bitmask_def['probably_good_data']
+            elif col_name == f'probably_good_mask{suffix}' and self.active_tests['probably_good_data']:
+                bitmask_elem = self.bitmask_def[f'probably_good_data{suffix}']
                 df[f'bit_{bitmask_elem}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
 
+        return df
+    
+    def merge_bitmasks(self, df):
+        #merge the various bitmasks to one combined column        
         bit_dfs = df.filter(regex='^bit_')
         df['combined_int'] = np.bitwise_or.reduce(bit_dfs, axis=1)
-        df['combined_bitmask'] = df['combined_int'].apply(lambda x: format(x, '010b'))
+        df['combined_bitmask'] = df['combined_int'].apply(lambda x: format(x, '020b'))
+
+        #merge same columns (if with or without tide to one column)
+        for key in self.bitmask_def.keys():
+            print(key)
+            filtered_df = df.loc[:, df.columns.str.contains(key)]
+            
 
         return df
 
     def convert_bitmask_to_flags(self, df):
+
         #Order is important
         df['quality_flag'] = df['combined_int'].apply(lambda x: self.flag_def["good_data"] if x == 0 else 0) #flag good data
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["probably_good_data"] if (row['combined_int'] & self.bitmask_def['probably_good_data']) == self.bitmask_def['probably_good_data'] else row['quality_flag'], axis=1) #flag probably good data
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["probably_good_data"] if (row['combined_int'] & self.bitmask_def[f'probably_good_data']) == self.bitmask_def[f'probably_good_data'] else row['quality_flag'], axis=1) #flag probably good data
 
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data_correctable"] if (row['combined_int'] & self.bitmask_def['noisy_period']) == self.bitmask_def['noisy_period'] else row['quality_flag'], axis=1) #flag bad correctable data (noisy period)
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data_correctable"] if (row['combined_int'] & self.bitmask_def['bad_segment']) == self.bitmask_def['bad_segment'] else row['quality_flag'], axis=1) #flag bad correctable data (bad segment)
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data_correctable"] if (row['combined_int'] & self.bitmask_def[f'noisy_period']) == self.bitmask_def[f'noisy_period'] else row['quality_flag'], axis=1) #flag bad correctable data (noisy period)
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data_correctable"] if (row['combined_int'] & self.bitmask_def[f'bad_segment']) == self.bitmask_def[f'bad_segment'] else row['quality_flag'], axis=1) #flag bad correctable data (bad segment)
 
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int'] & self.bitmask_def['global_outliers']) == self.bitmask_def['global_outliers'] else row['quality_flag'], axis=1)  #flag bad not correctable data (global outliers)
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int'] & self.bitmask_def['incorrect_format']) == self.bitmask_def['incorrect_format'] else row['quality_flag'], axis=1) #flag bad not correctable data (incorrect format)
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int'] & self.bitmask_def[f'global_outliers']) == self.bitmask_def[f'global_outliers'] else row['quality_flag'], axis=1)  #flag bad not correctable data (global outliers)
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int'] & self.bitmask_def[f'incorrect_format']) == self.bitmask_def[f'incorrect_format'] else row['quality_flag'], axis=1) #flag bad not correctable data (incorrect format)
         
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["spikes"] if (row['combined_int'] & self.bitmask_def['spikes']) == self.bitmask_def['spikes'] else row['quality_flag'], axis=1) #flag spikes
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["shifted_value"] if (row['combined_int'] & self.bitmask_def['shifted_value']) == self.bitmask_def['shifted_value'] else row['quality_flag'], axis=1) #flag shifted value     
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["spikes"] if (row['combined_int'] & self.bitmask_def[f'spikes']) == self.bitmask_def[f'spikes'] else row['quality_flag'], axis=1) #flag spikes
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["shifted_value"] if (row['combined_int'] & self.bitmask_def[f'shifted_value']) == self.bitmask_def[f'shifted_value'] else row['quality_flag'], axis=1) #flag shifted value     
         
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["stuck_value"] if (row['combined_int'] & self.bitmask_def['stuck_value']) == self.bitmask_def['stuck_value'] else row['quality_flag'], axis=1) #flag stuck value
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["interpolated_value"] if (row['combined_int'] & self.bitmask_def['interpolated_value']) == self.bitmask_def['interpolated_value'] else row['quality_flag'], axis=1) #flag interpolated value
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["missing_data"] if (row['combined_int'] & self.bitmask_def['missing_data']) == self.bitmask_def['missing_data'] else row['quality_flag'], axis=1) #flag missing data
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["stuck_value"] if (row['combined_int'] & self.bitmask_def[f'stuck_value']) == self.bitmask_def[f'stuck_value'] else row['quality_flag'], axis=1) #flag stuck value
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["interpolated_value"] if (row['combined_int'] & self.bitmask_def[f'interpolated_value']) == self.bitmask_def[f'interpolated_value'] else row['quality_flag'], axis=1) #flag interpolated value
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["missing_data"] if (row['combined_int'] & self.bitmask_def[f'missing_data']) == self.bitmask_def[f'missing_data'] else row['quality_flag'], axis=1) #flag missing data
  
         #Raise error if any 0 in 'quality check' column (this cannot ne happening as all points are tested)
         #0 = no QC

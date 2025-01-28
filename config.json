@@ -1,6 +1,6 @@
 {
   "date_alteration": "23.01.2025",
-  "detide_mode": false,
+  "detide_mode": true,
   "qc_flag_classification": {
     "no_qc": 0,
     "good_data": 1,
@@ -23,7 +23,17 @@
     "incorrect_format": 64,
     "bad_segment": 128,
     "interpolated_value": 256,
-    "missing_data": 512
+    "missing_data": 512,
+    "shifted_value_detided": 1024,
+    "noisy_period_detided": 2048,
+    "probably_good_data_detided": 4096,
+    "stuck_value_detided": 8192,
+    "global_outliers_detided": 16384,
+    "spikes_detided": 32768,
+    "incorrect_format_detided": 65536,
+    "bad_segment_detided": 131072,
+    "interpolated_value_detided": 262144,
+    "missing_data_detided": 524288
   },
   "qc_active_tests": {
     "shifted_value": true,
@@ -36,7 +46,7 @@
     "spike_value_statistical": true,
     "cotede_spikes": true,
     "cotede_improved_spikes": true,
-    "selene_spikes": false,
+    "selene_spikes": true,
     "selene_improved_spikes": true,
     "harmonic_detected_spikes": true,
     "ml_detected_spikes": true,

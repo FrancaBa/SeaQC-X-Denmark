@@ -38,7 +38,7 @@ class Interpolation_Detector():
         # Define the window size to check for a constant slope (= linear interpolation)
         self.window_size_const_gradient = params['window_size_const_gradient']
 
-    def run_interpolation_detection(self, data, value_column, column_time, information, original_length):
+    def run_interpolation_detection(self, data, value_column, column_time, information, original_length, suffix):
         """
         Mark all periods which are probably linear interpolated. This means periods that have a constant slope over self.window_size_const_gradient (now 7 timesteps).
 
@@ -47,13 +47,16 @@ class Interpolation_Detector():
         -Column name with measurements to analyse [str]
         -Column name of timestamp column [str]
         """
-        gradient_mask = self.find_constant_slope(data, value_column, column_time)
+        #In order to work with tide and detided data
+        self.suffix = suffix
 
+        gradient_mask = self.find_constant_slope(data, value_column, column_time)
+        
         #Remove interpolated periods from copied ts for visual analysis
         data.loc[gradient_mask, value_column] = np.nan
 
         #Flag the interpolated periods in boolean mask
-        data['interpolated_value'] = gradient_mask
+        data[f'interpolated_value{suffix}'] = gradient_mask
 
         ratio = (gradient_mask.sum()/original_length)*100
         print(f"There are {gradient_mask.sum()} interpolated values in this timeseries. This is {ratio}% of the overall dataset.")
@@ -96,8 +99,8 @@ class Interpolation_Detector():
             true_indices = gradient_mask[gradient_mask].index
             data['y_nan'] = data[data_column_name]
             data.loc[gradient_mask, 'y_nan'] = np.nan
-            self.helper.plot_two_df_same_axis(data[column_time][true_indices[0]-60:true_indices[0]+60], data[data_column_name][true_indices[0]-60:true_indices[0]+60],'Water Level', 'Water Level', data['y_nan'][true_indices[0]-60:true_indices[0]+60], 'Timestamp', 'Interpolated WL','Constant gradient period in TS')
-            self.helper.plot_two_df_same_axis(data[column_time][true_indices[-1]-60:true_indices[-1]+60], data[data_column_name][true_indices[-1]-60:true_indices[-1]+60],'Water Level', 'Water Level', data['y_nan'][true_indices[-1]-60:true_indices[-1]+60], 'Timestamp', 'Interpolated WL', 'Constant gradient period 2.0 in TS')
+            self.helper.plot_two_df_same_axis(data[column_time][true_indices[0]-60:true_indices[0]+60], data[data_column_name][true_indices[0]-60:true_indices[0]+60],'Water Level', 'Water Level', data['y_nan'][true_indices[0]-60:true_indices[0]+60], 'Timestamp', 'Interpolated WL',f'Constant gradient period in TS -{self.suffix}')
+            self.helper.plot_two_df_same_axis(data[column_time][true_indices[-1]-60:true_indices[-1]+60], data[data_column_name][true_indices[-1]-60:true_indices[-1]+60],'Water Level', 'Water Level', data['y_nan'][true_indices[-1]-60:true_indices[-1]+60], 'Timestamp', 'Interpolated WL', f'Constant gradient period 2.0 in TS -{self.suffix}')
             del data['y_nan']
 
         del data['slope']

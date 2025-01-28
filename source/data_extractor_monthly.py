@@ -33,7 +33,7 @@ class DataExtractor():
         self.missing_meas_value = missing_meas_value 
 
     #Main method 
-    def run(self, df, time_column, data_column):
+    def run(self, df, time_column, data_column, suffix = ''):
         """
         Extract relevant periods to csv for manual quality check based on station. 
         After extracting the periods, merge all relevant periods to a long csv file.
@@ -44,6 +44,8 @@ class DataExtractor():
         -Column name for timestamp [str]
         -Column name for relevant measurement series [str]
         """
+        #to differentiate between detided and tided data
+        self.suffix = suffix
 
         filtered_df = df.copy()
         filtered_df['label'] = None
@@ -118,7 +120,7 @@ class DataExtractor():
 
         #Combine all relevant sections to a long ts
         long_df = pd.concat(self.list_relev_section, ignore_index=True)
-        file_name = f"{self.station}-WLdata-long.csv"
+        file_name = f"{self.station}-WLdata-long{self.suffix}.csv"
         long_df.to_csv(os.path.join(self.folder_path, file_name), index=False)
 
         #modified gabs between relevant periods
@@ -136,7 +138,7 @@ class DataExtractor():
                 combined_df = pd.concat([combined_df, self.list_relev_section[i+1]], ignore_index=True)
 
         # Save to a CSV file with comma-delimited format
-        file_name = f"{self.station}-WLdata.csv"
+        file_name = f"{self.station}-WLdata{self.suffix}.csv"
         combined_df.to_csv(os.path.join(self.folder_path, file_name), index=False)
 
         print('Long csv file for manual labelling has been saved.')
@@ -166,7 +168,7 @@ class DataExtractor():
 
             relev_df.loc[relev_df[data_column] == self.missing_meas_value, data_column] = None
 
-            self.helper.plot_df(relev_df[time_column],relev_df[data_column], 'Water Level', 'Timestamp',f'WL measurement in {start_month}.{year} at {self.station}')
+            self.helper.plot_df(relev_df[time_column],relev_df[data_column], 'Water Level', 'Timestamp',f'WL measurement in {start_month}.{year} at {self.station} - {self.suffix}')
 
             relev_df_cleaned = relev_df.dropna(subset=[data_column])
 
@@ -178,7 +180,7 @@ class DataExtractor():
             filtered_df_short = relev_df_cleaned[columns_to_save]
 
             # Save to a CSV file with comma-delimited format
-            file_name = f"{self.station}-WLdata-{start_day,start_month,year}.csv"
+            file_name = f"{self.station}-WLdata-{start_day,start_month,year}-{self.suffix}.csv"
             filtered_df_short.to_csv(os.path.join(self.folder_path, file_name), index=False)
 
             #Feedback
