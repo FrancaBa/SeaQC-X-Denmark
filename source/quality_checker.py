@@ -210,12 +210,12 @@ class QualityFlagger():
             tidal_signal_construction.set_station(self.station)
             tidal_signal_construction.set_gauge_details_path(self.gauge_details_path)
             tidal_signal_construction.set_output_folder(self.folder_path)
-            tidal_signal_construction.run(df, self.measurement_column, self.time_column, self.information)
+            df = tidal_signal_construction.run(df, self.measurement_column, self.time_column, self.information)
             #2.Export the new series to csv files for manual labelling
             data_extractor = extractor.DataExtractor()
             data_extractor.set_output_folder(self.folder_path, self.station)
             data_extractor.set_missing_value_filler(self.missing_meas_value)
-            data_extractor.run(self.df_meas, self.time_column, 'detided_series', suffix)
+            data_extractor.run(df, self.time_column, 'detided_series', suffix)
             #3. Carry out QC steps on detided series as well
             df = self.run_qc(df, 'detided_series',suffix)
 
@@ -236,7 +236,7 @@ class QualityFlagger():
         conversion_bitmask.set_active_tests(self.active_tests)
         df = conversion_bitmask.convert_boolean_to_bitmasks(df)
         df = conversion_bitmask.convert_boolean_to_bitmasks(df, '_detided')
-        df = conversion_bitmask.merge_bitmasks(df)
+        df = conversion_bitmask.merge_bitmasks(df, self.detide_mode, self.information, suffix)
         df = conversion_bitmask.convert_bitmask_to_flags(df)
         conversion_bitmask.save_flagged_series(df, self.measurement_column, self.time_column, self.df_meas)
 
@@ -318,7 +318,7 @@ class QualityFlagger():
             df = shift_detection.detect_shifts_statistical(df, f'poly_interpolated_data{suffix}', self.time_column, relevant_measurements, self.segment_column, self.information, self.original_length, suffix)
 
         #Check what unsupervised ML would do
-        self.unsupervised_outlier_detection(df, self.measurement_column, f'poly_interpolated_data{suffix}', self.time_column, self.segment_column)
+        self.unsupervised_outlier_detection(df, self.measurement_column, f'poly_interpolated_data{suffix}', self.time_column, self.segment_column, suffix)
 
         return df
 

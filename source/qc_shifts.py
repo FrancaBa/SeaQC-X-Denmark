@@ -66,7 +66,7 @@ class ShiftDetector():
             if df[segment_column][start_index] == 0:
                 relev_df = df[start_index:end_index]
                 #Get shifted points based on strong gradient
-                relev_df['change'] = np.abs(np.diff(relev_df[interpolated_data_colum], append=np.nan))
+                relev_df['change'] = np.abs(np.diff(relev_df.loc[:,interpolated_data_colum], append=np.nan))
                 change_points= relev_df[relev_df['change'] > self.change_threshold].index
                 if change_points.any():
                     mask = np.diff(change_points, append=np.inf) > 1

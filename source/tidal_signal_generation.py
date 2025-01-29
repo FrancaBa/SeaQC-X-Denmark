@@ -44,23 +44,23 @@ class TidalSignalGenerator():
         boolean_columns = df.select_dtypes(include='bool')
         del boolean_columns['missing_values']
         df['combined_mask'] = boolean_columns.any(axis=1)
-        time_array_good = time_array
-        anomaly_good = anomaly
+        time_array_good = time_array[~df['combined_mask']]
+        anomaly_good = anomaly[~df['combined_mask']]
 
         coef = utide.solve(time_array_good, anomaly_good.values, lat=lat, method="ols", conf_int="MC", trend=False, nodal=True, verbose=False)
        
         #Reconstruct function to generate a tidal signal at the times specified in the time array
         tide = utide.reconstruct(time_array, coef, verbose=False)
         df['tidal_signal'] = tide.h
-        df['detided_series'] = df[measurement_column] - tide.h
+        df['detided_series'] = anomaly - tide.h
 
         #Export tidal signal
         file_name = f"{self.station}-TidalSignal.csv"
         df['tidal_signal'].to_csv(os.path.join(self.folder_path, file_name), index=False)
 
         #Insight for tidal analysis
-        fig, (ax0, ax1, ax2) = plt.subplots(figsize=(17, 5), nrows=3, sharey=True, sharex=True)
-        ax0.plot(time_array, anomaly, label="Shifted observations", color="C0")
+        fig, (ax0, ax1, ax2) = plt.subplots(figsize=(17, 5), nrows=3, sharey=False, sharex=True)
+        ax0.plot(time_array, anomaly, label="SL Measurements", color="C0")
         ax1.plot(time_array, tide.h, label="Tidal prediction", color="C1")
         ax2.plot(time_array, df['detided_series'], label="Residual", color="C2")
         fig.legend(ncol=3, loc="upper center")
@@ -70,10 +70,12 @@ class TidalSignalGenerator():
         for i in range(0,31):
             min = builtins.max(0,(random.choice(df.index))-10000)
             max = builtins.min(min + 20000, len(df))
-            self.helper.plot_two_df_same_axis(df[time_column][min:max], df[anomaly][min:max],'Water Level', 'Water Level (anomaly)', df['tidal_signal'][min:max], 'Timestamp', 'Tidal signal',f'Measurements vs tide signal - Index: {min}')
+            self.helper.plot_two_df_same_axis(df[time_column][min:max], anomaly[min:max],'Water Level', 'Water Level (anomaly)', df['tidal_signal'][min:max], 'Timestamp', 'Tidal signal',f'Measurements vs tide signal - Index: {min}')
 
-        print('Tidal signal has been successfully created for this timeseries. The used constituents are',coef,'.')
-        information.append(['Tidal signal has been successfully created for this timeseries. The used constituents are',coef,'.'])
+        print('Tidal signal has been successfully created for this timeseries.')
+        information.append(['Tidal signal has been successfully created for this timeseries.'])
+
+        return df
     
     def get_stations_lat(self, gauge_details_path):
         #Read file with saved tide gauge details and load corresponding one

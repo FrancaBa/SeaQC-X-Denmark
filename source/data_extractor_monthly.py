@@ -168,7 +168,7 @@ class DataExtractor():
 
             relev_df.loc[relev_df[data_column] == self.missing_meas_value, data_column] = None
 
-            self.helper.plot_df(relev_df[time_column],relev_df[data_column], 'Water Level', 'Timestamp',f'WL measurement in {start_month}.{year} at {self.station} - {self.suffix}')
+            self.helper.plot_df(relev_df[time_column],relev_df[data_column], 'Water Level', 'Timestamp',f'WL measurement in {start_month}.{year} at {self.station}{self.suffix}')
 
             relev_df_cleaned = relev_df.dropna(subset=[data_column])
 
@@ -180,7 +180,7 @@ class DataExtractor():
             filtered_df_short = relev_df_cleaned[columns_to_save]
 
             # Save to a CSV file with comma-delimited format
-            file_name = f"{self.station}-WLdata-{start_day,start_month,year}-{self.suffix}.csv"
+            file_name = f"{self.station}-WLdata-{start_day,start_month,year}{self.suffix}.csv"
             filtered_df_short.to_csv(os.path.join(self.folder_path, file_name), index=False)
 
             #Feedback

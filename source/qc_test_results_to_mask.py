@@ -147,17 +147,27 @@ class QualityMasking():
 
         return df
     
-    def merge_bitmasks(self, df):
+    def merge_bitmasks(self, df, detide_mode, information, suffix):
         #merge the various bitmasks to one combined column        
         bit_dfs = df.filter(regex='^bit_')
         df['combined_int'] = np.bitwise_or.reduce(bit_dfs, axis=1)
         df['combined_bitmask'] = df['combined_int'].apply(lambda x: format(x, '020b'))
 
-        #merge same columns (if with or without tide to one column)
-        for key in self.bitmask_def.keys():
-            print(key)
-            filtered_df = df.loc[:, df.columns.str.contains(key)]
-            
+        if detide_mode:
+            #merge same columns (if with or without tide to one column)
+            relev_qc_tests = list(self.bitmask_def.keys())
+            relev_qc_tests = [x for x in relev_qc_tests if x != 'probably_good_data']
+            for elem in relev_qc_tests:
+                #Extract relevant columns (detided and tided) for each QC test
+                column_with_tide = self.bitmask_def[elem]
+                column_without_tide = self.bitmask_def[f'{elem}{suffix}']
+                filtered_df = df[[f'bit_{column_with_tide}',f'bit_{column_without_tide}']]
+                #save how the test fail respectively for tided or detided series
+                print(f'The QC test {elem} fails {df[f'bit_{column_with_tide}'].sum()} times for measurement series with tides and {df[f'bit_{column_without_tide}'].sum()} times for detided data. This is a difference of {df[f'bit_{column_with_tide}'].sum()-df[f'bit_{column_without_tide}'].sum()} flagged entries.')
+                information.append([f'The QC test {elem} fails {df[f'bit_{column_with_tide}'].sum()} times for measurement series with tides and {df[f'bit_{column_without_tide}'].sum()} times for detided data. This is a difference of {df[f'bit_{column_with_tide}'].sum()-df[f'bit_{column_without_tide}'].sum()} flagged entries.'])
+                #merge columns to assign flags irrespectively if test fails for detided or for tidal measurements (this overwrites the original bits!)
+                df[f'bit_{column_with_tide}'] = filtered_df.max(axis=1)
+                relev_qc_tests = [test_name for test_name in relev_qc_tests if elem not in test_name]
 
         return df
 

@@ -38,7 +38,7 @@ class SpikeDetector():
         self.lag_05tide = None #min max amplitude
         self.lag_1tide = None #min min cycle development
         self.lag_2tide = None # 2 * min min cycle development
-        self.seven_days = None
+        #self.seven_days = None
         #Selene spline approach needed constants
         self.nsigma = 3
         self.splinelength = None #min
@@ -524,13 +524,15 @@ class SpikeDetector():
 
         #Analyse spike detection
         true_indices = data[f'harmonic_detected_spikes{suffix}'][data[f'harmonic_detected_spikes{suffix}']].index
+        
         #More plots
-        for i in range(1, 41):
-            min = builtins.max(0,(random.choice(true_indices))-1000)
-            max = min + 2000
-            self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[data_column][min:max], 'Timestamp ', 'Water Level (measured)', f'Harmonic spike Graph{i}- Corrected spikes -{suffix}')
-            self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[filled_data_column][min:max], 'Timestamp ', 'Modelled Water Level', f'Harmonic Spike Graph{i}- Spline vs measurement) -{suffix}')
-            
+        if true_indices.any():
+            for i in range(1, 41):
+                min = builtins.max(0,(random.choice(true_indices))-1000)
+                max = min + 2000
+                self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[data_column][min:max], 'Timestamp ', 'Water Level (measured)', f'Harmonic spike Graph{i}- Corrected spikes -{suffix}')
+                self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[filled_data_column][min:max], 'Timestamp ', 'Modelled Water Level', f'Harmonic Spike Graph{i}- Spline vs measurement) -{suffix}')
+                
         del data['test']
 
         return data
@@ -566,30 +568,20 @@ class SpikeDetector():
             if data['segments'][start_index] == 0:
                 relev_df = data[start_index:end_index].copy()
                 print(relev_df)
-                if len(relev_df) >= self.seven_days:
+                if len(relev_df) >= self.lag_2tide:
                     #Add relevant features
                     relev_df.loc[:,'lag_05tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_05tide).bfill()  #min max amplitude
                     relev_df.loc[:,'lag_1tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_1tide).bfill()   #min min cycle development
                     relev_df.loc[:,'lag_2tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_2tide).bfill()   # 2 * min min cycle development
-                    relev_df.loc[:,'rolling_mean'] = relev_df.loc[:,filled_data_column].rolling(window=self.seven_days).mean().bfill() # 7-day mean
-                    relev_df.loc[:,'rolling_std'] = relev_df.loc[:,filled_data_column].rolling(window=self.seven_days).std().bfill() # 7-day std
 
                     #Extract relevant output and input features
-                    #X = relev_df[[filled_data_column, 'lag_1tide', 'lag_05tide', 'lag_2tide', 'rolling_mean', 'rolling_std']]
+                    X = relev_df[[filled_data_column, 'lag_1tide', 'lag_05tide', 'lag_2tide']]
 
-                    # Create sliding windows
-                    X, y = [], []
-                    for i in range(len(relev_df) - self.seven_days):
-                        X.append(relev_df.iloc[i:i + self.seven_days][[filled_data_column, 'lag_1tide', 'lag_05tide', 'lag_2tide', 'rolling_mean', 'rolling_std']].values.flatten())
-                        y.append(relev_df.iloc[i + self.seven_days][filled_data_column])
-
-                    X = np.array(X)
-                    y = np.array(y)
                 else:
                     relev_df.loc[:,'lag_05tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_05tide).bfill()  #min max amplitude
                     #Extract relevant output and input features
                     X = relev_df[[filled_data_column, 'lag_05tide']]
-                    y = relev_df[filled_data_column].values
+                y = relev_df[filled_data_column].values
 
                 # Split into train and test
                 X_train = X[:-int((self.test_size*len(relev_df)))]
@@ -619,12 +611,13 @@ class SpikeDetector():
         #Analyse spike detection
         true_indices = data[f'ml_detected_spikes{suffix}'][data[f'ml_detected_spikes{suffix}']].index
         #More plots
-        for i in range(1, 41):
-            min = builtins.max(0,(random.choice(true_indices))-1000)
-            max = min + 2000
-            self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[data_column][min:max], 'Timestamp ', 'Water Level (measured)', f'ML spike Graph{i}- Corrected spikes -{suffix}')
-            self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[filled_data_column][min:max], 'Timestamp ', 'Modelled Water Level', f'ML Spike Graph{i}- Spline vs measurement) -{suffix}')
-        
+        if true_indices.any():
+            for i in range(1, 41):
+                min = builtins.max(0,(random.choice(true_indices))-1000)
+                max = min + 2000
+                self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[data_column][min:max], 'Timestamp ', 'Water Level (measured)', f'ML spike Graph{i}- Corrected spikes -{suffix}')
+                self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[filled_data_column][min:max], 'Timestamp ', 'Modelled Water Level', f'ML Spike Graph{i}- Fitted vs measurement -{suffix}')
+            
         del data['test']
 
         return data
