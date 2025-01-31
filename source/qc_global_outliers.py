@@ -32,6 +32,18 @@ class OutlierRemover():
         self.bound_interquantile = params['bound_interquantile']
 
     def run(self, df_meas_long, adapted_meas_col_name, time_column, measurement_column, information, original_length, suffix):
+        """
+        Based on interquantile approach detect global outlier. 
+      
+        Input: 
+        -data: Main dataframe [df]
+        -adapted_meas_col_name: Column name for measurement series [str]
+        -time_column: Column name for timestamp [str]
+        -measurement_column: original data series [str]
+        -Information list where QC report is collected [lst]
+        -Length of original measurement series [int]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
+        """
 
         # Quantile Detection for large range outliers
         # Calculate the interquartile range (IQR)
@@ -55,9 +67,9 @@ class OutlierRemover():
         # Get indices where the mask is True (as check that approach works)
         if outlier_mask.any():
             true_indices = outlier_mask[outlier_mask].index
-            self.helper.plot_df(df_meas_long[time_column][true_indices[0]-10000:true_indices[0]+10000], df_meas_long[measurement_column][true_indices[0]-10000:true_indices[0]+10000],'Water Level','Timestamp ','Outlier period in TS')
-            self.helper.plot_df(df_meas_long[time_column][true_indices[0]-10000:true_indices[0]+10000], df_meas_long[adapted_meas_col_name][true_indices[0]-10000:true_indices[0]+10000],'Water Level','Timestamp ','Outlier period in TS (corrected)')
-            self.helper.plot_df(df_meas_long[time_column], df_meas_long[adapted_meas_col_name],'Water Level','Timestamp ','Measured water level wo outliers in 1 min timestamp')
+            self.helper.plot_df(df_meas_long[time_column][true_indices[0]-10000:true_indices[0]+10000], df_meas_long[measurement_column][true_indices[0]-10000:true_indices[0]+10000],'Water Level','Timestamp ', f'Outlier period in TS {suffix}')
+            self.helper.plot_df(df_meas_long[time_column][true_indices[0]-10000:true_indices[0]+10000], df_meas_long[adapted_meas_col_name][true_indices[0]-10000:true_indices[0]+10000],'Water Level','Timestamp ', f'Outlier period in TS (corrected) {suffix}')
+            self.helper.plot_df(df_meas_long[time_column], df_meas_long[adapted_meas_col_name],'Water Level','Timestamp ', f'Measured water level wo outliers in 1 min timestamp {suffix}')
           
         ratio = (outlier_mask.sum()/original_length)*100
         print(f"There are {outlier_mask.sum()} outliers in this timeseries. This is {ratio}% of the overall dataset.")

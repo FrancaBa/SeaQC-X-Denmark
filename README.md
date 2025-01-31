@@ -13,9 +13,9 @@ This project will start off by flagging and adapting tide gauge measurements in 
 
 ## Overview
 
-This QC algorithm contains a lot of different and overlapping steps. The various test are listed and described below. The approach of better marking too much than too little is taken. Each test leads to a mask where the column is set to 1 meaning the condition is present, and the column set to 0 meaning the condition is absent. All masks for each QC step are pooled together, a so called bitmask. A bitmask is a compact way to store and represent multiple conditions using a single integer value. 
+This QC algorithm contains a lot of different (partically overlapping) steps. In the config.json, a user can decide to turn the various steps on and off based on their needs. The various test are listed and described below. The approach of 'better marking too much than too little' is taken. Each test leads to a mask where the column is set to 1 meaning the condition is present, and the column set to 0 meaning the condition is absent. All masks for each QC step are pooled together, to a so called bitmask. A bitmask is a compact way to store and represent multiple conditions using a single integer value. 
 
-This is an example and doesn't corresponds to the bits used here!! 
+This is an example and doesn't corresponds to the bits used here!!
 
 See an example:
 
@@ -63,7 +63,7 @@ Based on the bitmask, IOC flags are assigned to the measurement point. F.e. miss
 This approach is also followed in this project. There is config.json containing the used IOC flags and the bitmask used for each QC test. Users can adapt the wanted flags in the config.json and then in the corresponing source code assign certain bitmasks to a flag.
 
 ## Applied Quality Tests
-The following steps are part of the quality check:
+The QC algorithm consists of a raw measurement and detided series mode. Based on the users input, the QC steps are carried out for each time series (raw & detided) once. The removal of the tidal signal is carried out via the UTide package. The following steps are part of the quality control:
 1. Format & date control 
 2. Check for missing values
 3. Re-sampling of intervals
@@ -78,9 +78,10 @@ The following steps are part of the quality check:
 * 9.1 Statisitcal test
 * 9.2 Cotede
 * 9.3 Improved Cotede
-* 9.4 Adapted Selene - Spline analysis
-* 9.5 Harmonic spike detection
-* 9.6 Supervised ML on harmonic (not really relevant)
+* 9.4 Selene
+* 9.5 Adapted Selene - Spline analysis
+* 9.6 Harmonic spike detection
+* 9.7 Supervised ML on harmonic (not really relevant)
 10. Shift detection:
 * 10.1 Ruptures
 * 10.2 Statistical change detection via gradient (strong change, but no change back)

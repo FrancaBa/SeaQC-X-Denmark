@@ -55,6 +55,9 @@ class ImplausibleChangeDetector():
         -data: Main dataframe [df]
         -adapted_meas_col_name: Column name for measurement series [str]
         -time_column: Column name for timestamp [str]
+        -Information list where QC report is collected [lst]
+        -Length of original measurement series [int]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
         """
         self.original_length = original_length
         #Get the difference between measurement and flag all measurement wth change more than x cm in 1 min
@@ -62,7 +65,7 @@ class ImplausibleChangeDetector():
 
         #Call method from detect spike values
         spike_detection = qc_spike.SpikeDetector()
-        spike_detection.set_output_folder(self.folder_path)
+        #spike_detection.set_output_folder(self.folder_path)
         spike_detection.get_valid_neighbours(df, adapted_meas_col_name, 'next_neighbour', True, max_distance=self.search_step_neighbours)
     
         #not really correct, but good enough for now!

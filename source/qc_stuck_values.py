@@ -31,6 +31,17 @@ class StuckValuesDetector():
         self.window_constant_value = params['stuck_value']
 
     def run(self, df_meas_long, time_column, adapted_meas_col_name, information, original_length, suffix):
+        """
+        Detect stuck values based on constant measurement over time.
+
+        Input:
+        -Main dataframe [pandas df]
+        -Column name of time & date information [str]
+        -Column name of measurement series of interest [str]
+        -Information list where QC report is collected [lst]
+        -Length of original measurement series [int]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
+        """
 
         df_meas_long['test'] = df_meas_long[adapted_meas_col_name].copy()
 

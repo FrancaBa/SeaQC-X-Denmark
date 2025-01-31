@@ -29,14 +29,12 @@
     "stuck_value_detided": 4096,
     "global_outliers_detided": 8192,
     "spikes_detided": 16384,
-    "incorrect_format_detided": 32768,
-    "bad_segment_detided": 65536,
-    "interpolated_value_detided": 131072,
-    "missing_data_detided": 262144
+    "bad_segment_detided": 32768,
+    "interpolated_value_detided": 65536
   },
   "qc_active_tests": {
     "shifted_value": true,
-    "shifted_ruptures": true,
+    "shifted_ruptures": false,
     "noisy_period": true,
     "probably_good_data": true,
     "stuck_value": true,

@@ -43,6 +43,7 @@ class DataExtractor():
         -Main dataframe [df]
         -Column name for timestamp [str]
         -Column name for relevant measurement series [str]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
         """
         #to differentiate between detided and tided data
         self.suffix = suffix

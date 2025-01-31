@@ -50,6 +50,19 @@ class ShiftDetector():
         self.threshold_continued = params['shift_detection']['threshold_continued']
 
     def detect_shifts_statistical(self, df, interpolated_data_colum, time_column, data_column, segment_column, information, original_length, suffix):
+        """
+        Detect statistical shift via strong change in one direction (without a change back).
+
+        Input:
+        -Main dataframe [pandas df]
+        -Column name of filled series [str]
+        -Column name of time & date information [str]
+        -Column name of measurement series of interest [str]
+        -Column name of segmentation information [str]
+        -Information list where QC report is collected [lst]
+        -Length of original measurement series [int]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
+        """
         
         df[f'shifted_period{suffix}'] = False
         df['remove_shifted_period'] = df[data_column].copy()
@@ -136,6 +149,20 @@ class ShiftDetector():
 
 
     def detect_shifts_ruptures(self, df, data_column_name, time_column, interpolated_data_colum, segment_column, information, original_length, suffix):
+        """
+        Detect shift via Ruptures package.
+
+        Input:
+        -Main dataframe [pandas df]
+        -Column name of measurement series of interest [str]
+        -Column name of time & date information [str]
+        -Column name of filled series [str]        
+        -Column name of segmentation information [str]
+        -Information list where QC report is collected [lst]
+        -Length of original measurement series [int]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
+        """
+        
 
         shift_points = (df[segment_column] != df[segment_column].shift())
         all_changepoints = []

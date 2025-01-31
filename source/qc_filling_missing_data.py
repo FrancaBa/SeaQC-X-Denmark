@@ -61,6 +61,8 @@ class MissingDataFiller():
         -Main dataframe [df]
         -Column name with measurements to analyse [str]
         -Column name for segments [str]
+        -Information list where QC report is collected [lst]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
         """
 
         #Generate empty column to save segments later
@@ -98,6 +100,7 @@ class MissingDataFiller():
         -Column name with measurements to analyse [str]
         -Column name for timestamp [str]
         -Column name for segments [str]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
         """
         
         #Get start and end point of each segment
@@ -136,6 +139,7 @@ class MissingDataFiller():
         -Column name for timestamp [str]
         -Column name for segments [str]
         -Column name for polynomial interpolated series (in pervious method) [str]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
         """
 
         #Get start and end point of each segment
@@ -203,6 +207,7 @@ class MissingDataFiller():
         -Column name with measurements to analyse [str]
         -Column name for timestamp [str]
         -Column name for segments [str]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
         """
 
         interp_values = np.zeros_like(data[data_column])  # Initialize array for results
@@ -288,6 +293,7 @@ class MissingDataFiller():
         -Main dataframe [df]
         -Column name for timestamp [str]
         -Column name for segments [str]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
         """
         #Get different segments
         shift_points = (data[segment_column] != data[segment_column].shift())

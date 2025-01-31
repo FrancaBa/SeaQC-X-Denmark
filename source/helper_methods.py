@@ -85,7 +85,7 @@ class HelperMethods():
         """
                 
         plt.figure(figsize=(18, 9))
-        plt.plot(x_axis, data,  marker='o', markersize=2, linestyle='None')
+        plt.plot(x_axis, data,  marker='o', markersize=1, linestyle='None')
         if title != None:
             plt.title(f"{title} - Date: {x_axis.iloc[0]}")
         plt.xlabel(x_title)

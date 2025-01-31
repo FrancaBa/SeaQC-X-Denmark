@@ -46,6 +46,9 @@ class Interpolation_Detector():
         -Main dataframe [df]
         -Column name with measurements to analyse [str]
         -Column name of timestamp column [str]
+        -Information list where QC report is collected [lst]
+        -Length of original measurement series [int]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
         """
         #In order to work with tide and detided data
         self.suffix = suffix

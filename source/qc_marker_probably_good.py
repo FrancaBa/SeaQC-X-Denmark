@@ -41,7 +41,8 @@ class ProbablyGoodDataFlagger():
         -data: Main dataframe [df]
         -adapted_meas_col_name: Column name for measurement series [str]
         -time_column: Column name for timestamp [str]
-        -measurement_column: Column name for raw measurement [str]
+        -Information list where QC report is collected [lst]
+        -Length of original measurement series [int]
         """
         data['test'] = data[adapted_meas_col_name].copy()
 

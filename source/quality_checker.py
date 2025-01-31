@@ -43,6 +43,7 @@ class QualityFlagger():
         self.station = station
         self.information.append(['The following text summarizes the QC perfromed on measurements from ',station,':'])
     
+    #provids details on station like coordinates
     def set_gauge_details(self, gauge_details_path):
         self.gauge_details_path = gauge_details_path
 
@@ -188,7 +189,7 @@ class QualityFlagger():
 
     """
     The methods above are to open and preprocess the need information and data for the quality check.
-    The run-method below is the core of the QC work. It calls the different QC steps, converts the masks to a large bitmasks and assigns quality flags.
+    The run-method below is the core of the QC work. It calls the different QC steps, called detided_mode, converts the masks to a large bitmasks and assigns quality flags.
     """
     def run(self):
         #Set relevant column names
@@ -246,6 +247,11 @@ class QualityFlagger():
     def run_qc(self, df, relevant_measurements, suffix=''):
         """
         As main QC method, it calls the different steps taken in the QC approach. See commented text.
+
+        Input:
+        -Main dataframe [pandas df]
+        -Column name of measurement series of interest [str]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
         """
         #Detect stuck values in ts
         stuck_values = qc_stuck_values.StuckValuesDetector()
@@ -280,7 +286,7 @@ class QualityFlagger():
         df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
         df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
         df = fill_data_qc.spline_fitted_measurement_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
-        fill_data_qc.compare_filled_measurements(df, self.time_column, self.segment_column, suffix)
+        #fill_data_qc.compare_filled_measurements(df, self.time_column, self.segment_column, suffix)
 
         #Detect implausible change rate over period
         implausible_change = qc_implausible_change.ImplausibleChangeDetector()
@@ -318,7 +324,7 @@ class QualityFlagger():
             df = shift_detection.detect_shifts_statistical(df, f'poly_interpolated_data{suffix}', self.time_column, relevant_measurements, self.segment_column, self.information, self.original_length, suffix)
 
         #Check what unsupervised ML would do
-        self.unsupervised_outlier_detection(df, self.measurement_column, f'poly_interpolated_data{suffix}', self.time_column, self.segment_column, suffix)
+        self.unsupervised_outlier_detection(df, relevant_measurements, f'poly_interpolated_data{suffix}', self.time_column, self.segment_column, suffix)
 
         return df
 
@@ -363,7 +369,9 @@ class QualityFlagger():
 
         Input:
         -Main dataframe [pandas df]
+        -Column name of measurement series of interest [str]
         -Column name of segmentation information [str]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
         """
         #If segment is short or lot of NaNs, drop it
         self.threshold_short_bad_segment = self.params['threshold_short_bad_segment']
@@ -435,6 +443,14 @@ class QualityFlagger():
     def unsupervised_outlier_detection(self, df, data_column_name, interpolated_data_colum, time_column, segment_column, suffix):
         """
         Run a simple unsupervised ML algorithm to see how it performs in grouping the measurments.
+
+        Input:
+        -Main dataframe [pandas df]
+        -Column name of measurement series of interest [str]
+        -Column name of filled series [str]
+        -Column name of time & date information [str]
+        -Column name of segmentation information [str]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
         """
         #one high-high or low-low cycle in tide for slicing ts for unsupervised ML test
         self.window_size = self.params['window_size_slicing_unsupervised_ml']
@@ -525,8 +541,8 @@ class QualityFlagger():
             max = min + 2000
             self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[data_column_name][min:max], 'Timestamp ', 'Water Level (all)', f'Unsupervised ML Graph {i} -{suffix}')
             
-        print('There are', len(true_indices),'incorrect values in the timeserie.')
-        self.information.append([f'There are {len(true_indices)} incorrect values in the timeserie.'])
+        print('There are', len(true_indices),'incorrect values in the timeseries based on the unsupervised ML step.')
+        self.information.append([f'There are {len(true_indices)} incorrect values in the timeseries based on the unsupervised ML step.'])
 
         del df['test']
 
