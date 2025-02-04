@@ -15,8 +15,8 @@ class ProbablyGoodDataFlagger():
     def __init__(self):
         self.helper = helper.HelperMethods()
 
-        #Define periods with less then 10 min of good measurements between bad measurements as probably good 
-        self.probably_good_threshold = 10
+        #Define periods with less then x min of good measurements between bad measurements as probably good 
+        self.probably_good_threshold = None
 
     def set_output_folder(self, folder_path):
         folder_path = os.path.join(folder_path,'probably good periods')
@@ -27,8 +27,12 @@ class ProbablyGoodDataFlagger():
 
         self.helper.set_output_folder(folder_path)
 
+    #Load relevant parameters for this QC test from conig.json
+    def set_parameters(self, params):
+        #Define periods with less then x min of good measurements between bad measurements as probably good 
+        self.probably_good_threshold = params['probably_good_detector']
 
-    def run(self, data, adapted_meas_col_name, time_column, measurement_column, information):
+    def run(self, data, adapted_meas_col_name, time_column, information, original_length):
         """
         Based on a mask counting the consecutive false (good data as tests have been negativ), define probably good periods. Data is good, 
         but surrounded by a lot of bad data which makes it a little bit less important.
@@ -37,8 +41,10 @@ class ProbablyGoodDataFlagger():
         -data: Main dataframe [df]
         -adapted_meas_col_name: Column name for measurement series [str]
         -time_column: Column name for timestamp [str]
-        -measurement_column: Column name for raw measurement [str]
+        -Information list where QC report is collected [lst]
+        -Length of original measurement series [int]
         """
+        data['test'] = data[adapted_meas_col_name].copy()
 
         boolean_columns = data.select_dtypes(include='bool')
         #statement for analysis
@@ -55,12 +61,12 @@ class ProbablyGoodDataFlagger():
         data['probably_good_mask'] = self.mask_fewer_than_x_consecutive_false(data['combined_mask'])
 
         #Check if selection is a probably good period and yes, remove value
-        data[adapted_meas_col_name] = np.where(data['probably_good_mask'], np.nan, data[adapted_meas_col_name])
+        data['test'] = np.where(data['probably_good_mask'], np.nan, data[adapted_meas_col_name])
 
-        ratio = (data['probably_good_mask'].sum()/len(data))*100
+        ratio = (data['probably_good_mask'].sum()/original_length)*100
         print(f"There are {data['probably_good_mask'].sum()} elements in this timeseries which have failed subtests around them and split the segements to not by default trustworthy. This is {ratio}% of the overall dataset.")
         information.append([f"There are {data['probably_good_mask'].sum()} elements in this timeseries which have failed subtests around them and split the segements to not by default trustworthy. This is {ratio}% of the overall dataset."])
-        ratio = ((data['probably_good_mask'].sum()+all_combined.sum())/len(data))*100
+        ratio = ((data['probably_good_mask'].sum()+all_combined.sum())/original_length)*100
         print(f"In total, there are {(data['probably_good_mask'].sum()+all_combined.sum())} flagged elements in this timeseries. This is {ratio}% of the overall dataset.")
         information.append([f"In total, there are {(data['probably_good_mask'].sum()+all_combined.sum())} flagged elements in this timeseries. This is {ratio}% of the overall dataset."])
         
@@ -70,8 +76,10 @@ class ProbablyGoodDataFlagger():
             for i in range(1, 41):
                 min = builtins.max(0,(random.choice(true_indices))-4250)
                 max = builtins.min(min + 4250, len(data))
-                self.helper.plot_two_df_same_axis(data[time_column][min:max], data[adapted_meas_col_name][min:max],'Water Level', 'Water Level (corrected)', data[measurement_column][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-probably good period detected {i}')
+                self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[adapted_meas_col_name][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-probably good period detected {i}')
         
+        del data['test']
+
         return data
     
         

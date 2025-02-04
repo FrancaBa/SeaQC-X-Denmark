@@ -1,5 +1,6 @@
 {
-  "date_alteration": "13.01.2025",
+  "date_alteration": "23.01.2025",
+  "detide_mode": true,
   "qc_flag_classification": {
     "no_qc": 0,
     "good_data": 1,
@@ -22,6 +23,207 @@
     "incorrect_format": 64,
     "bad_segment": 128,
     "interpolated_value": 256,
-    "missing_data": 512
+    "missing_data": 512,
+    "shifted_value_detided": 1024,
+    "noisy_period_detided": 2048,
+    "stuck_value_detided": 4096,
+    "global_outliers_detided": 8192,
+    "spikes_detided": 16384,
+    "bad_segment_detided": 32768,
+    "interpolated_value_detided": 65536
+  },
+  "qc_active_tests": {
+    "shifted_value": true,
+    "shifted_ruptures": false,
+    "noisy_period": true,
+    "probably_good_data": true,
+    "stuck_value": true,
+    "global_outliers": true,
+    "outlier_change_rate": true,
+    "spike_value_statistical": true,
+    "cotede_spikes": true,
+    "cotede_improved_spikes": true,
+    "selene_spikes": false,
+    "selene_improved_spikes": true,
+    "harmonic_detected_spikes": true,
+    "ml_detected_spikes": true,
+    "incorrect_format": true,
+    "bad_segment": true,
+    "interpolated_value": true,
+    "missing_data": true
+  },
+  "parameter_definition":{
+    "1.0min":{
+	    "window_size_slicing_unsupervised_ml": 375,
+      "threshold_short_bad_segment": 750,
+      "threshold_empty_bad_segment": 0.05,
+      "bound_interquantile": 6.0,
+      "window_size_const_gradient": 15,
+	    "stuck_value": 30,
+      "segmentation":{
+        "nan_threshold": 375,
+        "splinelength": 420,
+        "splinedegree": 3,
+        "order_ploynomial_fil": 2,
+        "poly_fitted_degree": 6
+      },
+      "implausible_change":{
+        "search_step_neighbours": 15,
+        "threshold_max_change": 0.2,
+        "range_spike_pair": 10,
+        "shifting_periods": 0.2,
+        "outliers_per_hour": 3
+      },
+      "spike_detection":{
+        "change_threshold": 0.05,
+        "cotede_threshold": 0.01,
+        "improved_cotede_threshold": 0.06,
+        "max_window_neighbours":60,
+        "test_size": 0.15,
+        "lag_05tide": 375,
+        "lag_1tide": 750,
+        "lag_2tide": 1500,
+        "seven_days": 10430,
+        "nsigma": 3,
+        "splinelength": 420,
+        "splinedegree": 2
+      },
+      "shift_detection":{
+        "change_threshold": 0.04,
+        "one_hour": 60,
+        "threshold_shift": 0.3,
+        "threshold_continued": 0.06
+      },
+      "probably_good_detector": 10
+    },
+    "5.0min":{
+	    "window_size_slicing_unsupervised_ml": 75,
+      "threshold_short_bad_segment": 150,
+      "threshold_empty_bad_segment": 0.10,
+      "bound_interquantile": 6.0,
+      "window_size_const_gradient": 4,
+	    "stuck_value": 6,
+      "segmentation":{
+        "nan_threshold": 75,
+        "splinelength": 84,
+        "splinedegree": 3,
+        "order_ploynomial_fil": 2,
+        "poly_fitted_degree": 6
+      },
+      "implausible_change":{
+        "search_step_neighbours": 3,
+        "threshold_max_change": 0.2,
+        "range_spike_pair": 3,
+        "shifting_periods": 0.2,
+        "outliers_per_hour": 3
+      },
+      "spike_detection":{
+        "change_threshold": 0.25,
+        "cotede_threshold": 0.05,
+        "improved_cotede_threshold": 0.25,
+        "max_window_neighbours":12,
+        "test_size": 0.85,
+        "lag_05tide": 75,
+        "lag_1tide": 150,
+        "lag_2tide": 300,
+        "seven_days": 2016,
+        "nsigma": 3,
+        "splinelength": 84,
+        "splinedegree": 2
+      },
+      "shift_detection":{
+        "change_threshold": 0.15,
+        "one_hour": 12,
+        "threshold_shift": 0.8,
+        "threshold_continued": 0.2
+      },
+      "probably_good_detector": 2
+    },
+    "10.0min":{
+	    "window_size_slicing_unsupervised_ml": 37.5,
+      "threshold_short_bad_segment": 75.0,
+      "threshold_empty_bad_segment": 0.15,
+      "bound_interquantile": 6.0,
+      "window_size_const_gradient": 3,
+	    "stuck_value": 3,
+      "segmentation":{
+        "nan_threshold": 37.5,
+        "splinelength": 42,
+        "splinedegree": 3,
+        "order_ploynomial_fil": 2,
+        "poly_fitted_degree": 6
+      },
+      "implausible_change":{
+        "search_step_neighbours": 2,
+        "threshold_max_change": 0.4,
+        "range_spike_pair": 2,
+        "shifting_periods": 0.4,
+        "outliers_per_hour": 2
+      },
+      "spike_detection":{
+        "change_threshold": 0.5,
+        "cotede_threshold": 0.1,
+        "improved_cotede_threshold": 0.5,
+        "max_window_neighbours":6,
+        "test_size": 0.85,
+        "lag_05tide": 37.5,
+        "lag_1tide": 75,
+        "lag_2tide": 150,
+        "seven_days": 1008,
+        "nsigma": 3,
+        "splinelength": 42,
+        "splinedegree": 2
+      },
+      "shift_detection":{
+        "change_threshold": 0.3,
+        "one_hour": 6,
+        "threshold_shift": 2.0,
+        "threshold_continued": 0.5
+      },
+      "probably_good_detector": 1
+    },
+    "15.0min":{
+	    "window_size_slicing_unsupervised_ml": 25,
+      "threshold_short_bad_segment": 50,
+      "threshold_empty_bad_segment": 0.20,
+      "bound_interquantile": 6.0,
+      "window_size_const_gradient": 3,
+	    "stuck_value": 2,
+      "segmentation":{
+        "nan_threshold": 25,
+        "splinelength": 28,
+        "splinedegree": 3,
+        "order_ploynomial_fil": 2,
+        "poly_fitted_degree": 6
+      },
+      "implausible_change":{
+        "search_step_neighbours": 2,
+        "threshold_max_change": 0.5,
+        "range_spike_pair": 2,
+        "shifting_periods": 0.5,
+        "outliers_per_hour": 2
+      },
+      "spike_detection":{
+        "change_threshold": 0.75,
+        "cotede_threshold": 0.15,
+        "improved_cotede_threshold": 0.7,
+        "max_window_neighbours":4,
+        "test_size": 0.85,
+        "lag_05tide": 25,
+        "lag_1tide": 50,
+        "lag_2tide": 100,
+        "seven_days": 672,
+        "nsigma": 3,
+        "splinelength": 28,
+        "splinedegree": 2
+      },
+      "shift_detection":{
+        "change_threshold": 0.35,
+        "one_hour": 4,
+        "threshold_shift": 3.0,
+        "threshold_continued": 0.7
+      },
+      "probably_good_detector": 1
+    }
   }
 }

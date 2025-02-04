@@ -14,7 +14,7 @@ class StuckValuesDetector():
         self.helper = helper.HelperMethods()
 
         #Number of constant entries needed to mark a period as constant
-        self.window_constant_value = 3
+        self.window_constant_value = None
 
     def set_output_folder(self, folder_path):
         self.folder_path = os.path.join(folder_path,'Stuck values')
@@ -25,8 +25,23 @@ class StuckValuesDetector():
 
         self.helper.set_output_folder(self.folder_path)
 
+    #Load relevant parameters for this QC test from conig.json
+    def set_parameters(self, params):
+        #Number of constant entries needed to mark a period as constant
+        self.window_constant_value = params['stuck_value']
 
-    def run(self, df_meas_long, time_column, adapted_meas_col_name, information):
+    def run(self, df_meas_long, time_column, adapted_meas_col_name, information, original_length, suffix):
+        """
+        Detect stuck values based on constant measurement over time.
+
+        Input:
+        -Main dataframe [pandas df]
+        -Column name of time & date information [str]
+        -Column name of measurement series of interest [str]
+        -Information list where QC report is collected [lst]
+        -Length of original measurement series [int]
+        -suffix: ending for columns and graphs in order to run in different modes [str]
+        """
 
         df_meas_long['test'] = df_meas_long[adapted_meas_col_name].copy()
 
@@ -42,16 +57,16 @@ class StuckValuesDetector():
 
         # Mask the constant values and add it as a column
         df_meas_long[adapted_meas_col_name] = np.where(constant_mask, np.nan, df_meas_long[adapted_meas_col_name])
-        df_meas_long['stuck_value'] = constant_mask
+        df_meas_long[f'stuck_value{suffix}'] = constant_mask
 
         # Get indices where the mask is True (as check that approach works)
         if constant_mask.any():
             true_indices = constant_mask[constant_mask].index
-            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[0]-30:true_indices[0]+50], df_meas_long['test'][true_indices[0]-30:true_indices[0]+50],'Water Level', 'Water Level',  df_meas_long[adapted_meas_col_name][true_indices[0]-30:true_indices[0]+50], 'Timestamp', 'WL removed','Constant period in TS')
-            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[-1]-30:true_indices[-1]+50], df_meas_long['test'][true_indices[-1]-30:true_indices[-1]+50],'Water Level', 'Water Level', df_meas_long[adapted_meas_col_name][true_indices[-1]-30:true_indices[-1]+50], 'Timestamp', 'WL removed','Constant period in TS (2)')
+            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[0]-30:true_indices[0]+50], df_meas_long[adapted_meas_col_name][true_indices[0]-30:true_indices[0]+50],'Water Level', 'Water Level',  df_meas_long['test'][true_indices[0]-30:true_indices[0]+50], 'Timestamp', 'WL removed',f'Constant period in TS - {suffix}')
+            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[-1]-30:true_indices[-1]+50], df_meas_long[adapted_meas_col_name][true_indices[-1]-30:true_indices[-1]+50],'Water Level', 'Water Level', df_meas_long['test'][true_indices[-1]-30:true_indices[-1]+50], 'Timestamp', 'WL removed',f'Constant period in TS (2) - {suffix}')
 
         #print details on the constant value check
-        ratio = (constant_mask.sum()/len(df_meas_long))*100
+        ratio = (constant_mask.sum()/original_length)*100
         print(f"There are {constant_mask.sum()} constant values in this timeseries. This is {ratio}% of the overall dataset.")
         information.append([f"There are {constant_mask.sum()} constant values in this timeseries. This is {ratio}% of the overall dataset."])
             
