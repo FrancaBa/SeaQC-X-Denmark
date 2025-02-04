@@ -77,7 +77,7 @@ class ShiftDetector():
             else:
                 end_index = df[segment_column][segment_points].index[i+1]
             if df[segment_column][start_index] == 0:
-                relev_df = df[start_index:end_index]
+                relev_df = df[start_index:end_index].copy()
                 #Get shifted points based on strong gradient
                 relev_df['change'] = np.abs(np.diff(relev_df.loc[:,interpolated_data_colum], append=np.nan))
                 change_points= relev_df[relev_df['change'] > self.change_threshold].index
@@ -127,8 +127,8 @@ class ShiftDetector():
                     if shift_points:
                         filtered_elements = [shift_points[0]] + [current for previous, current in zip(shift_points, shift_points[1:]) if current - previous <= 60]
                         for elem in filtered_elements:
-                            df[f'shifted_period{suffix}'][elem-self.one_hour:elem+self.one_hour] = True
-                            df['remove_shifted_period'][elem-self.one_hour:elem+self.one_hour] = np.nan
+                            df.loc[elem-self.one_hour:elem+self.one_hour, f'shifted_period{suffix}'] = True
+                            df.loc[elem-self.one_hour:elem+self.one_hour, 'remove_shifted_period'] = np.nan
                     
         true_indices = df[f'shifted_period{suffix}'][df[f'shifted_period{suffix}']].index
 

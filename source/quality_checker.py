@@ -119,6 +119,13 @@ class QualityFlagger():
         else:
             raise Exception('Format of the input measurement series is unkown to this script.')
         
+        #Raise an error for data without two decimats when in meters -> Thresholds are currently defined for two decimals. User can adapt it based on the need
+        # Count decimals and find the most frequent one
+        decimal_counts = self.df_meas[self.measurement_column].astype(str).str.split('.').str[1].str.len().fillna(0).astype(int)
+        most_frequent_decimal_count = decimal_counts.mode()[0]
+        if most_frequent_decimal_count < 2:
+            raise Exception('The input data series does not have at least two decimals. The code and thresholds are currently tuned for timeseries with at least 2 decimals. Please, adapt the config.json to run this script with the current timeseries.')
+
         #Extract data for manual labelling
         data_extractor = extractor.DataExtractor()
         data_extractor.set_output_folder(self.folder_path, self.station)
@@ -211,7 +218,7 @@ class QualityFlagger():
             tidal_signal_construction.set_station(self.station)
             tidal_signal_construction.set_gauge_details_path(self.gauge_details_path)
             tidal_signal_construction.set_output_folder(self.folder_path)
-            df = tidal_signal_construction.run(df, self.measurement_column, self.time_column, self.information)
+            df = tidal_signal_construction.run(df, self.adapted_meas_col_name, self.time_column, self.information)
             #2.Export the new series to csv files for manual labelling
             data_extractor = extractor.DataExtractor()
             data_extractor.set_output_folder(self.folder_path, self.station)
@@ -264,6 +271,7 @@ class QualityFlagger():
         global_outliers.set_output_folder(self.folder_path)
         global_outliers.set_parameters(self.params)
         df = global_outliers.run(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
+        #df = global_outliers.run_zscore(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
 
         #Detect interpolated values
         interpolated_qc = qc_interpolated.Interpolation_Detector()
@@ -356,8 +364,8 @@ class QualityFlagger():
         self.information.append(['The new ts is',len(df_meas_long),'entries long.'])
 
         #plot with new 1-min ts for visual analysis
-        self.helper.plot_df(df_meas_long[self.time_column], df_meas_long[self.measurement_column],'Water Level','Timestamp ','Measured water level in 1 min timestamp')
-        self.helper.plot_df(df_meas_long[self.time_column][33300:33400], df_meas_long[self.measurement_column][33300:33400],'Water Level','Timestamp ','Measured water level in 1 min timestamp (zoom)')
+        self.helper.plot_df(df_meas_long[self.time_column], df_meas_long[self.measurement_column],'Water Level','Timestamp ','Measured water level in constant timestamp')
+        self.helper.plot_df(df_meas_long[self.time_column][33300:33400], df_meas_long[self.measurement_column][33300:33400],'Water Level','Timestamp ','Measured water level in constant timestamp (zoom)')
         #self.helper.zoomable_plot_df(df_meas_long[self.time_column][:33600], df_meas_long_filled[self.measurement_column][:33600],'Water Level','Timestamp ', 'Measured water level time','measured water level time')
 
         return df_meas_long
@@ -393,16 +401,17 @@ class QualityFlagger():
                 #test_df = data[(data[time_column].dt.year == 2007) & (data[time_column].dt.month == 9)]
                 #self.helper.plot_two_df_same_axis(test_df[time_column],test_df[data_column],'Water Level', 'Water Level', test_df[segment_column], 'Timestamp', 'Segment',f'Test Graph 0')
                 print(f'Segment is {end_index - start_index} entries long.')
-                print(f'This bad period sarts with index {start_index}.')
                 print(np.sum(~np.isnan(data[data_column][start_index:end_index]))/len(data[data_column][start_index:end_index]))
                 if end_index - start_index < self.threshold_short_bad_segment:
+                    print(f'This bad period sarts with index {start_index}.')
                     data.loc[start_index:end_index, f'short_bad_measurement_series{suffix}'] = True
                     data.loc[start_index:end_index, data_column] = np.nan
                     data.loc[start_index:end_index, segment_column] = 1
                     z += 1
-                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[data_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and short periods (monthly) - Graph {i} -{suffix}')
+                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[self.measurement_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and short periods (monthly) - Graph {i} -{suffix}')
                     self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[data_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and short periods (monthly)- Cleaned - Graph{i} -{suffix}')
                 elif np.sum(~np.isnan(data[data_column][start_index:end_index]))/len(data[data_column][start_index:end_index]) < self.threshold_unusabel_segment_nan:
+                    print(f'This bad period sarts with index {start_index}.')
                     data.loc[start_index:end_index, f'short_bad_measurement_series{suffix}'] = True
                     data.loc[start_index:end_index, data_column] = np.nan
                     data.loc[start_index:end_index, segment_column] = 1
@@ -522,7 +531,7 @@ class QualityFlagger():
                 # Visualization
                 title = 'Anomaly Detection with Isolation Forest (Using Interpolation)'
                 plt.figure(figsize=(12, 6))
-                plt.plot(relev_df[time_column], relev_df[data_column_name], label='Time Series', color='blue')
+                plt.plot(relev_df[time_column], relev_df[data_column_name], label='Time Series', color='blue', marker='o',  markersize=1)
                 plt.scatter(anomalies[time_column], anomalies[data_column_name], color='red', label='Anomalies', zorder=1)
                 plt.legend()
                 plt.title(title)

@@ -76,19 +76,28 @@ class TidalSignalGenerator():
         coef = utide.solve(time_array_good, anomaly_good.values, lat=lat, method="ols", conf_int="MC", trend=False, nodal=True, verbose=False)
        
         #Reconstruct function to generate a tidal signal at the times specified in the time array
-        tide = utide.reconstruct(df['time_array'] , coef, verbose=False)
-        df['tidal_signal'] = tide.h
-        df['detided_series'] = df['anomaly'] - tide.h
+        #Split it in 10 parts to avoid memory issues or run it on server!!
+        period = round(len(df['time_array'])/10)
+        period_tide = []
+        for i in range(0, len(df), period):
+            print(i)
+            period_array = df['time_array'][i:i+period]
+            tide = utide.reconstruct(period_array, coef, verbose=False)
+            period_tide.append(tide.h)
+        combined_tide = np.concatenate(period_tide)
+        df['tidal_signal'] = combined_tide
+        df['detided_series'] = df['anomaly'] - combined_tide
 
-        #Export tidal signal
-        file_name = f"{self.station}-TidalSignal.csv"
-        df['tidal_signal'].to_csv(os.path.join(self.folder_path, file_name), index=False)
+        #Export tidal signal 6 detided series
+        file_name = f"{self.station}-TidalSignal-and-detided series.csv"
+        df_export = df[[time_column, 'detided_series', 'anomaly', 'tidal_signal']].copy().dropna()
+        df_export.to_csv(os.path.join(self.folder_path, file_name), index=False, header=["Time", "Residual", "Obs_anom", "Tidal_comp"])
 
         #Insight for tidal analysis
         fig, (ax0, ax1, ax2) = plt.subplots(figsize=(17, 5), nrows=3, sharey=False, sharex=True)
-        ax0.plot(df['time_array'], df['anomaly'], label="SL Measurements", color="C0")
-        ax1.plot(df['time_array'], tide.h, label="Tidal prediction", color="C1")
-        ax2.plot(df['time_array'], df['detided_series'], label="Residual", color="C2")
+        ax0.plot(df['time_array'], df['anomaly'], label="SL Measurements", color="C0", marker='o',  markersize=1)
+        ax1.plot(df['time_array'], combined_tide, label="Tidal prediction", color="C1", marker='o',  markersize=1)
+        ax2.plot(df['time_array'], df['detided_series'], label="Residual", color="C2", marker='o',  markersize=1)
         fig.legend(ncol=3, loc="upper center")
         plt.savefig(os.path.join(self.folder_path,f"Tidal Decomposition-whole period"),  bbox_inches="tight")
         plt.close()

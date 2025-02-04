@@ -132,10 +132,11 @@ class SpikeDetector():
                         df.loc[result, 'test'] = np.nan
 
         true_indices = df[f'spike_value_statistical{suffix}'][df[f'spike_value_statistical{suffix}']].index
-        for i in range(0,41):
-            min = builtins.max(0,(random.choice(true_indices))-1000)
-            max = builtins.min(min + 2000, len(df))
-            self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[data_column][min:max], 'Timestamp', 'Water Level (measured)',f'Statistical spike Graph-local spike detected via statistics {min} -{suffix}')
+        if true_indices.any():
+            for i in range(0,41):
+                min = builtins.max(0,(random.choice(true_indices))-1000)
+                max = builtins.min(min + 2000, len(df))
+                self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[data_column][min:max], 'Timestamp', 'Water Level (measured)',f'Statistical spike Graph-local spike detected via statistics {min} -{suffix}')
 
         #print details on the statistical spike check
         ratio = (df[f'spike_value_statistical{suffix}'].sum()/original_length)*100
@@ -162,6 +163,9 @@ class SpikeDetector():
         #Call Cotede package
         sea_level_spike = qctests.spike(df_meas_long[data_col_name])  
 
+        # If the spike is less than 1 cm (absolut value), it is not a spike -> Do not remove the small noise
+        sea_level_spike[abs(sea_level_spike) < self.cotede_threshold] = np.nan
+
         #Only execute if spike is detected
         if np.any(~np.isnan(sea_level_spike)):
             print("The largest spike observed was: {:.3f}".format(np.nanmax(np.abs(sea_level_spike))))
@@ -176,8 +180,6 @@ class SpikeDetector():
             self.helper.plot_df(df_meas_long[time_column][min_value_2:max_value_2], df_meas_long[data_col_name][min_value_2:max_value_2],'Water Level','Timestamp',f'Cotede Graph: Measured water level wo outliers in 1 min timestamp (very zoomed to max spike) -{suffix}')
             self.helper.plot_df(df_meas_long[time_column], sea_level_spike,'Detected spike [m]','Timestamp',f'Cotede Graph: WL spikes in measured ts -{suffix}')
 
-            # If the spike is less than 1 cm (absolut value), it is not a spike -> Do not remove the small noise
-            sea_level_spike[abs(sea_level_spike) < self.cotede_threshold] = 0.0
             #Plot together
             self.helper.plot_two_df(df_meas_long[time_column][min_value:max_value], sea_level_spike[min_value:max_value],'Detected spikes', df_meas_long[data_col_name][min_value:max_value], 'Water Level', 'Timestamp',f'Cotede Graph: Spikes and measured WL -{suffix}')
 
@@ -212,29 +214,29 @@ class SpikeDetector():
             information.append([f"There are {df_meas_long[f'cotede_spikes{suffix}'].sum()} spikes in this timeseries according to cotede. This is {ratio}% of the overall dataset."])
 
             #Plots to analyse spikes
+            true_indices = df_meas_long[f'cotede_spikes{suffix}'][df_meas_long[f'cotede_spikes{suffix}']].index
             for i in range(1, 41):
-                min = random.randint(np.where(~np.isnan(sea_level_spike))[0][0], len(df_meas_long)-1000)
+                min = builtins.max(0,(random.choice(true_indices))-1000)
                 max = min + 2000
                 self.helper.plot_two_df_same_axis(df_meas_long[time_column][min:max], df_meas_long['test'][min:max],'Water Level', 'Water Level (corrected)', df_meas_long[data_col_name][min:max], 'Timestamp', 'Water Level (measured)',f'Cotede Graph {i}- Measured water level wo outliers and spikes in 1 min timestamp vs orig -{suffix}')
 
             #Analyse spike detection
             self.helper.plot_df(df_meas_long[time_column], df_meas_long['test'],'Water Level','Timestamp','Cotede - Measured water level wo outliers and spikes in 1 min timestamp (all)')
-            self.helper.plot_two_df(df_meas_long[time_column][min_value:max_value], df_meas_long[data_col_name][min_value:max_value],'Water Level', df_meas_long['test'][min_value:max_value], 'Measured WaterLevel', 'Timestamp',f'Cotede - Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike) -{suffix}')
+            self.helper.plot_two_df(df_meas_long[time_column][min_value:max_value], df_meas_long['test'][min_value:max_value],'Water Level', df_meas_long[data_col_name][min_value:max_value], 'Measured WaterLevel', 'Timestamp',f'Cotede - Measured water level wo outliers and spikes in 1 min timestamp (zoomed to max spike) -{suffix}')
             #self.helper.plot_two_df(df_meas_long[time_column], df_meas_long[data_col_name],'Water Level', df_meas_long[quality_column_name], 'Quality flag', 'Timestamp',f'Measured water level wo outliers and spikes in 1 min timestamp incl. flags -{suffix}')
             #self.helper.plot_two_df(df_meas_long[time_column], df_meas_long[data_col_name],'Water Level', df_meas_long[quality_column_name], 'Quality flag', 'Timestamp',f'Measured water level in 1 min timestamp incl. flags -{suffix}')
-            self.helper.plot_two_df_same_axis(df_meas_long[time_column][min_value:max_value], df_meas_long[data_col_name][min_value:max_value],'Water Level', 'Water Level (corrected)', df_meas_long['test'][min_value:max_value], 'Timestamp', 'Water Level (measured)',f'Cotede - Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) -{suffix}')
+            self.helper.plot_two_df_same_axis(df_meas_long[time_column][min_value:max_value], df_meas_long['test'][min_value:max_value],'Water Level', 'Water Level (corrected)', df_meas_long[data_col_name][min_value:max_value], 'Timestamp', 'Water Level (measured)',f'Cotede - Measured water level wo outliers and spikes in 1 min timestamp vs orig (zoomed to max spike) -{suffix}')
             #Some more plots for assessment
             self.max_value_plotting = max_value
             self.min_value_plotting = min_value
             min_value = np.nanargmax(np.abs(df_meas_long[data_col_name])) - 500
             max_value = np.nanargmax(np.abs(df_meas_long[data_col_name])) + 500
-            self.helper.plot_two_df(df_meas_long[time_column][min_value:max_value], df_meas_long[data_col_name][min_value:max_value],'Water Level', df_meas_long['test'][min_value:max_value], 'Quality flag', 'Timestamp',f'Cotede - Measured water level wo outliers and wo spike in 1 min timestamp (zoomed to max spike after removing spike) -{suffix}')
+            self.helper.plot_two_df(df_meas_long[time_column][min_value:max_value], df_meas_long[data_col_name][min_value:max_value],'Water Level', df_meas_long['test'][min_value:max_value], 'Water Level (clean)', 'Timestamp',f'Cotede - Measured water level wo outliers and wo spike in 1 min timestamp (zoomed to max spike after removing spike) -{suffix}')
         else:
             self.min_value_plotting = 0
             self.max_value_plotting = 10000
-            ratio = 0
-            print(f"There are 0 spikes in this timeseries according to cotede. This is {ratio}% of the overall dataset.")
-            information.append([f"There are 0 spikes in this timeseries according to cotede. This is {ratio}% of the overall dataset."])
+            print(f"There are 0 spikes in this timeseries according to cotede. This is 0% of the overall dataset.")
+            information.append([f"There are 0 spikes in this timeseries according to cotede. This is 0% of the overall dataset."])
 
 
         del df_meas_long['test']
@@ -567,7 +569,6 @@ class SpikeDetector():
                 end_index = data['segments'][shift_points].index[i+1]
             if data['segments'][start_index] == 0:
                 relev_df = data[start_index:end_index].copy()
-                print(relev_df)
                 if len(relev_df) >= self.lag_2tide:
                     #Add relevant features
                     relev_df.loc[:,'lag_05tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_05tide).bfill()  #min max amplitude

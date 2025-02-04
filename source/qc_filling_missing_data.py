@@ -146,6 +146,8 @@ class MissingDataFiller():
         shift_points = (data[segment_column] != data[segment_column].shift())
         #Spline length in min
         winsize = self.splinelength
+        begin_buffer = round(winsize/2)
+        end_buffer = round(winsize/4)
         data[f'poly_fitted_data{suffix}'] = np.nan
 
         #For measurement segment: polynomial fit (6th degree) to the polynomial interpolated measurement series
@@ -159,20 +161,21 @@ class MissingDataFiller():
                 #Fit a serie to each segment of x hours (= self.splinelength). Iterate the following steps:
                 #1. Get start and end index
                 #2. Extract connected x- and y-series
+                #3. Expand series at the beginning and end to generate better fit at edges
                 #3. Fit polynomial series to x- and y-series pair
                 #4. Overwrite beginning and end of segment with next segment for smoother transition
                 for start in range(start_index, end_index, winsize):
                     if (start + winsize*2) >= end_index:
                         end = end_index
-                        if start - 200 < start_index:
+                        if start - begin_buffer < start_index:
                             start = start_index
                         else:
-                            start = start - 200
+                            start = start - begin_buffer
                     elif start != start_index:
-                        end = start + winsize + 100
-                        start = start - 200
+                        end = start + winsize + end_buffer
+                        start = start - begin_buffer
                     else:
-                        end = start + winsize + 100
+                        end = start + winsize + end_buffer
                     x_window = data.loc[start:end,time_column]
                     x_numeric = (x_window - x_window.min()).dt.total_seconds() / 60  # Convert to minutes
                     y_window = data.loc[start:end, filled_data]
@@ -185,12 +188,12 @@ class MissingDataFiller():
                         data.loc[start:end,f'poly_fitted_data{suffix}'] = y_fit
                         break
                     elif end == end_index:
-                        data.loc[start+200:end,f'poly_fitted_data{suffix}'] = y_fit[200:]
+                        data.loc[start+begin_buffer:end,f'poly_fitted_data{suffix}'] = y_fit[begin_buffer:]
                         break
                     elif start == start_index:
-                        data.loc[start:end-100,f'poly_fitted_data{suffix}'] = y_fit[:-100]
+                        data.loc[start:end-end_buffer,f'poly_fitted_data{suffix}'] = y_fit[:-end_buffer]
                     else:
-                        data.loc[start+200:end-100,f'poly_fitted_data{suffix}'] = y_fit[200:-100]
+                        data.loc[start+begin_buffer:end-end_buffer,f'poly_fitted_data{suffix}'] = y_fit[begin_buffer:-end_buffer]
 
                 #Plot for visual analysis
                 self.helper.plot_two_df_same_axis(data[time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Water Level (corrected)', data[f'poly_fitted_data{suffix}'][start_index:end_index], 'Timestamp ', 'Polynomial fitted data Water Level', f'Polynomial fitted graph{start_index}-{suffix}')

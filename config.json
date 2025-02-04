@@ -57,7 +57,7 @@
 	    "window_size_slicing_unsupervised_ml": 375,
       "threshold_short_bad_segment": 750,
       "threshold_empty_bad_segment": 0.05,
-      "bound_interquantile": 3.5,
+      "bound_interquantile": 6.0,
       "window_size_const_gradient": 15,
 	    "stuck_value": 30,
       "segmentation":{
@@ -99,12 +99,12 @@
     "5.0min":{
 	    "window_size_slicing_unsupervised_ml": 75,
       "threshold_short_bad_segment": 150,
-      "threshold_empty_bad_segment": 0.05,
-      "bound_interquantile": 3.5,
-      "window_size_const_gradient": 5,
+      "threshold_empty_bad_segment": 0.10,
+      "bound_interquantile": 6.0,
+      "window_size_const_gradient": 4,
 	    "stuck_value": 6,
-      "nan_threshold": 75,
       "segmentation":{
+        "nan_threshold": 75,
         "splinelength": 84,
         "splinedegree": 3,
         "order_ploynomial_fil": 2,
@@ -120,7 +120,7 @@
       "spike_detection":{
         "change_threshold": 0.25,
         "cotede_threshold": 0.05,
-        "improved_cotede_threshold": 0.3,
+        "improved_cotede_threshold": 0.25,
         "max_window_neighbours":12,
         "test_size": 0.85,
         "lag_05tide": 75,
@@ -142,9 +142,9 @@
     "10.0min":{
 	    "window_size_slicing_unsupervised_ml": 37.5,
       "threshold_short_bad_segment": 75.0,
-      "threshold_empty_bad_segment": 0.05,
-      "bound_interquantile": 3.5,
-      "window_size_const_gradient": 5,
+      "threshold_empty_bad_segment": 0.15,
+      "bound_interquantile": 6.0,
+      "window_size_const_gradient": 3,
 	    "stuck_value": 3,
       "segmentation":{
         "nan_threshold": 37.5,
@@ -163,7 +163,7 @@
       "spike_detection":{
         "change_threshold": 0.5,
         "cotede_threshold": 0.1,
-        "improved_cotede_threshold": 0.7,
+        "improved_cotede_threshold": 0.5,
         "max_window_neighbours":6,
         "test_size": 0.85,
         "lag_05tide": 37.5,
@@ -185,9 +185,9 @@
     "15.0min":{
 	    "window_size_slicing_unsupervised_ml": 25,
       "threshold_short_bad_segment": 50,
-      "threshold_empty_bad_segment": 0.05,
-      "bound_interquantile": 3.5,
-      "window_size_const_gradient": 5,
+      "threshold_empty_bad_segment": 0.20,
+      "bound_interquantile": 6.0,
+      "window_size_const_gradient": 3,
 	    "stuck_value": 2,
       "segmentation":{
         "nan_threshold": 25,
@@ -206,7 +206,7 @@
       "spike_detection":{
         "change_threshold": 0.75,
         "cotede_threshold": 0.15,
-        "improved_cotede_threshold": 1.0,
+        "improved_cotede_threshold": 0.7,
         "max_window_neighbours":4,
         "test_size": 0.85,
         "lag_05tide": 25,
