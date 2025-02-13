@@ -132,14 +132,15 @@ class ImplausibleChangeDetector():
          # Get indices where the mask is True (as check that approach works)
         if df[f'outlier_change_rate{suffix}'].any():
             true_indices = df[f'outlier_change_rate{suffix}'][df[f'outlier_change_rate{suffix}']].index
-            self.helper.plot_df(df[time_column][true_indices[0]-100:true_indices[0]+100], df[adapted_meas_col_name][true_indices[0]-100:true_indices[0]+100],'Water Level',f'Timestamp ','Max plausible change period in TS -{suffix}')
+            self.helper.plot_df(df[time_column][true_indices[0]-100:true_indices[0]+100], df[adapted_meas_col_name][true_indices[0]-100:true_indices[0]+100],'Water Level', 'Timestamp ', f'Max plausible change period in TS -{suffix}')
             self.helper.plot_df(df[time_column][true_indices[0]-100:true_indices[0]+100], df['test'][true_indices[0]-100:true_indices[0]+100],'Water Level','Timestamp ',f'Max plausible change period in TS (corrected) -{suffix}')
             self.helper.plot_df(df[time_column][true_indices[-1]-100:true_indices[-1]+100], df[adapted_meas_col_name][true_indices[-1]-100:true_indices[-1]+100],'Water Level','Timestamp ',f'Max plausible change period in TS (2) -{suffix}')
             self.helper.plot_df(df[time_column][true_indices[-1]-100:true_indices[-1]+100], df['test'][true_indices[-1]-100:true_indices[-1]+100],'Water Level','Timestamp ',f'Max plausible change period in TS (corrected) (2) -{suffix}')
             #More plots
-            for i in range(1, 21):
-                min = (random.choice(true_indices))-200
-                max = min + 400
+            max_range = builtins.min(31, len(true_indices))
+            for i in range(1, max_range): 
+                min = builtins.max(0,(true_indices[i]-200))
+                max = builtins.min(len(df), min+400)
                 self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[adapted_meas_col_name][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-Implausible change rate detected {i}-{suffix}')
 
         ratio = (df[f'outlier_change_rate{suffix}'].sum()/self.original_length)*100
@@ -171,15 +172,16 @@ class ImplausibleChangeDetector():
         df['test'] = np.where(df[f'noisy_period{suffix}'], np.nan, df['test'])
 
         ratio = (df[f'noisy_period{suffix}'].sum()/self.original_length)*100
-        print(f"There are {df[f'noisy_period{suffix}'].sum()} noisy periods in this timeseries which change their level within a short timeframe a lot. This is {ratio}% of the overall dataset.")
-        information.append([f"There are {df[f'noisy_period{suffix}'].sum()} noisy periods in this timeseries which change their level within a short timeframe a lot. This is {ratio}% of the overall dataset."])
+        print(f"There are {df[f'noisy_period{suffix}'].sum()} elements in noisy periods in this timeseries which change their level within a short timeframe a lot. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {df[f'noisy_period{suffix}'].sum()} elements in noisy periods in this timeseries which change their level within a short timeframe a lot. This is {ratio}% of the overall dataset."])
 
         #Plot marked periods to check
         if df[f'noisy_period{suffix}'].any():
             true_indices = df[f'noisy_period{suffix}'][df[f'noisy_period{suffix}']].index
-            for i in range(1, 21):
-                min = (random.choice(true_indices))-2000
-                max = min + 4000
+            max_range = builtins.min(31, len(true_indices))
+            for i in range(1, max_range): 
+                min = builtins.max(0, (true_indices[i]-2000))
+                max = builtins.min(len(df), min+4000)
                 self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[adapted_meas_col_name][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-noisy period detected {i} -{suffix}')
         
         del df['test']

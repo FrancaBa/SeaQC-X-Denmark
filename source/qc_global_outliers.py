@@ -29,9 +29,9 @@ class OutlierRemover():
         self.helper.set_output_folder(self.folder_path)
 
     #Load relevant parameters for this QC test from conig.json
-    def set_parameters(self, params):
+    def set_parameters(self, params, suffix):
         #to assess global outliers
-        self.bound_interquantile = params['bound_interquantile']
+        self.bound_interquantile = params[f'bound_interquantile{suffix}']
 
     def run(self, df_meas_long, adapted_meas_col_name, time_column, measurement_column, information, original_length, suffix):
         """
@@ -69,9 +69,10 @@ class OutlierRemover():
         # Get indices where the mask is True (as check that approach works)
         if outlier_mask.any():
             true_indices = outlier_mask[outlier_mask].index
-            for i in range(0, 31):          
-                min = builtins.max(0,(random.choice(true_indices))-10000)
-                max =  builtins.min(len(df_meas_long), min+20000)
+            max_range = builtins.min(31, len(true_indices))
+            for i in range(1, max_range):      
+                min = builtins.max(0,(true_indices[i]-10000))
+                max = builtins.min(len(df_meas_long), min+20000)
                 self.helper.plot_df(df_meas_long[time_column][min:max], df_meas_long[measurement_column][min:max],'Water Level','Timestamp ', f'Outlier period in TS {i}{suffix}')
                 self.helper.plot_df(df_meas_long[time_column][min:max], df_meas_long[adapted_meas_col_name][min:max],'Water Level','Timestamp ', f'Outlier period in TS (corrected) {i}{suffix}')
                 
@@ -120,12 +121,14 @@ class OutlierRemover():
         # Get indices where the mask is True (as check that approach works)
         if outlier_mask.any():
             true_indices = outlier_mask[outlier_mask].index
-            min = builtins.max(0,(random.choice(true_indices))-10000)
-            max =  builtins.min(len(df_meas_long), min+20000)
-            self.helper.plot_df(df_meas_long[time_column][min:max], df_meas_long[measurement_column][min:max],'Water Level','Timestamp ', f'Zscore - Outlier period in TS {suffix}')
-            self.helper.plot_df(df_meas_long[time_column][min:max], df_meas_long[adapted_meas_col_name][min:max],'Water Level','Timestamp ', f'Zscore - Outlier period in TS (corrected) {suffix}')
-            self.helper.plot_df(df_meas_long[time_column], df_meas_long[adapted_meas_col_name],'Water Level','Timestamp ', f'Zscore - Measured water level wo outliers in 1 min timestamp {suffix}')
-          
+            max_range = builtins.min(31, len(true_indices))
+            for i in range(1, max_range): 
+                min = builtins.max(0,(true_indices[i]-10000))
+                max = builtins.min(len(df_meas_long), min+20000)
+                self.helper.plot_df(df_meas_long[time_column][min:max], df_meas_long[measurement_column][min:max],'Water Level','Timestamp ', f'Zscore - Outlier period in TS{suffix}-{i}')
+                self.helper.plot_df(df_meas_long[time_column][min:max], df_meas_long[adapted_meas_col_name][min:max],'Water Level','Timestamp ', f'Zscore - Outlier period in TS (corrected) {suffix}-{i}')
+                self.helper.plot_df(df_meas_long[time_column], df_meas_long[adapted_meas_col_name],'Water Level','Timestamp ', f'Zscore - Measured water level wo outliers in 1 min timestamp {suffix}-{i}')
+            
         ratio = (outlier_mask.sum()/original_length)*100
         print(f"There are {outlier_mask.sum()} global outliers in this timeseries according to the z-score. This is {ratio}% of the overall dataset.")
         information.append([f"There are {outlier_mask.sum()} global outliers in this timeseries according to the z-score. This is {ratio}% of the overall dataset."])

@@ -67,6 +67,7 @@ class ShiftDetector():
         df[f'shifted_period{suffix}'] = False
         df['remove_shifted_period'] = df[data_column].copy()
         segment_points = (df[segment_column] != df[segment_column].shift())
+        true_indices_short = []
 
         #test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)] for Qaqortoq
                    
@@ -126,16 +127,17 @@ class ShiftDetector():
 
                     if shift_points:
                         filtered_elements = [shift_points[0]] + [current for previous, current in zip(shift_points, shift_points[1:]) if current - previous <= 60]
+                        true_indices_short.append(filtered_elements)
                         for elem in filtered_elements:
                             df.loc[elem-self.one_hour:elem+self.one_hour, f'shifted_period{suffix}'] = True
                             df.loc[elem-self.one_hour:elem+self.one_hour, 'remove_shifted_period'] = np.nan
-                    
-        true_indices = df[f'shifted_period{suffix}'][df[f'shifted_period{suffix}']].index
 
-        if true_indices.any():
-            for i in range(0, 41):
-                min = builtins.max(0,(random.choice(true_indices))-2000)
-                max = min + 2000                
+        true_indices_short = [item for sublist in true_indices_short for item in sublist]
+        if true_indices_short:
+            max_range = builtins.min(30, len(true_indices_short))
+            for i in range(0, max_range):
+                min = builtins.max(0,(true_indices_short[i]-2000))
+                max =  builtins.min(len(df), min+4000)           
                 self.helper.plot_two_df_same_axis(df.loc[min:max,time_column], df.loc[min:max, 'remove_shifted_period'],'Water Level', 'Water Level (corrected)', df.loc[min:max, data_column], 'Timestamp ', 'Values removed', f'Statistical Shift {i} -{suffix}')
             
         #print details on the smaller (and shorter shifts)
@@ -231,7 +233,7 @@ class ShiftDetector():
             length = builtins.min(30, len(all_changepoints))
             for i in range(0, length):
                 min = builtins.max(0,all_changepoints[i]-2000)
-                max = min + 2000                
+                max =  builtins.min(len(df), min+4000)             
                 self.helper.plot_df(df.loc[min:max,time_column], df.loc[min:max, data_column_name],'Water Level', 'Timestamp ', f'Ruptures - Shift {i} -{suffix}')
                         
         return df
