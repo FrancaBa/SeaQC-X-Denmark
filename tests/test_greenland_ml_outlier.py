@@ -51,4 +51,5 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_station(station)
         data_flagging_ml.set_missing_value_filler(self.missing_meas_value)
         labelled_df, station_df = data_flagging_ml.import_data(self.datadir, self.ending)
-        data_flagging_ml.run(labelled_df, station_df)
+        data_flagging_ml.run_binary(station_df)
+        data_flagging_ml.run_multi(labelled_df, station_df)
