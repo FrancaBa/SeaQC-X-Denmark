@@ -19,8 +19,9 @@ from xgboost import XGBClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import GridSearchCV
 from imblearn.under_sampling import RandomUnderSampler
-from imblearn.over_sampling import SMOTE
+from imblearn.over_sampling import SMOTE, RandomOverSampler
 from imblearn.pipeline import Pipeline
+from imblearn.combine import SMOTETomek
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.metrics import confusion_matrix
 from sklearn.ensemble import RandomForestClassifier
@@ -103,25 +104,49 @@ class MLOutlierDetection():
 
         return self.labelled_df, station_df
 
-    def run_binary(self, df):
-        # Split into train and test
+    def run(self, df, station_df):
+
+        df_train, df_test = self.split_dataset(station_df)
+
+        #Alter imbalanced dataset in order to even out the minority class
+        self.preprocessing_data_imb_learn(df_train)
+        #self.preprocessing_data(df_train)
+
+        # Fit and transform labels
+        self.y_train_transformed = self.le.fit_transform(self.y_train)
+        self.y_test_transformed = self.le.fit_transform(self.y_test)
+        self.y_val_transformed = self.le.fit_transform(self.y_val)
+        self.y_train_res = self.le.fit_transform(self.y_train_res)
+        # Print mapping
+        print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
+        
+        self.run_binary(df_train, df_test)
+        #self.run_multi(station_df, df)
+
+    def split_dataset(self, df):
+
+        #Split into train and test
         df_train = df[int((self.train_size*len(df))):]
         df_test = df[:int((self.train_size*len(df)))]
         #Split training dataset again into validation and training data
         df_val = df_train[:int((self.val_size*len(df_train)))]
         df_train = df_train[int((self.val_size*len(df_train))):]
-        X_train = df_train[self.measurement_column]
-        y_train = df_train[self.qc_column]
-        X_test = df_test[self.measurement_column]
-        y_test = df_test[self.qc_column]
-        X_val = df_val[self.measurement_column]
-        y_val = df_val[self.qc_column]
+        #Generate correct data subsets
+        self.X_train = df_train[self.measurement_column]
+        self.y_train = df_train[self.qc_column]
+        self.X_test = df_test[self.measurement_column]
+        self.y_test = df_test[self.qc_column]
+        self.X_val = df_val[self.measurement_column]
+        self.y_val = df_val[self.qc_column]
+        #For Randomforest
+        self.X_train_2d = self.X_train.values.reshape(-1, 1)  # Convert Series to 2D array
+        self.X_test_2d = self.X_test.values.reshape(-1, 1)  # Convert Series to 2D array
 
         #Visualization training data
         anomalies_train = df_train[self.qc_column].isin([3, 4])
-        title = 'ML predicted QC classes (Training)- Binary'
+        title = 'QC classes for Training- Binary'
         plt.figure(figsize=(12, 6))
-        plt.plot(df_train[self.time_column], df_train[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
+        plt.plot(df_train[self.time_column], df_train[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
         plt.scatter(df_train[self.time_column][anomalies_train], df_train[self.measurement_column][anomalies_train], color='red', label='QC Classes', zorder=1)
         plt.legend()
         plt.title(title)
@@ -140,18 +165,108 @@ class MLOutlierDetection():
         for value, count in zip(unique_values, counts):
             print(f"Class {value} exists {count} times in testing dataset. This is {count/len(df_test)}.")
 
-        # Fit and transform labels
-        y_train_transformed = self.le.fit_transform(y_train)
-        y_test_transformed = self.le.fit_transform(y_test)
-        y_val_transformed = self.le.fit_transform(y_val)
-        # Print mapping
-        print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
+        return df_train, df_test
+    
+    def preprocessing_data(self, df):
+        #Undersampling: Mark 40% of random good rows to be deleted
+        rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.3, random_state=42).index
+        # Drop selected rows
+        df_res = df.drop(rows_to_drop).reset_index(drop=True)
+        
+        #Oversampling:Filter rows which bad qc flag and multiply them and assign them randomly 
+        bad_rows = df_res[df_res[self.qc_column].isin([3,4])]
+        bad_rows_expanded = pd.concat([bad_rows] * 4, ignore_index=True)
+        bad_rows_expanded[self.time_column] = bad_rows_expanded[self.time_column]  + pd.to_timedelta(np.random.randint(5, 10, size=len(bad_rows_expanded)), unit='m')
+        new_bad_rows = df_res[df_res[self.time_column].isin(bad_rows_expanded[self.time_column])].copy()
+        df_res.loc[df_res[self.time_column].isin(new_bad_rows[self.time_column]), self.measurement_column] = new_bad_rows[self.measurement_column]
+        df_res.loc[df_res[self.time_column].isin(new_bad_rows[self.time_column]), self.qc_column] = 3
+        
+        # Oversampling:Filter rows which bad qc flag and multiply them and assign them randomly 
+        bad_rows = df_res[df_res[self.qc_column].isin([3,4])]
+        bad_rows_expanded = pd.concat([bad_rows] * 2, ignore_index=True)
+        random_times = df_res[self.time_column].sample(n=len(bad_rows_expanded), random_state=42)
+        more_bad_values = bad_rows_expanded[self.measurement_column].values
+        np.random.shuffle(more_bad_values)
+        df_res.loc[random_times.index, self.measurement_column] = more_bad_values
+        df_res.loc[random_times.index, self.qc_column] = 3
+
+        #Visualization resampled data
+        anomalies_res = df_res[self.qc_column].isin([3, 4])
+        title = 'QC classes - Resampled'
+        plt.figure(figsize=(12, 6))
+        plt.plot(df_res[self.time_column], df_res[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
+        plt.scatter(df_res[self.time_column][anomalies_res], df_res[self.measurement_column][anomalies_res], color='red', label='QC Classes', zorder=1)
+        plt.legend()
+        plt.title(title)
+        plt.xlabel('Time')
+        plt.ylabel('Water Level')
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
+        plt.close()
+
+        #Analysis
+        unique_values, counts = np.unique(df_res[self.qc_column], return_counts=True)
+        for value, count in zip(unique_values, counts):
+            print(f"Class {value} exists {count} times in the resampled dataset. This is {count/len(df_res)}.")
+
+        #Need balanced output
+        self.X_train_res = df_res[self.measurement_column].values.reshape(-1, 1)  # Convert Series to 2D array
+        self.y_train_res = df_res[self.qc_column].values.reshape(-1, 1)  # Convert Series to 2D array
+
+    def preprocessing_data_imb_learn(self,df):
+        # Define XGBoost model
+        # Apply undersampling to reduce the majority class in the training data
+        undersampler = RandomUnderSampler(sampling_strategy = 0.01, random_state=42)
+        #self.X_train_res, self.y_train_res = undersampler.fit_resample(self.X_train_2d, self.y_train_transformed)
+
+        #Creating an instance of SMOTE
+        #smote = SMOTE(random_state=42, sampling_strategy=0.1)
+        smote = RandomOverSampler(random_state=42, sampling_strategy='not majority')
+        self.X_train_res, self.y_train_res = smote.fit_resample(df[self.measurement_column].values.reshape(-1, 1), df[self.qc_column])
+        #Balancing the data
+        pipeline = Pipeline([('under', undersampler), ('over', smote)])
+        smotetomek = SMOTETomek(random_state=42, sampling_strategy=0.2)
+        #self.X_train_res, self.y_train_res = smotetomek.fit_resample(self.X_train_2d, self.y_train_transformed)
+
+        unique_values, counts = np.unique(self.y_train_res, return_counts=True)
+        for value, count in zip(unique_values, counts):
+            print(f"Class {value} exists {count} times in the resampled dataset. This is {count/len(self.y_train_res)}.")
+        
+        #0.Visualization - resampled data
+        anomalies_resampled =  np.isin(self.y_train_res,[3, 4])
+        title = 'ML predicted QC classes - Resampled training'
+        plt.figure(figsize=(12, 6))
+        plt.plot(self.X_train_res, label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
+        #plt.scatter(np.arange(len(y_train_res))[anomalies_resampled], y_train_res[anomalies_resampled], color='red', label='QC Classes', zorder=1)
+        plt.legend()
+        plt.title(title)
+        plt.xlabel('Time')
+        plt.ylabel('Water Level')
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
+        plt.close()
+
+        #0.Visualization - resampled data - zoomed
+        anomalies_resampled =  np.isin(self.y_train_res,[3, 4])
+        title = 'ML predicted QC classes - Resampled training - Zoom'
+        plt.figure(figsize=(12, 6))
+        plt.plot(self.X_train_res[14000:], label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
+        #plt.scatter(np.arange(len(y_train_res))[anomalies_resampled], y_train_res[anomalies_resampled], color='red', label='QC Classes', zorder=1)
+        plt.legend()
+        plt.title(title)
+        plt.xlabel('Time')
+        plt.ylabel('Water Level')
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
+        plt.close()
+
+    def run_binary(self, df_train, df_test):
 
         #Get best XGBClassifier model based on hyperparameters
         param_grid = {
             'max_depth': [3, 5, 7],
             'min_child_weight': [0, 0.1, 1],
-            'learning_rate': [0.005, 0.01, 0.05],
+            'learning_rate': [0.001, 0.005, 0.01, 0.05],
             'n_estimators': [50, 100, 200],
             'gamma': [0, 0.001]
         }
@@ -159,49 +274,33 @@ class MLOutlierDetection():
         #best_params = grid_search.best_params_ 
         #print(f"Best parameters: {best_params}")
 
-        # Define XGBoost model
-        # Apply undersampling to reduce the majority class in the training data
-        undersampler = RandomUnderSampler(sampling_strategy = 0.1, random_state=42)
-        X_train_2d = X_train.values.reshape(-1, 1)  # Convert Series to 2D array
-        X_test_2d = X_test.values.reshape(-1, 1)  # Convert Series to 2D array
-        #X_train_res, y_train_res = undersampler.fit_resample(X_train_2d, y_train_transformed)
-
-        #Creating an instance of SMOTE
-        smote = SMOTE(random_state=42, sampling_strategy=0.1)
-        X_train_res, y_train_res = smote.fit_resample(X_train_2d, y_train_transformed)
-        #Balancing the data
-        pipeline = Pipeline([('under', undersampler), ('over', smote)])
-        #X_train_res, y_train_res = pipeline.fit_resample(X_train_2d, y_train_transformed)
-
-        unique_values, counts = np.unique(y_train_res, return_counts=True)
-        for value, count in zip(unique_values, counts):
-            print(f"Class {value} exists {count} times in the resampled dataset. This is {count/len(y_train_res)}.")
-
         #Generate the model
         grid_search = GridSearchCV(XGBClassifier(), param_grid, cv=3, verbose=1)
-        grid_search.fit(X_train_res, y_train_res)
-        best_params = grid_search.best_params_ 
-        print(f"Best parameters: {best_params}")
+        #grid_search.fit(self.X_train_res, self.y_train_res)
+        #best_params = grid_search.best_params_ 
+        #print(f"Best parameters: {best_params}")
 
         #scale_pos_weight = sum(y_train_transformed == 0) / sum(y_train_transformed == 1)
         #scale_pos_weight = sum(y_train_res == 0) / sum(y_train_res == 1)
-        #model = XGBClassifier(objective="binary:logistic", scale_pos_weight=scale_pos_weight, eval_metric="logloss", max_depth=4, learning_rate=0.03, n_estimators=200, random_state=42)
-        model = XGBClassifier(objective="binary:logistic", eval_metric="aucpr", random_state=42, **best_params)
+        #model = XGBClassifier(objective="binary:logistic", scale_pos_weight=scale_pos_weight, eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
+        model = XGBClassifier(objective="binary:logistic", eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
+        #model = XGBClassifier(objective="binary:logistic", eval_metric="aucpr", random_state=42, **best_params)
+        #model = RandomForestClassifier(n_estimators=200, random_state=42)
         #model = RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=42)
 
         # Train the model
-        #model.fit(X_train_res, y_train_res, eval_set=[(X_val, y_val_transformed), (X_val, y_val_transformed)], verbose=True)
-        model.fit(X_train_res, y_train_res, verbose=True)
-        #model.fit(X_train, y_train_transformed, eval_set=[(X_train, y_train_transformed), (X_val, y_val_transformed)], verbose=True)
-        #model.fit(X_train, y_train_transformed)
+        #model.fit(self.X_train_res, self.y_train_res, eval_set=[(self.X_train_res, self.y_train_res), (self.X_val, self.y_val_transformed)], verbose=True)
+        model.fit(self.X_train_res, self.y_train_res)
+        #model.fit(self.X_train, self.y_train_transformed, eval_set=[(X_train, y_train_transformed), (X_val, y_val_transformed)], verbose=True)
+        #model.fit(self.X_train, self.y_train_transformed)
 
         # Make predictions (test)
-        y_pred_prob = model.predict(X_test_2d)
+        y_pred_prob = model.predict(self.X_test_2d)
         y_pred_transformed = (y_pred_prob > 0.3).astype(int)
         y_pred = self.le.inverse_transform(y_pred_transformed)
         
         # Make predictions (train)
-        y_pred_train_prob = model.predict(X_train)
+        y_pred_train_prob = model.predict(self.X_train_2d)
         y_pred_train_transformed = (y_pred_train_prob > 0.3).astype(int)
         y_pred_train = self.le.inverse_transform(y_pred_train_transformed)
 
@@ -212,22 +311,22 @@ class MLOutlierDetection():
             print(f"Class {value} was predicted {count} times.")
         
         # Create confusion matix
-        cm = confusion_matrix(y_test, y_pred)
+        cm = confusion_matrix(self.y_test, y_pred)
         print("Confusion Matrix for testing data:")
         print(cm)
 
         # Create confusion matix
-        cm = confusion_matrix(y_train, y_pred_train)
+        cm = confusion_matrix(self.y_train, y_pred_train)
         print("Confusion Matrix for training data:")
         print(cm)
 
         # Identify anomalies
-        anomalies_test = df_test[self.qc_column].isin([3, 4])
+        anomalies_test = self.y_test.isin([3, 4])
         anomalies_pred = np.isin(y_pred, [3, 4])
         anomalies_train = np.isin(y_pred_train, [3, 4])
 
         #1.Visualization
-        title = 'ML predicted QC classes (Test)- Binary'
+        title = 'QC classes (Testing data)- Binary'
         plt.figure(figsize=(12, 6))
         plt.plot(df_test[self.time_column], df_test[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
         plt.scatter(df_test[self.time_column][anomalies_test], df_test[self.measurement_column][anomalies_test], color='red', label='QC Classes', zorder=1)
@@ -236,11 +335,11 @@ class MLOutlierDetection():
         plt.xlabel('Time')
         plt.ylabel('Water Level')
         plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column][int((self.train_size*len(df)))]}-test.png"),  bbox_inches="tight")
+        plt.savefig(os.path.join(self.folder_path,f"{title}-test.png"),  bbox_inches="tight")
         plt.close()
 
         #2.Visualization
-        title = 'ML predicted QC classes (Pred for testing data)- Binary'
+        title = 'ML predicted QC classes (for testing data)- Binary'
         plt.figure(figsize=(12, 6))
         plt.plot(df_test[self.time_column], df_test[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
         plt.scatter(df_test[self.time_column][anomalies_pred], df_test[self.measurement_column][anomalies_pred], color='red', label='QC Classes', zorder=1)
@@ -249,10 +348,10 @@ class MLOutlierDetection():
         plt.xlabel('Time')
         plt.ylabel('Water Level')
         plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column][int((self.train_size*len(df)))]}-pred.png"),  bbox_inches="tight")
+        plt.savefig(os.path.join(self.folder_path,f"{title}-pred-test.png"),  bbox_inches="tight")
         plt.close()
 
-        title = 'ML predicted QC classes (Pred for training data)- Binary'
+        title = 'ML predicted QC classes (for training data)- Binary'
         plt.figure(figsize=(12, 6))
         plt.plot(df_train[self.time_column], df_train[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
         plt.scatter(df_train[self.time_column][anomalies_train], df_train[self.measurement_column][anomalies_train], color='red', label='QC Classes', zorder=1)
@@ -261,51 +360,14 @@ class MLOutlierDetection():
         plt.xlabel('Time')
         plt.ylabel('Water Level')
         plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column][int((self.train_size*len(df)))]}-pred.png"),  bbox_inches="tight")
+        plt.savefig(os.path.join(self.folder_path,f"{title}-pred-training.png"),  bbox_inches="tight")
         plt.close()
 
         print('hey')
 
 
-    def run_multi(self, df, station_df):
-        self.train_size = 0.75
-        # Split into train and test
-        df_test = station_df[int((self.train_size*len(station_df))):]
-        df_train = pd.concat([df, station_df[:int((self.train_size*len(station_df)))]], ignore_index=True) 
-        X_train = df_train[self.measurement_column]
-        y_train = df_train[self.qc_column]
-        X_test = df_test[self.measurement_column]
-        y_test = df_test[self.qc_column]
-
-        #Visualization training data
-        anomalies_train = df_train[self.qc_column].isin([3, 4])
-        title = 'ML predicted QC classes (Training)'
-        plt.figure(figsize=(12, 6))
-        plt.plot(df_train[self.time_column], df_train[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
-        plt.scatter(df_train[self.time_column][anomalies_train], df_train[self.measurement_column][anomalies_train], color='red', label='QC Classes', zorder=1)
-        plt.legend()
-        plt.title(title)
-        plt.xlabel('Time')
-        plt.ylabel('Water Level')
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column][int((self.train_size*len(df)))]}-train.png"),  bbox_inches="tight")
-        plt.close()
-
-        #Analyse existing dataset
-        unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
-        for value, count in zip(unique_values, counts):
-            print(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
-
-        unique_values, counts = np.unique(df_test[self.qc_column], return_counts=True)
-        for value, count in zip(unique_values, counts):
-            print(f"Class {value} exists {count} times in testing dataset. This is {count/len(df_test)}.")
-
-        # Fit and transform labels
-        y_train_transformed = self.le.fit_transform(y_train)
-        y_test_transformed = self.le.transform(y_test)  # Ensure consistency
-        # Print mapping
-        print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
-
+    def run_multi(self, station_df, df):
+        
         #Get best XGBClassifier model based on hyperparameters
         param_grid = {
             'max_depth': [1, 2, 3, 5],
@@ -321,47 +383,27 @@ class MLOutlierDetection():
         #best_params = grid_search.best_params_ 
         #print(f"Best parameters: {best_params}")
 
-        # Define XGBoost model
-        # Apply undersampling to reduce the majority class in the training data
-        undersampler = RandomUnderSampler(sampling_strategy = {0: 100000}, random_state=42)
-        #undersampler = RandomUnderSampler(sampling_strategy = {0: 0.6, 1: 1.0, 2: 1.0}, random_state=42)
-        X_train_2d = X_train.values.reshape(-1, 1)  # Convert Series to 2D array
-        X_test_2d = X_test.values.reshape(-1, 1)  # Convert Series to 2D array
-        #X_train_res, y_train_res = undersampler.fit_resample(X_train_2d, y_train_transformed)
-
-        #Creating an instance of SMOTE
-        smote = SMOTE(random_state=42, sampling_strategy={1: 50000, 2: 35000})
-        #X_train_res, y_train_res = smote.fit_resample(X_train_2d, y_train_transformed)
-        #Balancing the data
-        pipeline = Pipeline([('under', undersampler), ('over', smote)])
-        X_train_res, y_train_res = pipeline.fit_resample(X_train_2d, y_train_transformed)
-
-        unique_values, counts = np.unique(y_train_res, return_counts=True)
-        for value, count in zip(unique_values, counts):
-            print(f"Class {value} exists {count} times in the resampled dataset. This is {count/len(y_train_res)}.")
-
-
         # Calculate class distribution
         # Compute sample weights for imbalanced classes
         #sample_weights = compute_sample_weight(class_weight='balanced', y=y_train_transformed)
-        sample_weights = compute_sample_weight(class_weight='balanced', y=y_train_res)
+        sample_weights = compute_sample_weight(class_weight='balanced', y=self.y_train_res)
         #sample_weights = sample_weights * 0.75
         print(f"Scale Weights for each class (based on training set): {sample_weights}")
 
         #Generate the model
-        num_classes = len(np.unique(y_train))
+        num_classes = len(np.unique(self.y_train))
         model = XGBClassifier(objective="multi:softmax", num_class=num_classes, eval_metric="mlogloss", n_estimators=300)
         #model = RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=42)
 
         # Train the model
-        #model.fit(X_train, y_train_transformed, sample_weight=sample_weights)
-        model.fit(X_train_res, y_train_res)
-        #model.fit(X_train_res, y_train_res, sample_weight=sample_weights)
-        #model.fit(X_train, y_train_transformed)
+        #model.fit(self.X_train, self.y_train_transformed, sample_weight=sample_weights)
+        model.fit(self.X_train_res, self.y_train_res)
+        #model.fit(self.X_train_res, self.y_train_res, sample_weight=sample_weights)
+        #model.fit(self.X_train, self.y_train_transformed)
 
         # Make predictions
-        y_pred_transformed = model.predict(X_test)
-        #y_pred_transformed = model.predict(X_test_2d)
+        y_pred_transformed = model.predict(self.X_test)
+        #y_pred_transformed = model.predict(self.X_test_2d)
         y_pred = self.le.inverse_transform(y_pred_transformed)
         
         # Visualization
@@ -370,7 +412,7 @@ class MLOutlierDetection():
         for value, count in zip(unique_values, counts):
             print(f"Class {value} was predicted {count} times.")
         
-        # Create confusion mateix
+        # Create confusion matrix
         cm = confusion_matrix(y_test, y_pred)
         print("Confusion Matrix:")
         print(cm)
