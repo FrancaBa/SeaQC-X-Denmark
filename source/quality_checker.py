@@ -24,6 +24,7 @@ import source.qc_stuck_values as qc_stuck_values
 import source.data_extractor_monthly as extractor
 import source.qc_test_results_to_mask as qc_test_results_to_mask
 import source.tidal_signal_generation as tidal_signal_generation
+import source.helper_nice_graphs as helper_nice_graphs
 
 from sklearn.ensemble import IsolationForest
 from sklearn.metrics import precision_score
@@ -201,6 +202,7 @@ class QualityFlagger():
     def run(self):
         #Set relevant column names
         self.adapted_meas_col_name = 'altered'
+        suffix = '_detided'
 
         #Padding of ts to a homogenous timestep
         df = self.set_global_timestamp(self.df_meas)
@@ -211,7 +213,6 @@ class QualityFlagger():
 
         #Run the different steps in the QC algorithm for detided data
         if self.detide_mode == True:
-            suffix = '_detided'
             self.information.append(['The QC steps are now performed again for detided data.'])
             #1.Generate tidal signal and detided time series
             tidal_signal_construction = tidal_signal_generation.TidalSignalGenerator()
@@ -250,6 +251,12 @@ class QualityFlagger():
 
         #Save information from QC tests to txt file
         self.save_to_txt()
+
+        #Make beautiful graphs for papers/presentations (not generalized)
+        plotter = helper_nice_graphs.GraphMaker()
+        plotter.set_output_folder(self.folder_path)
+        plotter.set_station(self.station)
+        plotter.run(df, self.time_column, self.measurement_column)
 
     def run_qc(self, df, relevant_measurements, suffix=''):
         """

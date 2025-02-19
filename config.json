@@ -1,6 +1,6 @@
 {
   "date_alteration": "23.01.2025",
-  "detide_mode": true,
+  "detide_mode": false,
   "ML_mode": true,
   "qc_flag_classification": {
     "no_qc": 0,

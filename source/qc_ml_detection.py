@@ -109,8 +109,8 @@ class MLOutlierDetection():
         df_train, df_test = self.split_dataset(station_df)
 
         #Alter imbalanced dataset in order to even out the minority class
-        self.preprocessing_data_imb_learn(df_train)
-        #self.preprocessing_data(df_train)
+        #self.preprocessing_data_imb_learn(df_train)
+        self.preprocessing_data(df_train)
 
         # Fit and transform labels
         self.y_train_transformed = self.le.fit_transform(self.y_train)
@@ -168,7 +168,7 @@ class MLOutlierDetection():
         return df_train, df_test
     
     def preprocessing_data(self, df):
-        #Undersampling: Mark 40% of random good rows to be deleted
+        #Undersampling: Mark 30% of random good rows to be deleted
         rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.3, random_state=42).index
         # Drop selected rows
         df_res = df.drop(rows_to_drop).reset_index(drop=True)
@@ -182,13 +182,13 @@ class MLOutlierDetection():
         df_res.loc[df_res[self.time_column].isin(new_bad_rows[self.time_column]), self.qc_column] = 3
         
         # Oversampling:Filter rows which bad qc flag and multiply them and assign them randomly 
-        bad_rows = df_res[df_res[self.qc_column].isin([3,4])]
-        bad_rows_expanded = pd.concat([bad_rows] * 2, ignore_index=True)
-        random_times = df_res[self.time_column].sample(n=len(bad_rows_expanded), random_state=42)
-        more_bad_values = bad_rows_expanded[self.measurement_column].values
-        np.random.shuffle(more_bad_values)
-        df_res.loc[random_times.index, self.measurement_column] = more_bad_values
-        df_res.loc[random_times.index, self.qc_column] = 3
+        #bad_rows = df_res[df_res[self.qc_column].isin([3,4])]
+        #bad_rows_expanded = pd.concat([bad_rows] * 2, ignore_index=True)
+        #random_times = df_res[self.time_column].sample(n=len(bad_rows_expanded), random_state=42)
+        #more_bad_values = bad_rows_expanded[self.measurement_column].values
+        #np.random.shuffle(more_bad_values)
+        #df_res.loc[random_times.index, self.measurement_column] = more_bad_values
+        #df_res.loc[random_times.index, self.qc_column] = 3
 
         #Visualization resampled data
         anomalies_res = df_res[self.qc_column].isin([3, 4])

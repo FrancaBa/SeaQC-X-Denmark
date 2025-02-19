@@ -170,8 +170,8 @@ class QualityMasking():
         """
         #merge the various bitmasks to one combined column        
         bit_dfs = df.filter(regex='^bit_')
-        df['combined_int_orig'] = np.bitwise_or.reduce(bit_dfs, axis=1)
-        df['combined_bitmask'] = df['combined_int_orig'].apply(lambda x: format(x, '020b'))
+        df['combined_int'] = np.bitwise_or.reduce(bit_dfs, axis=1)
+        df['combined_bitmask'] = df['combined_int'].apply(lambda x: format(x, '020b'))
 
         if detide_mode:
             #merge same columns (if with or without tide to one column)
