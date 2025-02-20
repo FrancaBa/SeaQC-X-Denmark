@@ -5,6 +5,8 @@
 
 import os
 import numpy as np
+import builtins
+import random
 
 import source.helper_methods as helper
 
@@ -62,8 +64,11 @@ class StuckValuesDetector():
         # Get indices where the mask is True (as check that approach works)
         if constant_mask.any():
             true_indices = constant_mask[constant_mask].index
-            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[0]-30:true_indices[0]+50], df_meas_long[adapted_meas_col_name][true_indices[0]-30:true_indices[0]+50],'Water Level', 'Water Level',  df_meas_long['test'][true_indices[0]-30:true_indices[0]+50], 'Timestamp', 'WL removed',f'Constant period in TS - {suffix}')
-            self.helper.plot_two_df_same_axis(df_meas_long[time_column][true_indices[-1]-30:true_indices[-1]+50], df_meas_long[adapted_meas_col_name][true_indices[-1]-30:true_indices[-1]+50],'Water Level', 'Water Level', df_meas_long['test'][true_indices[-1]-30:true_indices[-1]+50], 'Timestamp', 'WL removed',f'Constant period in TS (2) - {suffix}')
+            max_range = builtins.min(31, len(true_indices))
+            for i in range(1, max_range):
+                min = builtins.max(0,(true_indices[i]-2000))
+                max = builtins.min(len(df_meas_long), min+4000)
+                self.helper.plot_two_df_same_axis(df_meas_long[time_column][min:max], df_meas_long[adapted_meas_col_name][min:max],'Water Level', 'Water Level',  df_meas_long['test'][min:max], 'Timestamp', 'WL removed',f'Constant period in TS{suffix}-{i}')
 
         #print details on the constant value check
         ratio = (constant_mask.sum()/original_length)*100

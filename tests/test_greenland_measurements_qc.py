@@ -14,7 +14,7 @@ import pandas as pd
 
 import source.quality_checker as qc_generator
 
-class Test_QA_Station(unittest.TestCase):
+class Test_QC_Station(unittest.TestCase):
 
     #Always run for each test
     def setUp(self):

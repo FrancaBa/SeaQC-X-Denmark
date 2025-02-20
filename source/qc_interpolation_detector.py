@@ -3,9 +3,8 @@
 ## To detect constant slope/ linear interpolated values ##
 ##########################################################
 
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import random
+import builtins
 import numpy as np
 import os
 
@@ -102,8 +101,11 @@ class Interpolation_Detector():
             true_indices = gradient_mask[gradient_mask].index
             data['y_nan'] = data[data_column_name]
             data.loc[gradient_mask, 'y_nan'] = np.nan
-            self.helper.plot_two_df_same_axis(data[column_time][true_indices[0]-60:true_indices[0]+60], data[data_column_name][true_indices[0]-60:true_indices[0]+60],'Water Level', 'Water Level', data['y_nan'][true_indices[0]-60:true_indices[0]+60], 'Timestamp', 'Interpolated WL',f'Constant gradient period in TS -{self.suffix}')
-            self.helper.plot_two_df_same_axis(data[column_time][true_indices[-1]-60:true_indices[-1]+60], data[data_column_name][true_indices[-1]-60:true_indices[-1]+60],'Water Level', 'Water Level', data['y_nan'][true_indices[-1]-60:true_indices[-1]+60], 'Timestamp', 'Interpolated WL', f'Constant gradient period 2.0 in TS -{self.suffix}')
+            max_range = builtins.min(31, len(true_indices))
+            for i in range(1, max_range): 
+                min = builtins.max(0,(true_indices[i]-10000))
+                max = builtins.min(len(data), min+20000)
+                self.helper.plot_two_df_same_axis(data[column_time][min:max], data[data_column_name][min:max],'Water Level', 'Water Level', data['y_nan'][min:max], 'Timestamp', 'Interpolated WL',f'Constant gradient period in TS -{self.suffix}-{i}')
             del data['y_nan']
 
         del data['slope']

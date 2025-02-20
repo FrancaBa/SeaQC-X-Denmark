@@ -73,20 +73,21 @@ class TidalSignalGenerator():
         time_array_good = tidal_df['time_array'][~tidal_df['combined_mask']]
         anomaly_good = tidal_df['anomaly'][~tidal_df['combined_mask']]
 
-        coef = utide.solve(time_array_good, anomaly_good.values, lat=lat, method="ols", conf_int="MC", trend=False, nodal=True, verbose=False)
+        #coef = utide.solve(time_array_good, anomaly_good.values, lat=lat, method="ols", conf_int="MC", trend=False, nodal=True, verbose=False)
+        coef = utide.solve(time_array_good, anomaly_good.values, lat=lat, method="ols", conf_int="MC", trend=True, nodal=True, verbose=False)
        
         #Reconstruct function to generate a tidal signal at the times specified in the time array
         #Split it in 10 parts to avoid memory issues or run it on server!!
         period = round(len(df['time_array'])/10)
         period_tide = []
         for i in range(0, len(df), period):
-            print(i)
             period_array = df['time_array'][i:i+period]
             tide = utide.reconstruct(period_array, coef, verbose=False)
             period_tide.append(tide.h)
         combined_tide = np.concatenate(period_tide)
         df['tidal_signal'] = combined_tide
-        df['detided_series'] = df['anomaly'] - combined_tide
+        #df['detided_series'] = df['anomaly'] - combined_tide
+        df['detided_series'] = df[measurement_column] - combined_tide
 
         #Export tidal signal 6 detided series
         file_name = f"{self.station}-TidalSignal-and-detided series.csv"

@@ -24,6 +24,7 @@ import source.qc_stuck_values as qc_stuck_values
 import source.data_extractor_monthly as extractor
 import source.qc_test_results_to_mask as qc_test_results_to_mask
 import source.tidal_signal_generation as tidal_signal_generation
+import source.helper_nice_graphs as helper_nice_graphs
 
 from sklearn.ensemble import IsolationForest
 from sklearn.metrics import precision_score
@@ -201,6 +202,7 @@ class QualityFlagger():
     def run(self):
         #Set relevant column names
         self.adapted_meas_col_name = 'altered'
+        suffix = '_detided'
 
         #Padding of ts to a homogenous timestep
         df = self.set_global_timestamp(self.df_meas)
@@ -211,7 +213,6 @@ class QualityFlagger():
 
         #Run the different steps in the QC algorithm for detided data
         if self.detide_mode == True:
-            suffix = '_detided'
             self.information.append(['The QC steps are now performed again for detided data.'])
             #1.Generate tidal signal and detided time series
             tidal_signal_construction = tidal_signal_generation.TidalSignalGenerator()
@@ -251,6 +252,12 @@ class QualityFlagger():
         #Save information from QC tests to txt file
         self.save_to_txt()
 
+        #Make beautiful graphs for papers/presentations (not generalized)
+        plotter = helper_nice_graphs.GraphMaker()
+        plotter.set_output_folder(self.folder_path)
+        plotter.set_station(self.station)
+        plotter.run(df, self.time_column, self.measurement_column)
+
     def run_qc(self, df, relevant_measurements, suffix=''):
         """
         As main QC method, it calls the different steps taken in the QC approach. See commented text.
@@ -269,7 +276,7 @@ class QualityFlagger():
         #Detect global outliers in ts
         global_outliers = qc_global_outliers.OutlierRemover()
         global_outliers.set_output_folder(self.folder_path)
-        global_outliers.set_parameters(self.params)
+        global_outliers.set_parameters(self.params, suffix)
         df = global_outliers.run(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
         #df = global_outliers.run_zscore(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
 
@@ -402,22 +409,24 @@ class QualityFlagger():
                 #self.helper.plot_two_df_same_axis(test_df[time_column],test_df[data_column],'Water Level', 'Water Level', test_df[segment_column], 'Timestamp', 'Segment',f'Test Graph 0')
                 print(f'Segment is {end_index - start_index} entries long.')
                 print(np.sum(~np.isnan(data[data_column][start_index:end_index]))/len(data[data_column][start_index:end_index]))
+                min = builtins.max(0,(start_index-20))
+                max = builtins.min(len(data),(end_index+20))
                 if end_index - start_index < self.threshold_short_bad_segment:
                     print(f'This bad period sarts with index {start_index}.')
                     data.loc[start_index:end_index, f'short_bad_measurement_series{suffix}'] = True
                     data.loc[start_index:end_index, data_column] = np.nan
                     data.loc[start_index:end_index, segment_column] = 1
                     z += 1
-                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[self.measurement_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and short periods (monthly) - Graph {i} -{suffix}')
-                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[data_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and short periods (monthly)- Cleaned - Graph{i} -{suffix}')
+                    self.helper.plot_df(data[self.time_column][min:max], data[self.measurement_column][min:max],'Water Level', 'Timestamp', f'Bad and short periods (monthly) - Graph {i} -{suffix}')
+                    self.helper.plot_df(data[self.time_column][min:max], data[data_column][min:max],'Water Level', 'Timestamp', f'Bad and short periods (monthly)- Cleaned - Graph{i} -{suffix}')
                 elif np.sum(~np.isnan(data[data_column][start_index:end_index]))/len(data[data_column][start_index:end_index]) < self.threshold_unusabel_segment_nan:
                     print(f'This bad period sarts with index {start_index}.')
                     data.loc[start_index:end_index, f'short_bad_measurement_series{suffix}'] = True
                     data.loc[start_index:end_index, data_column] = np.nan
                     data.loc[start_index:end_index, segment_column] = 1
                     z += 1
-                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[self.measurement_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and empty periods (monthly) - Graph {i} -{suffix}')
-                    self.helper.plot_df(data[self.time_column][start_index-2000:end_index+2000], data[data_column][start_index-2000:end_index+2000],'Water Level', 'Timestamp', f'Bad and empty periods (monthly)- Cleaned - Graph{i} -{suffix}')
+                    self.helper.plot_df(data[self.time_column][min:max], data[self.measurement_column][min:max],'Water Level', 'Timestamp', f'Bad and empty periods (monthly) - Graph {i} -{suffix}')
+                    self.helper.plot_df(data[self.time_column][min:max], data[data_column][min:max],'Water Level', 'Timestamp', f'Bad and empty periods (monthly)- Cleaned - Graph{i} -{suffix}')
         print(f"There are {z} bad segments in this timeseries.")
         self.information.append([f"There are {z} bad segments in this timeseries."])
 
@@ -545,11 +554,13 @@ class QualityFlagger():
         df['test'] = np.where(df[f'unsupervised_ml_outliers{suffix}'], np.nan, df['test'])
         true_indices = df[f'unsupervised_ml_outliers{suffix}'][df[f'unsupervised_ml_outliers{suffix}']].index
         #More plots
-        for i in range(1, 41):
-            min = builtins.max(0,(random.choice(true_indices))-2000)
-            max = min + 2000
-            self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[data_column_name][min:max], 'Timestamp ', 'Water Level (all)', f'Unsupervised ML Graph {i} -{suffix}')
-            
+        if true_indices.any():
+            max_range = builtins.min(31, len(true_indices))
+            for i in range(1, max_range):
+                min = builtins.max(0,(true_indices[i]-2000))
+                max = builtins.min(len(df), min+4000)
+                self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[data_column_name][min:max], 'Timestamp ', 'Water Level (all)', f'Unsupervised ML Graph {i} -{suffix}')
+                
         print('There are', len(true_indices),'incorrect values in the timeseries based on the unsupervised ML step.')
         self.information.append([f'There are {len(true_indices)} incorrect values in the timeseries based on the unsupervised ML step.'])
 
