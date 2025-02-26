@@ -37,6 +37,7 @@ class Test_QC_ML_Station(unittest.TestCase):
         #select the station (here: Upernavik 2023)
         index_station=5
         station = self.stations[index_station]
+        station = 'Upernavik2-WLdata-(15092024)-labeled'
 
         print(os.getcwd())
 

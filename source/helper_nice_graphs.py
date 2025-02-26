@@ -31,6 +31,7 @@ class GraphMaker():
 
         self.extract_period(df, time_column, data_column, year, start_month, end_month, start_day, end_day, start_hour, end_hour)
         self.make_ts_plot(time_column, data_column)
+        self.two_in_one_graph(time_column, data_column)
 
     
     def run(self, df, time_column, data_column):
@@ -158,4 +159,54 @@ class GraphMaker():
         plt.gca().spines['right'].set_visible(False)
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {self.relev_df[time_column].iloc[0]}.png"),  bbox_inches="tight")
+        plt.close()
+
+    def two_in_one_graph(self, time_column, data_column):
+        print(self.relev_df)
+
+        #Visualization of different spike detection methods
+        pot_relev_columns = ['spike_value_statistical', 'cotede_spikes', 'cotede_improved_spikes', 'selene_spikes', 'selene_improved_spikes', 'harmonic_detected_spikes']
+        relev_columns = [col for col in pot_relev_columns if col in self.relev_df.columns]
+        lable_title = ['Implausible change rate', 'Neighboring outlier', 'Neighboring outlier (improved)', 'Spline fit', 'Spline fit (improved)', 'Polynomial offset']
+        markers = ["s" , "o" , "v" , "D" , "*", "d"]
+
+        # Generate colors from a single-hue colormap
+        color_map = plt.cm.plasma  # Choose a colormap (other good ones: Viridis, Cividis, Plasma)
+        colors = [color_map(i /len(relev_columns)) for i in range(len(relev_columns))]
+        #colors = ['red','green','blue','cyan','magenta', 'darkorange', 'lime'] 
+        grid_heights = [-0.005, 0.005, 0.015, 0.025, 0.035, 0.045, 0.055]  # Adjust as needed       
+        offset_value = np.zeros(len(self.relev_df))+0.05
+        title = 'Comparison of Spike Detection Methods'
+        # Create the figure and axes with shared x-axis
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(14, 8), gridspec_kw={'height_ratios': [2, 1]}, dpi=300)
+
+        # Plot the first graph (Sea Level Measurements)
+        ax1.plot(self.relev_df[time_column], self.relev_df[data_column], color='black', label='Sea Level Measurement', marker='o',  markersize=0.7, linestyle='None')
+        ax1.set_ylabel('Water Level [m]', fontsize=10)
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
+        ax1.set_xlabel('Time', fontsize=10)
+        ax1.tick_params(axis='x', labelbottom=True)
+        ax1.legend()
+
+        # Plot the second graph (Icons)
+        # Stack markers using offsets
+        for i in range(len(relev_columns)):
+            mask = self.relev_df[relev_columns[i]]
+            scatter_marker = markers[i]
+            scatter_colors = colors[i]
+            ax2.scatter(self.relev_df[time_column][mask], offset_value[mask], color=scatter_colors, marker=scatter_marker, s=25, alpha=0.5, edgecolors='black', linewidth=0.5, label=lable_title[i])
+            offset_value -= 0.01
+
+        # Add gridlines at specific heights
+        for height in grid_heights:
+            ax2.axhline(y=height, color='gray', linewidth=0.3, alpha=0.5)
+
+        ax2.axis('off')
+        #ax2.legend(loc='lower left', handleheight=2.6, frameon=False)
+        ax2.legend(loc='lower left', bbox_to_anchor=(0, 0),  handleheight=2.6, frameon=False)
+
+        # Display the plot
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {self.relev_df[time_column].iloc[0]}-2in1.png"),  bbox_inches="tight")
         plt.close()

@@ -22,14 +22,12 @@ class Test_QC_Station(unittest.TestCase):
         self.stations = ['Qaqortoq', 'Ittoqqortoormiit', 'Nuuk', 'Nuuk1', 'Pituffik', 'Upernavik1', 'Upernavik2'] 
 
         #Coordinates of stations
-        coord = {
-            'Qaqortoq': (60.7, -46),
-            'Ittoqqortoormiit': (70.48, -21.98),
-            'Nuuk': (64.16, -51.73),
-            'Nuuk1': (64.16, -51.73),
-            'Pituffik': (76.54, -68.8626),
-            'Upernavik1': (np.nan, np.nan),
-            'Upernavik2': (np.nan, np.nan)
+        self.coord = {
+            'Qaqortoq': (60.718, -46.035),
+            'Ittoqqortoormiit': (70.4836, -21.9621),
+            'Nuuk': (64.1713, -51.7198),
+            'Pituffik': (76.535, -68.84),
+            'Upernavik': (72.7887, -56.146)
         }
 
         #Set path to measurements
@@ -211,6 +209,57 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_missing_value_filler(self.missing_meas_value)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
+    
+    def test_plot_map(self):
+        import matplotlib.pyplot as plt
+        import contextily as ctx
+        import geopandas as gpd
+        from shapely.geometry import Point
+
+        def create_map(stations, output_file):
+            """
+            Creates a static map with a background and specified stations.
+            
+            :param stations: List of tuples [(lat, lon, "Label"), ...]
+            :param output_file: Filename for the saved map
+            """
+            #Graph setting
+            markers = ["s" , "o" , "v" , "D" , "*", "d"]
+            color_map = plt.cm.plasma  # Choose a colormap (other good ones: Viridis, Cividis, Plasma)
+            colors = [color_map(i /len(stations)) for i in range(len(stations))]
+
+            # Convert stations to a GeoDataFrame
+            geometry = [Point(elem) for elem in list(stations.values())]
+            gdf = gpd.GeoDataFrame(geometry=geometry, crs="EPSG:4326")
+            
+            fig, ax = plt.subplots(figsize=(6, 8))
+            
+            # Plot stations
+            for index, (key, value) in enumerate(stations.items()):
+                x, y = gdf.geometry[index].x, gdf.geometry[index].y
+                ax.scatter(y, x, marker=markers[index], s=45, label=key, color=colors[index])
+                ax.text(y - 0.5, x + 0.1, key, fontsize=16, ha='right', color='black')
+            
+            ax.set_ylabel("Longitude", fontsize=16)
+            ax.set_xlabel("Latitude", fontsize=16)
+            ax.tick_params(axis='both', which='major', labelsize=16) 
+            ax.set_rasterization_zorder(0)
+            
+            # Add background map
+            ctx.add_basemap(ax, crs="EPSG:4326", source=ctx.providers.OpenStreetMap.Mapnik, zoom=8)
+            #ctx.add_basemap(ax, crs="EPSG:4326", source=ctx.providers.OpenStreetMap.HOT, zoom=8)
+
+            # Save the map as an image file
+            plt.savefig(os.path.join(output_path,'greenland_stations.png'), dpi=100, bbox_inches="tight")
+            plt.close()
+            print(f"Map saved as image")
+
+        output_path = os.path.join(os.getcwd(),'output')
+        #generate output folder for graphs and other docs
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+        create_map(self.coord, output_path)
+
 
 
 if __name__ == '__main__':

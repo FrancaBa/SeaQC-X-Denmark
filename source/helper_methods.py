@@ -85,14 +85,16 @@ class HelperMethods():
         """
                 
         plt.figure(figsize=(18, 9))
-        plt.plot(x_axis, data,  marker='o', markersize=1, linestyle='None')
-        if title != None:
-            plt.title(f"{title} - Date: {x_axis.iloc[0]}")
-        plt.xlabel(x_title)
-        plt.ylabel(y_title)
-        plt.xticks(rotation=45, ha='right')
+        plt.plot(x_axis, data,  marker='o', markersize=1.2, label = 'Water Level', linestyle='None', color = 'black')
+        #if title != None:
+        #    plt.title(f"{title} - Date: {x_axis.iloc[0]}")
+        plt.xlabel(x_title, fontsize=16)
+        plt.ylabel(y_title, fontsize=16)
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        plt.legend(fontsize=16, frameon=False)
         plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {x_axis.iloc[0]}.png"),  bbox_inches="tight")
+        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {x_axis.iloc[0]}.png"), dpi=200, bbox_inches="tight")
         plt.close()  # Close the figure to release memory
 
 

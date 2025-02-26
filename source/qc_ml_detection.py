@@ -13,6 +13,12 @@ import json
 import imblearn
 print(imblearn.__version__)
 
+import plotly.graph_objects as go
+import plotly.express as px
+import plotly.io as pio
+
+pio.renderers.default = "browser"
+
 import source.helper_methods as helper
 
 from xgboost import XGBClassifier
@@ -36,7 +42,7 @@ class MLOutlierDetection():
         self.information = []
 
         #Define percentage of data used for training and testing (here: 80/20%)
-        self.train_size = 0.15
+        self.train_size = 0.25
         self.val_size = 0.15
 
         # Initialize encoder
@@ -80,16 +86,21 @@ class MLOutlierDetection():
     def import_data(self, folder_path, ending):
 
         combined_df = []
+        combined_station_df = []
 
         #Open .csv file and fix the column names
         for file in os.listdir(folder_path):  # Loops through files in the current directory
             print(file)
             if file.endswith(ending) and self.station in file:
+                print(self.station)
                 station_df = pd.read_csv(os.path.join(folder_path,file), sep=",", header=0)
                 station_df = station_df[[self.time_column, self.measurement_column, self.qc_column]]
                 station_df[self.measurement_column] = station_df[self.measurement_column] - station_df[self.measurement_column].mean()
                 station_df[self.qc_column] = station_df[self.qc_column].fillna(1).astype(int)
+                station_df[self.qc_column] = station_df[self.qc_column].replace(4, 3)
                 station_df[self.time_column] = pd.to_datetime(station_df[self.time_column])
+                combined_station_df.append(station_df)
+                self.basic_plotter(station_df, 'Manual QC for subset of station')
             elif file.endswith(ending):
                 df = pd.read_csv(os.path.join(folder_path,file), sep=",", header=0)
                 df = df[[self.time_column, self.measurement_column, self.qc_column]]
@@ -98,11 +109,74 @@ class MLOutlierDetection():
                 df[self.time_column] = pd.to_datetime(df[self.time_column])
                 combined_df.append(df)
 
-        self.labelled_df = pd.concat(combined_df, ignore_index=True)
-        self.labelled_df = self.labelled_df.sort_values(by=self.time_column)
-        self.station_df = station_df
+        labelled_df = pd.concat(combined_df, ignore_index=True)
+        labelled_df = labelled_df.sort_values(by=self.time_column).reset_index(drop=True)
+        combined_station_df = pd.concat(combined_station_df, ignore_index=True)
+        combined_station_df = combined_station_df.sort_values(by=self.time_column).reset_index(drop=True)
+        self.basic_plotter_no_xaxis(combined_station_df, 'Manual QC for station')
 
-        return self.labelled_df, station_df
+        return labelled_df, combined_station_df
+
+    def basic_plotter_no_xaxis(self, df, title):
+        #Visualization of station data
+        anomalies = df[self.qc_column].isin([3, 4])
+        plt.figure(figsize=(12, 6))
+        plt.plot(df[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
+        plt.scatter(df.index[anomalies], df[self.measurement_column][anomalies], color='red', label='QC Classes', zorder=1)
+        plt.legend()
+        plt.title(title)
+        plt.xlabel('Time')
+        plt.ylabel('Water Level')
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column].iloc[0]}.png"),  bbox_inches="tight")
+        plt.close() 
+
+    def basic_plotter(self, df, title):
+        #Visualization of station data
+        anomalies = df[self.qc_column].isin([3, 4])
+        plt.figure(figsize=(12, 6))
+        plt.plot(df[self.time_column], df[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
+        plt.scatter(df[self.time_column][anomalies], df[self.measurement_column][anomalies], color='red', label='QC Classes', zorder=1)
+        plt.legend()
+        plt.title(title)
+        plt.xlabel('Time')
+        plt.ylabel('Water Level')
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column].iloc[0]}.png"),  bbox_inches="tight")
+        plt.close() 
+
+    def zoomable_plot_df(self, df, title, legend_name = None):
+        """
+        Generates a zoomable graph for one series. This is very slow and memory intensive. (Only use it remotely or when really needed.)
+
+        Input:
+        -df [Pandas df]
+        -Graph title [str]
+        -Legend [str] (to describe measurement 1)
+        """
+        anomaly = df[self.qc_column].isin([3, 4])
+        # Create a figure with Plotly
+        fig = go.Figure()
+
+        # Add water level data
+        fig.add_trace(go.Scatter(x=df[self.time_column], y= df[self.measurement_column], mode='markers', marker=dict(
+            size=5,          # Marker size
+            color='rgb(255, 0, 0)',  # Marker color
+            symbol='circle',   # Marker shape (e.g., 'circle', 'square', 'diamond')
+            opacity=0.8       # Marker transparency
+        ),name=legend_name))
+        
+        # Add QC flags
+        fig.add_trace(go.Scatter(x=df[self.time_column][anomaly], y= df[self.measurement_column][anomaly], mode='markers', marker = {'color' : 'black'}))
+
+        # Update layout for a better view
+        fig.update_layout(title=title, xaxis_title= 'Time', yaxis_title= 'Water Levels', legend_title='Legend', hovermode='closest')
+
+        # Enable zoom and pan
+        fig.update_layout(xaxis=dict(rangeslider=dict(visible=True), type="date"))
+
+        # Show the figure
+        fig.show()
 
     def run(self, df, station_df):
 
@@ -115,7 +189,7 @@ class MLOutlierDetection():
         # Fit and transform labels
         self.y_train_transformed = self.le.fit_transform(self.y_train)
         self.y_test_transformed = self.le.fit_transform(self.y_test)
-        self.y_val_transformed = self.le.fit_transform(self.y_val)
+        #self.y_val_transformed = self.le.fit_transform(self.y_val)
         self.y_train_res = self.le.fit_transform(self.y_train_res)
         # Print mapping
         print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
@@ -129,33 +203,23 @@ class MLOutlierDetection():
         df_train = df[int((self.train_size*len(df))):]
         df_test = df[:int((self.train_size*len(df)))]
         #Split training dataset again into validation and training data
-        df_val = df_train[:int((self.val_size*len(df_train)))]
-        df_train = df_train[int((self.val_size*len(df_train))):]
+        #df_val = df_train[:int((self.val_size*len(df_train)))]
+        #df_train = df_train[int((self.val_size*len(df_train))):]
         #Generate correct data subsets
         self.X_train = df_train[self.measurement_column]
         self.y_train = df_train[self.qc_column]
         self.X_test = df_test[self.measurement_column]
         self.y_test = df_test[self.qc_column]
-        self.X_val = df_val[self.measurement_column]
-        self.y_val = df_val[self.qc_column]
+        #self.X_val = df_val[self.measurement_column]
+        #self.y_val = df_val[self.qc_column]
         #For Randomforest
         self.X_train_2d = self.X_train.values.reshape(-1, 1)  # Convert Series to 2D array
         self.X_test_2d = self.X_test.values.reshape(-1, 1)  # Convert Series to 2D array
 
         #Visualization training data
-        anomalies_train = df_train[self.qc_column].isin([3, 4])
-        title = 'QC classes for Training- Binary'
-        plt.figure(figsize=(12, 6))
-        plt.plot(df_train[self.time_column], df_train[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
-        plt.scatter(df_train[self.time_column][anomalies_train], df_train[self.measurement_column][anomalies_train], color='red', label='QC Classes', zorder=1)
-        plt.legend()
-        plt.title(title)
-        plt.xlabel('Time')
-        plt.ylabel('Water Level')
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column][int((self.train_size*len(df)))]}-train.png"),  bbox_inches="tight")
-        plt.close()
-
+        self.basic_plotter_no_xaxis(df_train, 'QC classes for Training')
+        self.zoomable_plot_df(df_test, 'QC classes - Testing')
+        
         #Analyse existing dataset
         unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
         for value, count in zip(unique_values, counts):
@@ -169,17 +233,14 @@ class MLOutlierDetection():
     
     def preprocessing_data(self, df):
         #Undersampling: Mark 30% of random good rows to be deleted
-        rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.3, random_state=42).index
+        rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.4, random_state=42).index
         # Drop selected rows
         df_res = df.drop(rows_to_drop).reset_index(drop=True)
         
         #Oversampling:Filter rows which bad qc flag and multiply them and assign them randomly 
-        bad_rows = df_res[df_res[self.qc_column].isin([3,4])]
-        bad_rows_expanded = pd.concat([bad_rows] * 4, ignore_index=True)
-        bad_rows_expanded[self.time_column] = bad_rows_expanded[self.time_column]  + pd.to_timedelta(np.random.randint(5, 10, size=len(bad_rows_expanded)), unit='m')
-        new_bad_rows = df_res[df_res[self.time_column].isin(bad_rows_expanded[self.time_column])].copy()
-        df_res.loc[df_res[self.time_column].isin(new_bad_rows[self.time_column]), self.measurement_column] = new_bad_rows[self.measurement_column]
-        df_res.loc[df_res[self.time_column].isin(new_bad_rows[self.time_column]), self.qc_column] = 3
+        bad_rows = df_res[df_res[self.qc_column].isin([3,4])].copy()
+        bad_rows[self.time_column] = bad_rows[self.time_column]  + pd.to_timedelta(np.random.randint(1, 6, size=len(bad_rows)), unit='m')
+        df_res = pd.concat([df_res, bad_rows]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='last').reset_index(drop=True)
         
         # Oversampling:Filter rows which bad qc flag and multiply them and assign them randomly 
         #bad_rows = df_res[df_res[self.qc_column].isin([3,4])]
@@ -191,18 +252,8 @@ class MLOutlierDetection():
         #df_res.loc[random_times.index, self.qc_column] = 3
 
         #Visualization resampled data
-        anomalies_res = df_res[self.qc_column].isin([3, 4])
-        title = 'QC classes - Resampled'
-        plt.figure(figsize=(12, 6))
-        plt.plot(df_res[self.time_column], df_res[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
-        plt.scatter(df_res[self.time_column][anomalies_res], df_res[self.measurement_column][anomalies_res], color='red', label='QC Classes', zorder=1)
-        plt.legend()
-        plt.title(title)
-        plt.xlabel('Time')
-        plt.ylabel('Water Level')
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
-        plt.close()
+        self.basic_plotter_no_xaxis(df_res, 'QC classes - Resampled')
+        self.zoomable_plot_df(df_res, 'QC classes - Resampled')
 
         #Analysis
         unique_values, counts = np.unique(df_res[self.qc_column], return_counts=True)
@@ -275,7 +326,7 @@ class MLOutlierDetection():
         #print(f"Best parameters: {best_params}")
 
         #Generate the model
-        grid_search = GridSearchCV(XGBClassifier(), param_grid, cv=3, verbose=1)
+        #grid_search = GridSearchCV(XGBClassifier(), param_grid, cv=3, verbose=1)
         #grid_search.fit(self.X_train_res, self.y_train_res)
         #best_params = grid_search.best_params_ 
         #print(f"Best parameters: {best_params}")
@@ -283,9 +334,9 @@ class MLOutlierDetection():
         #scale_pos_weight = sum(y_train_transformed == 0) / sum(y_train_transformed == 1)
         #scale_pos_weight = sum(y_train_res == 0) / sum(y_train_res == 1)
         #model = XGBClassifier(objective="binary:logistic", scale_pos_weight=scale_pos_weight, eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
-        model = XGBClassifier(objective="binary:logistic", eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
+        #model = XGBClassifier(objective="binary:logistic", eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=500, random_state=42)
         #model = XGBClassifier(objective="binary:logistic", eval_metric="aucpr", random_state=42, **best_params)
-        #model = RandomForestClassifier(n_estimators=200, random_state=42)
+        model = RandomForestClassifier(n_estimators=300, random_state=42)
         #model = RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=42)
 
         # Train the model
@@ -321,28 +372,17 @@ class MLOutlierDetection():
         print(cm)
 
         # Identify anomalies
-        anomalies_test = self.y_test.isin([3, 4])
         anomalies_pred = np.isin(y_pred, [3, 4])
         anomalies_train = np.isin(y_pred_train, [3, 4])
 
         #1.Visualization
-        title = 'QC classes (Testing data)- Binary'
-        plt.figure(figsize=(12, 6))
-        plt.plot(df_test[self.time_column], df_test[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
-        plt.scatter(df_test[self.time_column][anomalies_test], df_test[self.measurement_column][anomalies_test], color='red', label='QC Classes', zorder=1)
-        plt.legend()
-        plt.title(title)
-        plt.xlabel('Time')
-        plt.ylabel('Water Level')
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}-test.png"),  bbox_inches="tight")
-        plt.close()
+        self.basic_plotter_no_xaxis(df_test, 'QC classes for Testing data')
 
         #2.Visualization
         title = 'ML predicted QC classes (for testing data)- Binary'
         plt.figure(figsize=(12, 6))
-        plt.plot(df_test[self.time_column], df_test[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
-        plt.scatter(df_test[self.time_column][anomalies_pred], df_test[self.measurement_column][anomalies_pred], color='red', label='QC Classes', zorder=1)
+        plt.plot(df_test[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
+        plt.scatter(df_test.index[anomalies_pred], df_test[self.measurement_column][anomalies_pred], color='red', label='QC Classes', zorder=1)
         plt.legend()
         plt.title(title)
         plt.xlabel('Time')
@@ -353,8 +393,8 @@ class MLOutlierDetection():
 
         title = 'ML predicted QC classes (for training data)- Binary'
         plt.figure(figsize=(12, 6))
-        plt.plot(df_train[self.time_column], df_train[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
-        plt.scatter(df_train[self.time_column][anomalies_train], df_train[self.measurement_column][anomalies_train], color='red', label='QC Classes', zorder=1)
+        plt.plot(df_train[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
+        plt.scatter(df_train.index[anomalies_train], df_train[self.measurement_column][anomalies_train], color='red', label='QC Classes', zorder=1)
         plt.legend()
         plt.title(title)
         plt.xlabel('Time')
