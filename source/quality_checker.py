@@ -144,8 +144,10 @@ class QualityFlagger():
         # Here, we extract the time difference in minutes
         self.df_meas['time_diff'] = self.df_meas[self.time_column].diff()
         self.df_meas['resolution'] = self.df_meas['time_diff'].dt.total_seconds()/60
-        frequent_timestep = self.df_meas['resolution'].value_counts().head(3)
+        frequent_timestep = self.df_meas['resolution'].value_counts().head(4)
         frequent_timestep_int =[int(res) for res in frequent_timestep.index]
+        self.information.append(['The three most frequent time steps in dataset are:', frequent_timestep])
+        print('The three most frequent time steps in dataset are:', frequent_timestep)
         self.min_timestep_int = reduce(math.gcd, frequent_timestep_int)
         self.min_timestep = str(float(self.min_timestep_int)) + 'min'
         #Select correct parameters based on timestep

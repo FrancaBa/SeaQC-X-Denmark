@@ -166,7 +166,12 @@ class DataConverter():
                                     monthly_df['error_flag'] = np.nan
                                 else:
                                     raise Exception('Content of the .txt a format which is not compatibel with the current code version.')
-                                self.data_df.append(monthly_df)
+                                if self.station == 'Qaqortoq' and measurement_name == 'Temperature':
+                                    #Do not append temperature measurements as they are shifted during the first two years until roughly mid 2007
+                                    print('At the moment, the temperature meassurements for Qaqortoq are ignored as they have a shift error in their time stamp. This needs to be further analysed before merging the measurement records.')
+                                    continue
+                                else:
+                                    self.data_df.append(monthly_df)
 
 
     def convert_data_to_df(self):
@@ -204,5 +209,11 @@ class DataConverter():
                 raise Exception('Dfs are in a format which is not compatibel with the current code version.')
             
             result_df = merged_df
+
+            #Lines can be used for Qaqortoq temperature debugging later on.
+            #if str(df['Timestamp'].iloc[0]).startswith('2005'):
+            #    df_subset = merged_df[merged_df['Timestamp'].astype(str).str.startswith('2005', na=False)].reset_index(drop=True)
+            #    print(df_subset.iloc[0])
+            #    print('hey')
 
         return result_df

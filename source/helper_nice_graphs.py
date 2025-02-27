@@ -204,7 +204,7 @@ class GraphMaker():
 
         ax2.axis('off')
         #ax2.legend(loc='lower left', handleheight=2.6, frameon=False)
-        ax2.legend(loc='lower left', bbox_to_anchor=(0, 0),  handleheight=2.6, frameon=False)
+        ax2.legend(loc='lower left', bbox_to_anchor=(-0.2, 0),  handleheight=2.6, frameon=False)
 
         # Display the plot
         plt.tight_layout()
