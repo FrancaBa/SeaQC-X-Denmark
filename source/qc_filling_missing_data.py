@@ -203,7 +203,7 @@ class MissingDataFiller():
 
     def spline_fitted_measurement_column(self, data, data_column, time_column, segment_column, suffix):
         """
-        In measurement segments, fit a polynomial curve over existing measurements. This genereates a constinuous curve without sudden jumps or missing values. A continuous ts is needed for some QCs later on.
+        In measurement segments, fit a spline over existing measurements. This genereates a constinuous curve without sudden jumps or missing values. A continuous ts is needed for some QCs later on.
         
         Input:
         -Main dataframe [df]
@@ -219,8 +219,9 @@ class MissingDataFiller():
         shift_points = (data[segment_column] != data[segment_column].shift())
         #Window length in min
         winsize = self.splinelength
+        buffer_value = 20 
 
-        #For measurement segment: polynomial fit (6th degree) to the polynomial interpolated measurement series
+        #For measurement segment:2nd oder spline fit to window
         for i in range(0,len(data[segment_column][shift_points]), 1):  
             start_index = data[segment_column][shift_points].index[i]
             if i == len(data[segment_column][shift_points])-1:
@@ -232,10 +233,14 @@ class MissingDataFiller():
                 #Fit spline to various segments by looping over the series in windows defined by self.splinelength
                 for start in range(start_index, end_index, winsize):
                     #For last spline period in a segment, fit spline with code here
-                    if (start_index + (2*winsize)) > end_index:
-                        end = end_index
-                        x_window = data.index[start:end]
-                        y_window = data[data_column][start:end]
+                    if (start + (2*winsize)) >= end_index:
+                        end_buffer = end_index
+                        if start - buffer_value < start_index:
+                            start_buffer = start_index
+                        else:
+                            start_buffer = start - buffer_value
+                        x_window = data.index[start_buffer:end_buffer]
+                        y_window = data[data_column][start_buffer:end_buffer]
 
                         # Fit a spline to the masked array, skipping NaNs
                         # Mask out the NaNs
@@ -253,13 +258,22 @@ class MissingDataFiller():
                         fitted_y = spline(x_window)
                                     
                         #Set interpolated values on comparison ts
-                        interp_values[start:end] = fitted_y
+                        if start - buffer_value < start_index:
+                            interp_values[start:end_buffer] = fitted_y
+                        else:
+                            interp_values[start:end_buffer] = fitted_y[buffer_value:]
                         break
+                    elif start == start_index: 
+                        end_buffer = start + winsize + buffer_value
+                        end = start + winsize
+                        start_buffer = start
                     else:
-                        end =start + winsize
+                        end_buffer = start + winsize + buffer_value
+                        end = start + winsize
+                        start_buffer = start - buffer_value
                     #For all spline segments in a measurement segments, fit the corresponding spline below
-                    x_window = data.index[start:end]
-                    y_window = data[data_column][start:end]
+                    x_window = data.index[start_buffer:end_buffer]
+                    y_window = data[data_column][start_buffer:end_buffer]
 
                     # Fit a spline to the masked array, skipping NaNs
                     # Mask out the NaNs
@@ -278,8 +292,11 @@ class MissingDataFiller():
                         fitted_y = spline(x_window)
                                     
                         #Set interpolated values on comparison ts
-                        interp_values[start:end] = fitted_y
-
+                        if start == start_index:
+                            interp_values[start:end] = fitted_y[:-buffer_value]
+                        else:
+                            interp_values[start:end] = fitted_y[buffer_value:-buffer_value]
+                    
                 #Plot for visual analysis
                 self.helper.plot_two_df_same_axis(data[time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Water Level (corrected)', interp_values[start_index:end_index], 'Timestamp ', 'Interpolated Water Level', f'Spline fitted Graph{start}- Measured water level vs spline values-{suffix}')
                 
