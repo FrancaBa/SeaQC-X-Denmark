@@ -10,6 +10,11 @@ import matplotlib.pyplot as plt
 import builtins
 import json
 
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+
 import imblearn
 print(imblearn.__version__)
 
@@ -28,9 +33,12 @@ from imblearn.under_sampling import RandomUnderSampler
 from imblearn.over_sampling import SMOTE, RandomOverSampler
 from imblearn.pipeline import Pipeline
 from imblearn.combine import SMOTETomek
+from imblearn.ensemble import BalancedRandomForestClassifier
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.metrics import confusion_matrix
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
 
 class MLOutlierDetection(): 
 
@@ -42,8 +50,8 @@ class MLOutlierDetection():
         self.information = []
 
         #Define percentage of data used for training and testing (here: 80/20%)
-        self.train_size = 0.25
-        self.val_size = 0.15
+        self.train_size = 0.90
+        self.val_size = 0.10
 
         # Initialize encoder
         self.le = LabelEncoder()
@@ -107,6 +115,7 @@ class MLOutlierDetection():
                 df[self.measurement_column] = df[self.measurement_column] - df[self.measurement_column].mean()
                 df[self.qc_column] = df[self.qc_column].fillna(1).astype(int)
                 df[self.time_column] = pd.to_datetime(df[self.time_column])
+                self.basic_plotter(df, f'Manual QC for {file} station')
                 combined_df.append(df)
 
         labelled_df = pd.concat(combined_df, ignore_index=True)
@@ -126,7 +135,7 @@ class MLOutlierDetection():
         plt.legend()
         plt.title(title)
         plt.xlabel('Time')
-        plt.ylabel('Water Level')
+        plt.ylabel('Water Level [m]')
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column].iloc[0]}.png"),  bbox_inches="tight")
         plt.close() 
@@ -140,7 +149,7 @@ class MLOutlierDetection():
         plt.legend()
         plt.title(title)
         plt.xlabel('Time')
-        plt.ylabel('Water Level')
+        plt.ylabel('Water Level [m]')
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column].iloc[0]}.png"),  bbox_inches="tight")
         plt.close() 
@@ -180,41 +189,41 @@ class MLOutlierDetection():
 
     def run(self, df, station_df):
 
-        df_train, df_test = self.split_dataset(station_df)
+        #df_train, df_test = self.split_dataset(station_df)
+        df.loc[df[self.qc_column] == 4, self.qc_column] = 3
+        df_train, df_test = self.split_dataset(df)
 
         #Alter imbalanced dataset in order to even out the minority class
         #self.preprocessing_data_imb_learn(df_train)
-        self.preprocessing_data(df_train)
+        #self.preprocessing_data(df_train)
 
         # Fit and transform labels
         self.y_train_transformed = self.le.fit_transform(self.y_train)
         self.y_test_transformed = self.le.fit_transform(self.y_test)
         #self.y_val_transformed = self.le.fit_transform(self.y_val)
-        self.y_train_res = self.le.fit_transform(self.y_train_res)
+        #self.y_train_res = self.le.fit_transform(self.y_train_res)
         # Print mapping
         print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
         
-        self.run_binary(df_train, df_test)
+        #self.run_binary(df_train, df_test)
+        self.run_nn(df_train, df_test)
         #self.run_multi(station_df, df)
 
     def split_dataset(self, df):
 
         #Split into train and test
-        df_train = df[int((self.train_size*len(df))):]
-        df_test = df[:int((self.train_size*len(df)))]
+        df_test = df[int((self.train_size*len(df))):]
+        df_train = df[:int((self.train_size*len(df)))]
         #Split training dataset again into validation and training data
         #df_val = df_train[:int((self.val_size*len(df_train)))]
         #df_train = df_train[int((self.val_size*len(df_train))):]
         #Generate correct data subsets
-        self.X_train = df_train[self.measurement_column]
+        self.X_train = df_train[self.measurement_column].values.reshape(-1, 1)
         self.y_train = df_train[self.qc_column]
-        self.X_test = df_test[self.measurement_column]
+        self.X_test = df_test[self.measurement_column].values.reshape(-1, 1)  
         self.y_test = df_test[self.qc_column]
         #self.X_val = df_val[self.measurement_column]
         #self.y_val = df_val[self.qc_column]
-        #For Randomforest
-        self.X_train_2d = self.X_train.values.reshape(-1, 1)  # Convert Series to 2D array
-        self.X_test_2d = self.X_test.values.reshape(-1, 1)  # Convert Series to 2D array
 
         #Visualization training data
         self.basic_plotter_no_xaxis(df_train, 'QC classes for Training')
@@ -233,7 +242,7 @@ class MLOutlierDetection():
     
     def preprocessing_data(self, df):
         #Undersampling: Mark 30% of random good rows to be deleted
-        rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.4, random_state=42).index
+        rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.3, random_state=42).index
         # Drop selected rows
         df_res = df.drop(rows_to_drop).reset_index(drop=True)
         
@@ -252,7 +261,7 @@ class MLOutlierDetection():
         #df_res.loc[random_times.index, self.qc_column] = 3
 
         #Visualization resampled data
-        self.basic_plotter_no_xaxis(df_res, 'QC classes - Resampled')
+        #self.basic_plotter_no_xaxis(df_res, 'QC classes - Resampled')
         self.zoomable_plot_df(df_res, 'QC classes - Resampled')
 
         #Analysis
@@ -261,8 +270,10 @@ class MLOutlierDetection():
             print(f"Class {value} exists {count} times in the resampled dataset. This is {count/len(df_res)}.")
 
         #Need balanced output
-        self.X_train_res = df_res[self.measurement_column].values.reshape(-1, 1)  # Convert Series to 2D array
-        self.y_train_res = df_res[self.qc_column].values.reshape(-1, 1)  # Convert Series to 2D array
+        self.X_train_orig = self.X_train.copy()
+        self.X_train = df_res[self.measurement_column].values.reshape(-1, 1)  # Convert Series to 2D array
+        self.y_train_orig = self.y_train.copy()
+        self.y_train = df_res[self.qc_column].values.reshape(-1, 1)  # Convert Series to 2D array
 
     def preprocessing_data_imb_learn(self,df):
         # Define XGBoost model
@@ -292,7 +303,7 @@ class MLOutlierDetection():
         plt.legend()
         plt.title(title)
         plt.xlabel('Time')
-        plt.ylabel('Water Level')
+        plt.ylabel('Water Level [m]')
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
         plt.close()
@@ -306,7 +317,7 @@ class MLOutlierDetection():
         plt.legend()
         plt.title(title)
         plt.xlabel('Time')
-        plt.ylabel('Water Level')
+        plt.ylabel('Water Level [m]')
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
         plt.close()
@@ -322,37 +333,46 @@ class MLOutlierDetection():
             'gamma': [0, 0.001]
         }
 
-        #best_params = grid_search.best_params_ 
-        #print(f"Best parameters: {best_params}")
-
         #Generate the model
         #grid_search = GridSearchCV(XGBClassifier(), param_grid, cv=3, verbose=1)
         #grid_search.fit(self.X_train_res, self.y_train_res)
+        #grid_search.fit(self.X_train_2d, self.y_train_transformed)
         #best_params = grid_search.best_params_ 
         #print(f"Best parameters: {best_params}")
 
-        #scale_pos_weight = sum(y_train_transformed == 0) / sum(y_train_transformed == 1)
+        scale_pos_weight = sum(self.y_train_transformed == 0) / sum(self.y_train_transformed == 1)
         #scale_pos_weight = sum(y_train_res == 0) / sum(y_train_res == 1)
         #model = XGBClassifier(objective="binary:logistic", scale_pos_weight=scale_pos_weight, eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
-        #model = XGBClassifier(objective="binary:logistic", eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=500, random_state=42)
+        model = XGBClassifier(objective="binary:logistic", eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
         #model = XGBClassifier(objective="binary:logistic", eval_metric="aucpr", random_state=42, **best_params)
-        model = RandomForestClassifier(n_estimators=300, random_state=42)
+        #model = RandomForestClassifier(n_estimators=300, random_state=42)
         #model = RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=42)
+        #Adaboost
+        #sample_weights = compute_sample_weight(class_weight='balanced', y=self.y_train_transformed)
+        #base_estimator = DecisionTreeClassifier(max_depth=1)
+        #model = AdaBoostClassifier(estimator=base_estimator)
+        #model = BalancedRandomForestClassifier(n_estimators=100, random_state=42)
+
 
         # Train the model
         #model.fit(self.X_train_res, self.y_train_res, eval_set=[(self.X_train_res, self.y_train_res), (self.X_val, self.y_val_transformed)], verbose=True)
-        model.fit(self.X_train_res, self.y_train_res)
+        #model.fit(self.X_train_res, self.y_train_res) #, sample_weight=sample_weights)
         #model.fit(self.X_train, self.y_train_transformed, eval_set=[(X_train, y_train_transformed), (X_val, y_val_transformed)], verbose=True)
-        #model.fit(self.X_train, self.y_train_transformed)
+        model.fit(self.X_train, self.y_train_transformed) #, sample_weight=sample_weights)
 
         # Make predictions (test)
-        y_pred_prob = model.predict(self.X_test_2d)
-        y_pred_transformed = (y_pred_prob > 0.3).astype(int)
+        # # Get predicted probabilities
+        y_pred_prob = model.predict_proba(self.X_test)[:, 1]
+
+        # Set a custom threshold (e.g., 0.3 instead of 0.5)
+        #y_pred = (y_prob > 0.3).astype(int) 
+        #y_pred_prob = model.predict(self.X_test_2d)
+        y_pred_transformed = (y_pred_prob > 0.5).astype(int)
         y_pred = self.le.inverse_transform(y_pred_transformed)
         
         # Make predictions (train)
-        y_pred_train_prob = model.predict(self.X_train_2d)
-        y_pred_train_transformed = (y_pred_train_prob > 0.3).astype(int)
+        y_pred_train_prob = model.predict(self.X_train_orig)
+        y_pred_train_transformed = (y_pred_train_prob > 0.5).astype(int)
         y_pred_train = self.le.inverse_transform(y_pred_train_transformed)
 
         # Visualization
@@ -367,7 +387,7 @@ class MLOutlierDetection():
         print(cm)
 
         # Create confusion matix
-        cm = confusion_matrix(self.y_train, y_pred_train)
+        cm = confusion_matrix(self.y_train_orig, y_pred_train)
         print("Confusion Matrix for training data:")
         print(cm)
 
@@ -391,6 +411,24 @@ class MLOutlierDetection():
         plt.savefig(os.path.join(self.folder_path,f"{title}-pred-test.png"),  bbox_inches="tight")
         plt.close()
 
+        #Zoomable plot
+        fig = go.Figure()
+        # Add water level data
+        fig.add_trace(go.Scatter(x=df_test[self.time_column], y= df_test[self.measurement_column], mode='markers', marker=dict(
+            size=5,          # Marker size
+            color='rgb(255, 0, 0)',  # Marker color
+            symbol='circle',   # Marker shape (e.g., 'circle', 'square', 'diamond')
+            opacity=0.8       # Marker transparency
+        )))
+        # Add QC flags
+        fig.add_trace(go.Scatter(x=df_test[self.time_column][anomalies_pred], y= df_test[self.measurement_column][anomalies_pred], mode='markers', marker = {'color' : 'black'}))
+        # Update layout for a better view
+        fig.update_layout(title=title, xaxis_title= 'Time', yaxis_title= 'Water Levels [m]', legend_title='Legend', hovermode='closest')
+        # Enable zoom and pan
+        fig.update_layout(xaxis=dict(rangeslider=dict(visible=True), type="date"))
+        # Show the figure
+        fig.show()
+
         title = 'ML predicted QC classes (for training data)- Binary'
         plt.figure(figsize=(12, 6))
         plt.plot(df_train[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
@@ -402,9 +440,6 @@ class MLOutlierDetection():
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}-pred-training.png"),  bbox_inches="tight")
         plt.close()
-
-        print('hey')
-
 
     def run_multi(self, station_df, df):
         
@@ -488,3 +523,116 @@ class MLOutlierDetection():
         plt.close()
 
         print('hey')
+    
+    def run_nn(self, df_train, df_test):
+        #Convert the data to PyTorch tensors
+        X_train_tensor = torch.tensor(self.X_train, dtype=torch.float32)
+        y_train_tensor = torch.tensor(self.y_train_transformed, dtype=torch.float32).view(-1, 1)  # Reshaping to 2D for binary classification
+
+        X_test_tensor = torch.tensor(self.X_test, dtype=torch.float32)
+        y_test_tensor = torch.tensor(self.y_test_transformed, dtype=torch.float32).view(-1, 1)
+
+        # 6. Create DataLoader for batching
+        train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+        test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
+
+        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+        # 7. Define the Neural Network Model
+        class OutlierModel(nn.Module):
+            def __init__(self, input_dim):
+                super(OutlierModel, self).__init__()
+                self.layer1 = nn.Linear(input_dim, 64)
+                self.layer2 = nn.Linear(64, 32)
+                self.output = nn.Linear(32, 1)
+                self.relu = nn.ReLU()
+                self.sigmoid = nn.Sigmoid()
+
+            def forward(self, x):
+                x = self.relu(self.layer1(x))
+                x = self.relu(self.layer2(x))
+                x = self.sigmoid(self.output(x))
+                return x
+
+        # 8. Instantiate the model
+        model = OutlierModel(input_dim=self.X_train.shape[1])
+
+        # 9. Focal Loss Implementation
+        class FocalLoss(nn.Module):
+            def __init__(self, alpha=0.25, gamma=2, reduction='mean'):
+                super(FocalLoss, self).__init__()
+                self.alpha = alpha
+                self.gamma = gamma
+                self.reduction = reduction
+
+            def forward(self, inputs, targets):
+                # Ensure the inputs are probabilities (sigmoid outputs)
+                BCE_loss = nn.BCELoss(reduction='none')(inputs, targets)
+                pt = torch.exp(-BCE_loss)  # pt is the probability of the correct class
+                F_loss = self.alpha * (1 - pt) ** self.gamma * BCE_loss
+                
+                if self.reduction == 'mean':
+                    return torch.mean(F_loss)
+                elif self.reduction == 'sum':
+                    return torch.sum(F_loss)
+                else:
+                    return F_loss
+
+        # 10. Define optimizer
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+        # 11. Train the model
+        num_epochs = 100
+        train_losses = []
+
+        focal_loss = FocalLoss(alpha=0.25, gamma=2, reduction='mean')  # You can adjust alpha and gamma
+
+        for epoch in range(num_epochs):
+            model.train()
+            running_loss = 0.0
+            for inputs, labels in train_loader:
+                optimizer.zero_grad()
+                outputs = model(inputs)
+                loss = focal_loss(outputs, labels)
+                loss.backward()
+                optimizer.step()
+                running_loss += loss.item()
+            
+            avg_loss = running_loss / len(train_loader)
+            train_losses.append(avg_loss)
+            
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch+1}/{num_epochs}, Loss: {avg_loss:.4f}")
+
+        # 12. Evaluate the model
+        model.eval()
+        with torch.no_grad():
+            y_pred_prob = []
+            y_true = []
+            for inputs, labels in test_loader:
+                outputs = model(inputs)
+                y_pred_prob.append(outputs)
+                y_true.append(labels)
+            
+            # Flatten lists
+            y_pred_prob = torch.cat(y_pred_prob).numpy()
+            y_true = torch.cat(y_true).numpy()
+
+            # Convert probabilities to binary predictions
+            y_pred = (y_pred_prob > 0.3).astype(int)
+            anomalies_pred = np.isin(y_pred, [3, 4])
+
+        # 13. Print evaluation metrics
+        title = 'NN - ML predicted QC classes (Pred)'
+        plt.figure(figsize=(12, 6))
+        plt.plot(df_test[self.time_column], df_test[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
+        plt.scatter(df_test[self.time_column][anomalies_pred], df_test[self.measurement_column][anomalies_pred], color='red', label='QC Classes', zorder=1)
+        plt.legend()
+        plt.title(title)
+        plt.xlabel('Time')
+        plt.ylabel('Water Level')
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
+        plt.close()
+

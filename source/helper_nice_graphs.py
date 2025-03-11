@@ -10,9 +10,19 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
+import matplotlib.font_manager as fm
 
 from datetime import datetime
 
+if os.name == 'nt':  # Windows
+    font_path = "C:\\Windows\\Fonts\\TimesNewRoman.ttf"
+else: #else Linux(Ubuntu)
+    font_path = "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf" 
+
+prop = fm.FontProperties(fname=font_path)
+#plt.rcParams["font.family"] = prop.get_name()
+plt.rcParams["font.family"] = "DejaVu Serif"
+plt.rcParams["font.size"] = 14  # Set global font size (adjust as needed)
 pio.renderers.default = "browser"
 
 class GraphMaker():
@@ -151,9 +161,9 @@ class GraphMaker():
             plt.scatter(self.relev_df[time_column][mask], self.relev_df[data_column][mask] + offset_value[mask], color=scatter_colors, marker=scatter_marker, s=25, alpha=0.5, edgecolors='black', linewidth=0.5, label=lable_title[i])
             offset_value[mask] += 0.03
 
-        plt.legend(title="Spike Detection Methods:", fontsize=10, title_fontsize=10, frameon=False).set_title("Spike Detection Methods:", prop={"weight": "bold"}) 
-        plt.xlabel('Time', fontsize=10)
-        plt.ylabel('Water Level [m]', fontsize=10)
+        plt.legend(title="Spike Detection Methods:", frameon=False).set_title("Spike Detection Methods:", prop={"weight": "bold"}) 
+        plt.xlabel('Time')
+        plt.ylabel('Water Level [m]')
         # Remove top and right spines
         plt.gca().spines['top'].set_visible(False)
         plt.gca().spines['right'].set_visible(False)
@@ -182,10 +192,10 @@ class GraphMaker():
 
         # Plot the first graph (Sea Level Measurements)
         ax1.plot(self.relev_df[time_column], self.relev_df[data_column], color='black', label='Sea Level Measurement', marker='o',  markersize=0.7, linestyle='None')
-        ax1.set_ylabel('Water Level [m]', fontsize=10)
+        ax1.set_ylabel('Water Level [m]')
         ax1.spines['top'].set_visible(False)
         ax1.spines['right'].set_visible(False)
-        ax1.set_xlabel('Time', fontsize=10)
+        ax1.set_xlabel('Time')
         ax1.tick_params(axis='x', labelbottom=True)
         ax1.legend()
 

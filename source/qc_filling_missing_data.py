@@ -146,7 +146,7 @@ class MissingDataFiller():
         shift_points = (data[segment_column] != data[segment_column].shift())
         #Spline length in min
         winsize = self.splinelength
-        begin_buffer = round(winsize/2)
+        begin_buffer = round(winsize/4)
         end_buffer = round(winsize/4)
         data[f'poly_fitted_data{suffix}'] = np.nan
 

@@ -42,7 +42,7 @@ class QualityFlagger():
 
     def set_station(self, station):
         self.station = station
-        self.information.append(['The following text summarizes the QC perfromed on measurements from ',station,':'])
+        self.information.append(['The following text summarizes the QC performed on measurements from ',station,':'])
     
     #provids details on station like coordinates
     def set_gauge_details(self, gauge_details_path):
@@ -173,7 +173,7 @@ class QualityFlagger():
         # Count the new NaN values after the transformation -> Where there any invalid characters?
         new_nan_count = self.df_meas[self.measurement_column].isna().sum() - original_nan_count
         print('The measurement series contained',new_nan_count,'invalid data entires.')
-        self.information.append(['The measurement series contains',new_nan_count,'invalid data entires.'])
+        self.information.append(['The measurement series contains',new_nan_count,'invalid data entries.'])
         
         #2. Replace the missing values with nan
         self.df_meas['missing_values'] = self.df_meas[self.measurement_column] == self.missing_meas_value
@@ -309,15 +309,16 @@ class QualityFlagger():
         implausible_change = qc_implausible_change.ImplausibleChangeDetector()
         implausible_change.set_output_folder(self.folder_path)
         implausible_change.set_parameters(self.params)
-        df = implausible_change.run(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
+        if self.active_tests['spike_value_statistical']:
+            df = implausible_change.detect_spikes_statistical(df, self.time_column, relevant_measurements, self.information, self.original_length, suffix)
+        if self.active_tests['implausible_change']:
+            df = implausible_change.run(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
 
         #Detect spike values
         spike_detection = qc_spike.SpikeDetector()
         spike_detection.set_output_folder(self.folder_path)
         spike_detection.set_parameters(self.params)
         self.information.append(['Various Spike detection approaches and their outcomes:'])
-        if self.active_tests['spike_value_statistical']:
-            df = spike_detection.detect_spikes_statistical(df, f'poly_interpolated_data{suffix}', self.time_column, relevant_measurements, self.information, self.original_length, suffix)
         if self.active_tests['cotede_spikes']:
             df = spike_detection.remove_spikes_cotede(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
         if self.active_tests['cotede_improved_spikes']:
@@ -430,7 +431,7 @@ class QualityFlagger():
                     self.helper.plot_df(data[self.time_column][min:max], data[self.measurement_column][min:max],'Water Level', 'Timestamp', f'Bad and empty periods (monthly) - Graph {i} -{suffix}')
                     self.helper.plot_df(data[self.time_column][min:max], data[data_column][min:max],'Water Level', 'Timestamp', f'Bad and empty periods (monthly)- Cleaned - Graph{i} -{suffix}')
         print(f"There are {z} bad segments in this timeseries.")
-        self.information.append([f"There are {z} bad segments in this timeseries."])
+        self.information.append([f"There are {z} bad segments in this time series."])
 
         #for segment
         shift_points = (data[segment_column] != data[segment_column].shift())

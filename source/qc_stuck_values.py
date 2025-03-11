@@ -72,8 +72,8 @@ class StuckValuesDetector():
 
         #print details on the constant value check
         ratio = (constant_mask.sum()/original_length)*100
-        print(f"There are {constant_mask.sum()} constant values in this timeseries. This is {ratio}% of the overall dataset.")
-        information.append([f"There are {constant_mask.sum()} constant values in this timeseries. This is {ratio}% of the overall dataset."])
+        print(f"There are {constant_mask.sum()} constant values in this time series. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {constant_mask.sum()} constant values in this time series. This is {ratio}% of the overall dataset."])
             
         del df_meas_long['test']
 

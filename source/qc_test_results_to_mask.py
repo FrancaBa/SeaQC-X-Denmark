@@ -69,7 +69,7 @@ class QualityMasking():
             elif col_name == f'short_bad_measurement_series{suffix}' and self.active_tests['bad_segment']:
                 bitmask_elem = self.bitmask_def[f'bad_segment{suffix}']
                 df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == f'outlier_change_rate{suffix}' and self.active_tests['outlier_change_rate']:
+            elif col_name == f'outlier_change_rate{suffix}' and self.active_tests['implausible_change']:
                 bitmask_elem = self.bitmask_def[f'spikes{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}{suffix}' in df.columns:
@@ -77,7 +77,7 @@ class QualityMasking():
                 else:
                     df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == f'noisy_period{suffix}' and self.active_tests['noisy_period']:
+            elif col_name == f'noisy_period{suffix}' and self.active_tests['implausible_change']:
                 bitmask_elem = self.bitmask_def[f'noisy_period{suffix}']
                 df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
             elif col_name == f'spike_value_statistical{suffix}' and self.active_tests['spike_value_statistical']:

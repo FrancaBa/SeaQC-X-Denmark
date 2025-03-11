@@ -22,7 +22,7 @@ class Test_QC_ML_Station(unittest.TestCase):
         self.stations = ['Qaqortoq', 'Ittoqqortoormiit', 'Nuuk', 'Nuuk1', 'Pituffik', 'Upernavik1', 'Upernavik2'] 
 
         #Set path to measurements
-        self.datadir = '/dmidata/users/frb/greenland_data_raw/manual_labelled_GL_data'
+        self.datadir = '/dmidata/users/frb/greenland_data_raw/manual_labelled_GL_data/double_checked_labelled'
 
         #Set other parameter accordingly
         self.missing_meas_value = 999.999 #999.000
