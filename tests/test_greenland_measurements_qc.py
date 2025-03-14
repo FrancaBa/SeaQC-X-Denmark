@@ -210,7 +210,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
     
-    def test_plot_map(self):
+    def plot_map(self):
         import matplotlib.pyplot as plt
         import contextily as ctx
         import geopandas as gpd

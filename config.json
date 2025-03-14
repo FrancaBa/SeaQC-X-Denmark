@@ -1,5 +1,5 @@
 {
-  "date_alteration": "23.01.2025",
+  "date_alteration": "13.03.2025",
   "detide_mode": false,
   "ML_mode": true,
   "qc_flag_classification": {
@@ -71,21 +71,21 @@
       "implausible_change":{
         "search_step_neighbours": 15,
         "change_threshold": 0.05,
-        "threshold_max_change": 0.05,
+        "threshold_max_change": 0.2,
         "range_spike_pair": 10,
         "shifting_periods": 0.2,
         "outliers_per_hour": 3
       },
       "spike_detection":{
-        "cotede_threshold": 0.01,
-        "improved_cotede_threshold": 0.05,
+        "cotede_threshold": 0.02,
+        "improved_cotede_threshold": 0.07,
         "max_window_neighbours":60,
         "test_size": 0.15,
         "lag_05tide": 375,
         "lag_1tide": 750,
         "lag_2tide": 1500,
         "seven_days": 10430,
-        "nsigma": 3,
+        "nsigma": 2,
         "splinelength": 420,
         "splinedegree": 2
       },

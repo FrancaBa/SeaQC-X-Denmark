@@ -21,13 +21,16 @@ if os.name == 'nt':  # Windows
 else: #else Linux(Ubuntu)
     font_path = "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf" 
 
-prop = fm.FontProperties(fname=font_path, size=12)
+#prop = fm.FontProperties(fname=font_path, size=12)
+prop = fm.FontProperties(fname=font_path)
 #plt.rcParams["font.family"] = "DejaVu Serif"
-#plt.rcParams["font.size"] = 12  # Set global font size (adjust as needed)
-#plt.rcParams["axes.labelsize"] = 12  # Set x and y label size
-#plt.rcParams["axes.titlesize"] = 12  # Set title size
-#plt.rcParams["xtick.labelsize"] = 12  # Set x-axis tick labels size
-#plt.rcParams["ytick.labelsize"] = 12  # Set y-axis tick labels size
+plt.rcParams["font.size"] = 12  # Set global font size (adjust as needed)
+plt.rcParams["axes.labelsize"] = 12  # Set x and y label size
+plt.rcParams["axes.titlesize"] = 12  # Set title size
+plt.rcParams["xtick.labelsize"] = 12  # Set x-axis tick labels size
+plt.rcParams["ytick.labelsize"] = 12  # Set y-axis tick labels size
+plt.rcParams["legend.fontsize"] = 12  # Set x-axis tick labels size
+plt.rcParams["figure.titlesize"] = 12  # Set y-axis tick labels size
 
 BIGGER_SIZE = 12
 #plt.rc('font', size=BIGGER_SIZE)          # controls default text sizes
@@ -185,8 +188,8 @@ class HelperMethods():
 
         # Format x-axis to show only numbers
         ax2.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))  # Format: MM-DD HH:MM
-        ax2.xaxis.set_major_locator(mdates.HourLocator(interval=6))  # Tick every 6 hours
-        plt.xticks(rotation=45) 
+        #ax2.xaxis.set_major_locator(mdates.HourLocator(interval=6))  # Tick every 6 hours
+        #plt.xticks(rotation=45) 
 
         # Ensure all spines (box edges) are visible
         for spine in ax2.spines.values():
@@ -195,7 +198,7 @@ class HelperMethods():
         fig.tight_layout() 
         #if title != None:
         #    plt.title(f"{title} - Date: {x_axis.iloc[0]}")
-        plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
+        fig.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
         plt.close()  # Close the figure to release memory
 
 
@@ -238,10 +241,10 @@ class HelperMethods():
         #plt.rcParams.update({'figure.titlesize': BIGGER_SIZE})
                     
         color = 'black'
-        #ax1.set_xlabel(x_title, fontsize=12, fontproperties=prop)
-        #ax1.set_ylabel(y_title, fontsize=12, fontproperties=prop)
-        ax1.set_xlabel(x_title, fontproperties=prop)
-        ax1.set_ylabel(y_title, fontproperties=prop)
+        ax1.set_xlabel(x_title, fontsize=12, fontproperties=prop)
+        ax1.set_ylabel(y_title, fontsize=12, fontproperties=prop)
+        #ax1.set_xlabel(x_title)
+        #ax1.set_ylabel(y_title)
         ax1.plot(x_axis, data_1, marker='o', markersize=3, color=color, linestyle='None', label= legend_1)
         ax1.tick_params(axis='y')
 
@@ -251,8 +254,8 @@ class HelperMethods():
 
         #Format x-axis to show only numbers
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))  # Format: MM-DD HH:MM
-        ax1.xaxis.set_major_locator(mdates.HourLocator(interval=6))  # Tick every 6 hours
-        plt.xticks(rotation=45) 
+        #ax1.xaxis.set_major_locator(mdates.HourLocator(interval=6))  # Tick every 6 hours
+        #plt.xticks(rotation=45) 
 
         # Ensure all spines (box edges) are visible
         for spine in ax1.spines.values():
@@ -261,5 +264,5 @@ class HelperMethods():
         fig.tight_layout()
         #if title != None:
         #    plt.title(f"{title} - Date: {x_axis.iloc[0]}")
-        plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
+        fig.savefig(os.path.join(self.folder_path,f"{title}.png"), dpi=300,  bbox_inches="tight")
         plt.close()  # Close the figure to release memory

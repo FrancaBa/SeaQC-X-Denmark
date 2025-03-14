@@ -35,7 +35,8 @@ from imblearn.pipeline import Pipeline
 from imblearn.combine import SMOTETomek
 from imblearn.ensemble import BalancedRandomForestClassifier
 from sklearn.utils.class_weight import compute_sample_weight
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -108,7 +109,7 @@ class MLOutlierDetection():
                 station_df[self.qc_column] = station_df[self.qc_column].replace(4, 3)
                 station_df[self.time_column] = pd.to_datetime(station_df[self.time_column])
                 combined_station_df.append(station_df)
-                self.basic_plotter(station_df, 'Manual QC for subset of station')
+                self.basic_plotter(station_df, f'Manual QC for {file} station - Main Analysis')
             elif file.endswith(ending):
                 df = pd.read_csv(os.path.join(folder_path,file), sep=",", header=0)
                 df = df[[self.time_column, self.measurement_column, self.qc_column]]
@@ -131,7 +132,7 @@ class MLOutlierDetection():
         anomalies = df[self.qc_column].isin([3, 4])
         plt.figure(figsize=(12, 6))
         plt.plot(df[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
-        plt.scatter(df.index[anomalies], df[self.measurement_column][anomalies], color='red', label='QC Classes', zorder=1)
+        plt.scatter(df.index[anomalies], df[self.measurement_column][anomalies], color='red', label='QC Classes', zorder=0.5)
         plt.legend()
         plt.title(title)
         plt.xlabel('Time')
@@ -191,11 +192,10 @@ class MLOutlierDetection():
 
         #df_train, df_test = self.split_dataset(station_df)
         df.loc[df[self.qc_column] == 4, self.qc_column] = 3
-        df_train, df_test = self.split_dataset(df)
+        df_train, df_test = self.split_dataset(station_df)
 
         #Alter imbalanced dataset in order to even out the minority class
-        #self.preprocessing_data_imb_learn(df_train)
-        #self.preprocessing_data(df_train)
+        self.preprocessing_data(df_train)
 
         # Fit and transform labels
         self.y_train_transformed = self.le.fit_transform(self.y_train)
@@ -204,9 +204,11 @@ class MLOutlierDetection():
         #self.y_train_res = self.le.fit_transform(self.y_train_res)
         # Print mapping
         print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
+
+        #self.preprocessing_data_imb_learn(df_train)
         
         #self.run_binary(df_train, df_test)
-        self.run_nn(df_train, df_test)
+        self.run_nn_torch(df_train, df_test)
         #self.run_multi(station_df, df)
 
     def split_dataset(self, df):
@@ -224,12 +226,18 @@ class MLOutlierDetection():
         self.y_test = df_test[self.qc_column]
         #self.X_val = df_val[self.measurement_column]
         #self.y_val = df_val[self.qc_column]
+        self.X_train_orig = self.X_train.copy()
+        self.y_train_orig = self.y_train.copy()
 
         #Visualization training data
         self.basic_plotter_no_xaxis(df_train, 'QC classes for Training')
         self.zoomable_plot_df(df_test, 'QC classes - Testing')
         
         #Analyse existing dataset
+        unique_values, counts = np.unique(df[self.qc_column], return_counts=True)
+        for value, count in zip(unique_values, counts):
+            print(f"Class {value} exists {count} times in whole dataset. This is {count/len(df)}.")
+
         unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
         for value, count in zip(unique_values, counts):
             print(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
@@ -243,13 +251,14 @@ class MLOutlierDetection():
     def preprocessing_data(self, df):
         #Undersampling: Mark 30% of random good rows to be deleted
         rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.3, random_state=42).index
-        # Drop selected rows
-        df_res = df.drop(rows_to_drop).reset_index(drop=True)
+        #Drop selected rows
+        df_res = df.drop(rows_to_drop).reset_index(drop=True).copy()
         
         #Oversampling:Filter rows which bad qc flag and multiply them and assign them randomly 
         bad_rows = df_res[df_res[self.qc_column].isin([3,4])].copy()
-        bad_rows[self.time_column] = bad_rows[self.time_column]  + pd.to_timedelta(np.random.randint(1, 6, size=len(bad_rows)), unit='m')
-        df_res = pd.concat([df_res, bad_rows]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='last').reset_index(drop=True)
+        bad_rows[self.time_column] = bad_rows[self.time_column]  + pd.to_timedelta(np.random.randint(1, 60, size=len(bad_rows)), unit='m')
+        #df_res_new = pd.concat([df_res, bad_rows]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='last').reset_index(drop=True)
+        df_res_new = pd.concat([bad_rows, df_res]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='first').reset_index(drop=True)
         
         # Oversampling:Filter rows which bad qc flag and multiply them and assign them randomly 
         #bad_rows = df_res[df_res[self.qc_column].isin([3,4])]
@@ -260,34 +269,34 @@ class MLOutlierDetection():
         #df_res.loc[random_times.index, self.measurement_column] = more_bad_values
         #df_res.loc[random_times.index, self.qc_column] = 3
 
-        #Visualization resampled data
-        #self.basic_plotter_no_xaxis(df_res, 'QC classes - Resampled')
-        self.zoomable_plot_df(df_res, 'QC classes - Resampled')
-
         #Analysis
-        unique_values, counts = np.unique(df_res[self.qc_column], return_counts=True)
+        unique_values, counts = np.unique(df_res_new[self.qc_column], return_counts=True)
         for value, count in zip(unique_values, counts):
-            print(f"Class {value} exists {count} times in the resampled dataset. This is {count/len(df_res)}.")
+            print(f"Class {value} exists {count} times in the resampled dataset. This is {count/len(df_res_new)}.")
+
+        #Visualization resampled data
+        self.basic_plotter_no_xaxis(df_res_new, 'Resampled QC classes')
+        self.zoomable_plot_df(df_res_new, 'QC classes - Resampled')
+        self.zoomable_plot_df(bad_rows, 'QC classes - Only Modified Rows')
 
         #Need balanced output
-        self.X_train_orig = self.X_train.copy()
         self.X_train = df_res[self.measurement_column].values.reshape(-1, 1)  # Convert Series to 2D array
-        self.y_train_orig = self.y_train.copy()
         self.y_train = df_res[self.qc_column].values.reshape(-1, 1)  # Convert Series to 2D array
 
     def preprocessing_data_imb_learn(self,df):
+
         # Define XGBoost model
         # Apply undersampling to reduce the majority class in the training data
         undersampler = RandomUnderSampler(sampling_strategy = 0.01, random_state=42)
-        #self.X_train_res, self.y_train_res = undersampler.fit_resample(self.X_train_2d, self.y_train_transformed)
+        #self.X_train_res, self.y_train_res = undersampler.fit_resample(self.X_train, self.y_train_transformed)
 
         #Creating an instance of SMOTE
-        #smote = SMOTE(random_state=42, sampling_strategy=0.1)
-        smote = RandomOverSampler(random_state=42, sampling_strategy='not majority')
-        self.X_train_res, self.y_train_res = smote.fit_resample(df[self.measurement_column].values.reshape(-1, 1), df[self.qc_column])
+        smote = SMOTE(random_state=42, sampling_strategy=0.1)
+        #smote = RandomOverSampler(random_state=42, sampling_strategy=0.1)
+        self.X_train_res, self.y_train_res = smote.fit_resample(self.X_train, self.y_train_transformed)
         #Balancing the data
-        pipeline = Pipeline([('under', undersampler), ('over', smote)])
-        smotetomek = SMOTETomek(random_state=42, sampling_strategy=0.2)
+        #pipeline = Pipeline([('under', undersampler), ('over', smote)])
+        #smotetomek = SMOTETomek(random_state=42, sampling_strategy=0.2)
         #self.X_train_res, self.y_train_res = smotetomek.fit_resample(self.X_train_2d, self.y_train_transformed)
 
         unique_values, counts = np.unique(self.y_train_res, return_counts=True)
@@ -306,6 +315,7 @@ class MLOutlierDetection():
         plt.ylabel('Water Level [m]')
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
+        plt.close()
         plt.close()
 
         #0.Visualization - resampled data - zoomed
@@ -334,17 +344,17 @@ class MLOutlierDetection():
         }
 
         #Generate the model
-        #grid_search = GridSearchCV(XGBClassifier(), param_grid, cv=3, verbose=1)
-        #grid_search.fit(self.X_train_res, self.y_train_res)
-        #grid_search.fit(self.X_train_2d, self.y_train_transformed)
-        #best_params = grid_search.best_params_ 
-        #print(f"Best parameters: {best_params}")
+        grid_search = GridSearchCV(XGBClassifier(), param_grid, cv=3, verbose=1)
+        grid_search.fit(self.X_train_res, self.y_train_res)
+        grid_search.fit(self.X_train_2d, self.y_train_transformed)
+        best_params = grid_search.best_params_ 
+        print(f"Best parameters: {best_params}")
 
         scale_pos_weight = sum(self.y_train_transformed == 0) / sum(self.y_train_transformed == 1)
         #scale_pos_weight = sum(y_train_res == 0) / sum(y_train_res == 1)
         #model = XGBClassifier(objective="binary:logistic", scale_pos_weight=scale_pos_weight, eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
-        model = XGBClassifier(objective="binary:logistic", eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
-        #model = XGBClassifier(objective="binary:logistic", eval_metric="aucpr", random_state=42, **best_params)
+        #model = XGBClassifier(objective="binary:logistic", eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
+        model = XGBClassifier(objective="binary:logistic", eval_metric="aucpr", random_state=42, **best_params)
         #model = RandomForestClassifier(n_estimators=300, random_state=42)
         #model = RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=42)
         #Adaboost
@@ -441,193 +451,195 @@ class MLOutlierDetection():
         plt.savefig(os.path.join(self.folder_path,f"{title}-pred-training.png"),  bbox_inches="tight")
         plt.close()
 
-    def run_multi(self, station_df, df):
-        
-        #Get best XGBClassifier model based on hyperparameters
-        param_grid = {
-            'max_depth': [1, 2, 3, 5],
-            'min_child_weight': [1, 3, 6, 10],
-            'learning_rate': [0.001, 0.005, 0.01, 0.05, 0.1],
-            'n_estimators': [10, 50, 100, 500],
-            'gamma': [0, 0.1, 0.5, 1]
-        }
-
-        #grid_search = GridSearchCV(XGBClassifier(), param_grid, cv=3, verbose=1)
-        #grid_search.fit(X_train, y_train_transformed)
-
-        #best_params = grid_search.best_params_ 
-        #print(f"Best parameters: {best_params}")
-
-        # Calculate class distribution
-        # Compute sample weights for imbalanced classes
-        #sample_weights = compute_sample_weight(class_weight='balanced', y=y_train_transformed)
-        sample_weights = compute_sample_weight(class_weight='balanced', y=self.y_train_res)
-        #sample_weights = sample_weights * 0.75
-        print(f"Scale Weights for each class (based on training set): {sample_weights}")
-
-        #Generate the model
-        num_classes = len(np.unique(self.y_train))
-        model = XGBClassifier(objective="multi:softmax", num_class=num_classes, eval_metric="mlogloss", n_estimators=300)
-        #model = RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=42)
-
-        # Train the model
-        #model.fit(self.X_train, self.y_train_transformed, sample_weight=sample_weights)
-        model.fit(self.X_train_res, self.y_train_res)
-        #model.fit(self.X_train_res, self.y_train_res, sample_weight=sample_weights)
-        #model.fit(self.X_train, self.y_train_transformed)
-
-        # Make predictions
-        y_pred_transformed = model.predict(self.X_test)
-        #y_pred_transformed = model.predict(self.X_test_2d)
-        y_pred = self.le.inverse_transform(y_pred_transformed)
-        
-        # Visualization
-        #Print-statement
-        unique_values, counts = np.unique(y_pred, return_counts=True)
-        for value, count in zip(unique_values, counts):
-            print(f"Class {value} was predicted {count} times.")
-        
-        # Create confusion matrix
-        cm = confusion_matrix(y_test, y_pred)
-        print("Confusion Matrix:")
-        print(cm)
-
-        # Identify anomalies
-        anomalies_test = df_test[self.qc_column].isin([3, 4])
-        anomalies_pred = np.isin(y_pred, [3, 4])
-
-        #1.Visualization
-        title = 'ML predicted QC classes (Test)'
-        plt.figure(figsize=(12, 6))
-        plt.plot(df_test[self.time_column], df_test[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
-        plt.scatter(df_test[self.time_column][anomalies_test], df_test[self.measurement_column][anomalies_test], color='red', label='QC Classes', zorder=1)
-        plt.legend()
-        plt.title(title)
-        plt.xlabel('Time')
-        plt.ylabel('Water Level')
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column][int((self.train_size*len(df)))]}-test.png"),  bbox_inches="tight")
-        plt.close()
-
-        #2.Visualization
-        title = 'ML predicted QC classes (Pred)'
-        plt.figure(figsize=(12, 6))
-        plt.plot(df_test[self.time_column], df_test[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
-        plt.scatter(df_test[self.time_column][anomalies_pred], df_test[self.measurement_column][anomalies_pred], color='red', label='QC Classes', zorder=1)
-        plt.legend()
-        plt.title(title)
-        plt.xlabel('Time')
-        plt.ylabel('Water Level')
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column][int((self.train_size*len(df)))]}-pred.png"),  bbox_inches="tight")
-        plt.close()
-
-        print('hey')
     
-    def run_nn(self, df_train, df_test):
+    def run_nn_torch(self, df_train, df_test):
+
+        sequences = []
+        sequence_labels = []
+        window_size = 29
+
+        for i in range(0, len(self.X_train) - window_size + 1, 1):
+            sequence = self.X_train[i:i+window_size]
+            # Get the label for this sequence (e.g., you could take the label of the last time step)
+            sequence_label = 1 if 1 in self.y_train_transformed[i : i + window_size] else 0  # Label entire window
+            sequences.append(sequence)
+            sequence_labels.append(sequence_label)
+
+        sequences = torch.tensor(sequences, dtype=torch.float32)
+        sequence_labels = torch.tensor(sequence_labels, dtype=torch.float32)
+        
+        train_dataset = TensorDataset(sequences, sequence_labels)
+        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=False)
+
         #Convert the data to PyTorch tensors
-        X_train_tensor = torch.tensor(self.X_train, dtype=torch.float32)
-        y_train_tensor = torch.tensor(self.y_train_transformed, dtype=torch.float32).view(-1, 1)  # Reshaping to 2D for binary classification
+        #X_train_tensor = torch.tensor(self.X_train, dtype=torch.float32)
+        #y_train_tensor = torch.tensor(self.y_train_transformed, dtype=torch.float32).view(-1, 1)  # Reshaping to 2D for binary classification
 
         X_test_tensor = torch.tensor(self.X_test, dtype=torch.float32)
         y_test_tensor = torch.tensor(self.y_test_transformed, dtype=torch.float32).view(-1, 1)
 
         # 6. Create DataLoader for batching
-        train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+        #train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
         test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
+        #train_loader = DataLoader(train_dataset, batch_size=32, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=7500, shuffle=False)
 
-        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+        # Loop through batches
+        for batch_idx, (X_batch, y_batch) in enumerate(train_loader): 
+            if batch_idx == 30:
+                break
+            else:     
+                # Create a figure for the batch
+                plt.figure(figsize=(10, 6))
+                
+                # Loop through sequences within the batch
+                for seq_idx in range(X_batch.shape[0]):  # Assuming X_batch is (batch_size, sequence_length)
+                    plt.plot(X_batch[seq_idx].numpy(), marker='o', markersize=2, linestyle='-', label=f"X_seq {seq_idx}")
+                    plt.plot(y_batch[seq_idx].numpy(), marker='x', markersize=2, linestyle='-', label=f"y_seq {seq_idx}")
 
-        # 7. Define the Neural Network Model
-        class OutlierModel(nn.Module):
-            def __init__(self, input_dim):
-                super(OutlierModel, self).__init__()
-                self.layer1 = nn.Linear(input_dim, 64)
-                self.layer2 = nn.Linear(64, 32)
-                self.output = nn.Linear(32, 1)
-                self.relu = nn.ReLU()
-                self.sigmoid = nn.Sigmoid()
+                # Title and labels
+                plt.title(f"Batch {batch_idx + 1} - Sequences Visualization")
+                plt.xlabel("Timesteps")
+                plt.ylabel("Value")
+                plt.legend(loc="upper right", fontsize="small", ncol=2)  # Adjust legend for readability
+                plt.grid(True, linestyle="--", alpha=0.6)
+
+                # Save the figure
+                save_path = os.path.join(self.folder_path, f"Batch_{batch_idx + 1}.png")
+                plt.savefig(save_path, bbox_inches="tight")
+                plt.close()  # Close figure to prevent memory issues
+                
+        # 2. Define the model
+        class TimeSeriesModel(nn.Module):
+            def __init__(self, input_size, window_size):
+                super().__init__()
+                
+                # A simple feed-forward neural network
+                self.fc1 = nn.Linear(input_size * window_size, 128)  # First fully connected layer
+                self.fc2 = nn.Linear(128, 64)  # Second fully connected layer
+                self.fc3 = nn.Linear(64, 1)  # Output layer (1 unit for binary classification)
+                self.sigmoid = nn.Sigmoid()  # Sigmoid activation for binary classification
 
             def forward(self, x):
-                x = self.relu(self.layer1(x))
-                x = self.relu(self.layer2(x))
-                x = self.sigmoid(self.output(x))
+                x = x.view(x.shape[0], -1) 
+
+                x = torch.relu(self.fc1(x))  # Apply ReLU activation
+                x = torch.relu(self.fc2(x))  # Apply ReLU activation
+                x = self.fc3(x)  # Output layer
+                x = self.sigmoid(x)  # Sigmoid to get probabilities (0 or 1)
                 return x
+            
+        class SpikeDetectionLSTM(nn.Module):
+            def __init__(self, input_size, hidden_size, num_layers):
+                super(SpikeDetectionLSTM, self).__init__()
+                
+                # LSTM Layer(s)
+                self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+                
+                # Fully connected layer for classification
+                self.fc = nn.Linear(hidden_size, 1)  # Output layer (1 output for spike detection)
+                self.sigmoid = nn.Sigmoid()  # Sigmoid to classify as 0 or 1 (good or bad)
+            
+            def forward(self, x):
+                # Pass through LSTM
+                lstm_out, _ = self.lstm(x)  # lstm_out is the output of the LSTM for each time step
+                
+                # Use the last LSTM output for classification (can also try using all outputs)
+                x = self.fc(lstm_out[:, -1, :])  # Output of last time step (if it's one-step classification)
+                x = self.sigmoid(x)  # Sigmoid activation for binary classification (spike vs non-spike)
+                
+                return x
+            
+        #Example for time series with 1 feature
+        input_size = 1 # Total input size to the network
 
-        # 8. Instantiate the model
-        model = OutlierModel(input_dim=self.X_train.shape[1])
+        #Instantiate the model
+        #model = TimeSeriesModel(input_size, window_size).to('cpu')
 
-        # 9. Focal Loss Implementation
-        class FocalLoss(nn.Module):
-            def __init__(self, alpha=0.25, gamma=2, reduction='mean'):
+        #Model configuration
+        input_size = 1  # Single feature per timestep
+        hidden_size = 256  # Maximum number of neurons per layer
+        num_layers = 3  # Number of LSTM layers
+
+        # Instantiate the model
+        model = SpikeDetectionLSTM(input_size, hidden_size, num_layers).to('cpu')
+
+        class FocalLoss(torch.nn.Module):
+            def __init__(self, alpha=0.25, gamma=2):
                 super(FocalLoss, self).__init__()
                 self.alpha = alpha
                 self.gamma = gamma
-                self.reduction = reduction
 
             def forward(self, inputs, targets):
-                # Ensure the inputs are probabilities (sigmoid outputs)
-                BCE_loss = nn.BCELoss(reduction='none')(inputs, targets)
-                pt = torch.exp(-BCE_loss)  # pt is the probability of the correct class
-                F_loss = self.alpha * (1 - pt) ** self.gamma * BCE_loss
-                
-                if self.reduction == 'mean':
-                    return torch.mean(F_loss)
-                elif self.reduction == 'sum':
-                    return torch.sum(F_loss)
-                else:
-                    return F_loss
+                bce_loss = torch.nn.functional.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
+                pt = torch.exp(-bce_loss)
+                focal_loss = self.alpha * (1 - pt) ** self.gamma * bce_loss
+                return focal_loss.mean()
+        
+        #criterion = nn.BCELoss()
+        criterion = FocalLoss(alpha=0.75, gamma=3)  # Example: balanced alpha and high gamma for focus on hard samples
+        optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
-        # 10. Define optimizer
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-        # 11. Train the model
-        num_epochs = 100
-        train_losses = []
-
-        focal_loss = FocalLoss(alpha=0.25, gamma=2, reduction='mean')  # You can adjust alpha and gamma
-
+        # 7. Training loop
+        num_epochs = 3
         for epoch in range(num_epochs):
-            model.train()
-            running_loss = 0.0
-            for inputs, labels in train_loader:
+            model.train()  # Set the model to training mode
+            for X_batch, y_batch in train_loader:
+                # Zero the gradients
                 optimizer.zero_grad()
-                outputs = model(inputs)
-                loss = focal_loss(outputs, labels)
+                # Forward pass
+                outputs = model(X_batch)
+                # Compute the loss
+                #loss = criterion(outputs.squeeze(), y_batch)  # Squeeze the output to match the labels
+                loss = criterion(outputs, y_batch.view(-1, 1))  # Squeeze the output to match the labels
+                # Backward pass
                 loss.backward()
                 optimizer.step()
-                running_loss += loss.item()
-            
-            avg_loss = running_loss / len(train_loader)
-            train_losses.append(avg_loss)
-            
-            if epoch % 10 == 0:
-                print(f"Epoch {epoch+1}/{num_epochs}, Loss: {avg_loss:.4f}")
 
-        # 12. Evaluate the model
-        model.eval()
+            # Print the loss for this epoch
+            print(f'Epoch {epoch+1}/{num_epochs}, Loss: {loss}')
+
+        # 8. Model evaluation (after training)
+        model.eval()  # Set the model to evaluation mode
+        all_labels = []
+        all_predictions = []
+
         with torch.no_grad():
-            y_pred_prob = []
-            y_true = []
-            for inputs, labels in test_loader:
-                outputs = model(inputs)
-                y_pred_prob.append(outputs)
-                y_true.append(labels)
-            
-            # Flatten lists
-            y_pred_prob = torch.cat(y_pred_prob).numpy()
-            y_true = torch.cat(y_true).numpy()
+            for X_batch, y_batch in test_loader:
+                X_batch, y_batch = X_batch.to('cpu'), y_batch.to('cpu')
+                outputs = model(X_batch)
+                
+                # Convert probabilities to binary predictions (0 or 1)
+                predicted = (outputs > 0.2).float()
 
-            # Convert probabilities to binary predictions
-            y_pred = (y_pred_prob > 0.3).astype(int)
-            anomalies_pred = np.isin(y_pred, [3, 4])
+                # Collect the true labels and predictions
+                all_labels.extend(y_batch.numpy())
+                all_predictions.extend(predicted.numpy())
+
+        # Convert to numpy arrays for easier manipulation
+        all_labels = np.array(all_labels)
+        all_predictions = np.array(all_predictions)
+        anomalies_pred = all_predictions.astype(bool).flatten()  
+
+        precision = precision_score(all_labels, all_predictions, average='binary')
+        recall = recall_score(all_labels, all_predictions, average='binary')
+        f1 = f1_score(all_labels, all_predictions, average='binary')
+        auc = roc_auc_score(all_labels, all_predictions)
+        
+        print(f'Precision: {precision}, Recall: {recall}, F1 Score: {f1}, AUC-ROC: {auc}')
+
+        # Compute confusion matrix
+        cm = confusion_matrix(all_labels, all_predictions)
+
+        # Print the confusion matrix
+        print("Confusion Matrix:")
+        print(cm)
 
         # 13. Print evaluation metrics
         title = 'NN - ML predicted QC classes (Pred)'
         plt.figure(figsize=(12, 6))
-        plt.plot(df_test[self.time_column], df_test[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
-        plt.scatter(df_test[self.time_column][anomalies_pred], df_test[self.measurement_column][anomalies_pred], color='red', label='QC Classes', zorder=1)
+        plt.plot(df_test[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5)
+        plt.plot(df_test[self.measurement_column][anomalies_pred], color='red', label='QC Classes', zorder=1)
         plt.legend()
         plt.title(title)
         plt.xlabel('Time')
@@ -635,4 +647,3 @@ class MLOutlierDetection():
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
         plt.close()
-

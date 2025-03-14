@@ -528,7 +528,7 @@ class QualityFlagger():
                 #        print(best_contamination, best_precision)
 
                 # Fit Isolation Forest
-                model = IsolationForest(contamination=0.1, n_estimators=200, random_state=42)  # Adjust contamination as needed
+                model = IsolationForest(contamination=0.05, n_estimators=200, random_state=42)  # Adjust contamination as needed
                 anomaly = model.fit_predict(X)
 
                 # Identify anomalies

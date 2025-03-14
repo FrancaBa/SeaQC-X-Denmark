@@ -188,8 +188,8 @@ class ImplausibleChangeDetector():
         #For windows exceeding the threshold, check proximity condition
         #To keep only single peaks periods
         for idx in outlier_change_rate[outlier_change_rate].index:
-            # Extract indices of True values in the current window of 2 hours around the selected index
-            window_indices = range(builtins.max(0, idx - 29), idx + 30)
+            # Extract indices of True values in the current window of 1 hour around the selected index
+            window_indices = range(builtins.max(0, idx - 29), builtins.min(len(outlier_change_rate)-1, idx + 30))
             true_indices = [i for i in window_indices if outlier_change_rate[i]]
 
             if len(true_indices) > 5:
@@ -229,8 +229,8 @@ class ImplausibleChangeDetector():
         #For values exceeding the threshold, check proximity condition
         #To keep weird measurement periods, filter if other outliers are close by
         for idx in distributed_periods[distributed_periods].index:
-            # Extract indices of True values in the current window of 2 hours around the selected index
-            window_indices = range(builtins.max(0, idx - 29), idx + 30)
+            # Extract indices of True values in the current window of 1 hour around the selected index
+            window_indices = range(builtins.max(0, idx - 29), builtins.min(len(distributed_periods)-1, idx + 30))
             true_indices = [i for i in window_indices if distributed_periods[i]]
 
             if len(true_indices) >= 6:
