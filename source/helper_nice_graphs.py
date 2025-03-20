@@ -10,9 +10,19 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
+import matplotlib.font_manager as fm
 
 from datetime import datetime
 
+if os.name == 'nt':  # Windows
+    font_path = "C:\\Windows\\Fonts\\TimesNewRoman.ttf"
+else: #else Linux(Ubuntu)
+    font_path = "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf" 
+
+prop = fm.FontProperties(fname=font_path)
+#plt.rcParams["font.family"] = prop.get_name()
+plt.rcParams["font.family"] = "DejaVu Serif"
+plt.rcParams["font.size"] = 14  # Set global font size (adjust as needed)
 pio.renderers.default = "browser"
 
 class GraphMaker():
@@ -27,79 +37,79 @@ class GraphMaker():
     def set_station(self, station):
         self.station = station
 
-    def run(self, df, time_column, data_column):
+    def run_graphs_zoom(self, df, time_column, data_column, year, start_month, end_month, start_day, end_day, start_hour='00', end_hour='23'):
 
-        self.get_relevant_period(df, time_column, data_column)
+        self.extract_period(df, time_column, data_column, year, start_month, end_month, start_day, end_day, start_hour, end_hour)
         self.make_ts_plot(time_column, data_column)
+        self.two_in_one_graph(time_column, data_column)
 
-        print('hey')
     
-    def get_relevant_period(self, df, time_column, data_column):
+    def run(self, df, time_column, data_column):
        
         if self.station == 'Ittoqqortoormiit':
-            self.extract_period(df, time_column, data_column, '2011', '03', '03', '01', '17')
-            #self.extract_period(df, time_column, data_column, '2011', '05', '05', '01', '07')
-            #self.extract_period(df, time_column, data_column, '2012', '06', '07', '15', '03')
-            #self.extract_period(df, time_column, data_column, '2013', '08', '11', '10', '20')
-            #self.extract_period(df, time_column, data_column, '2015', '07', '07', '01', '05')
-            #self.extract_period(df, time_column, data_column, '2017', '03', '05', '10', '25')  
-            #self.extract_period(df, time_column, data_column, '2019', '01', '01', '16', '23')      
-            #self.extract_period(df, time_column, data_column, '2019', '05', '05', '11', '26') 
-            #self.extract_period(df, time_column, data_column, '2019', '06', '06', '01', '20')
-            #self.extract_period(df, time_column, data_column, '2020', '12', '12', '22', '31')
-            #self.extract_period(df, time_column, data_column, '2022', '03', '03', '14', '18')
-            #self.extract_period(df, time_column, data_column, '2022', '06', '07', '25', '05')
-            #self.extract_period(df, time_column, data_column, '2023', '03', '04', '30', '05')
-            #self.extract_period(df, time_column, data_column, '2023', '06', '07', '07', '05')
-            #self.extract_period(df, time_column, data_column, '2023', '10', '10', '01', '10')
-            #self.extract_period(df, time_column, data_column, '2023', '11', '11', '13', '30')
-            #self.extract_period(df, time_column, data_column, '2023', '12', '12', '25', '31')
+            self.run_graphs_zoom(df, time_column, data_column, '2011', '03', '03', '04', '05','06', '18')
+            self.run_graphs_zoom(df, time_column, data_column, '2011', '05', '05', '01', '07')
+            self.run_graphs_zoom(df, time_column, data_column, '2012', '06', '07', '15', '03')
+            self.run_graphs_zoom(df, time_column, data_column, '2013', '08', '11', '10', '20')
+            self.run_graphs_zoom(df, time_column, data_column, '2015', '07', '07', '01', '05')
+            self.run_graphs_zoom(df, time_column, data_column, '2017', '03', '05', '10', '25')  
+            self.run_graphs_zoom(df, time_column, data_column, '2019', '01', '01', '16', '23')      
+            self.run_graphs_zoom(df, time_column, data_column, '2019', '05', '05', '11', '26') 
+            self.run_graphs_zoom(df, time_column, data_column, '2019', '06', '06', '01', '20')
+            self.run_graphs_zoom(df, time_column, data_column, '2020', '12', '12', '22', '31')
+            self.run_graphs_zoom(df, time_column, data_column, '2022', '03', '03', '14', '18')
+            self.run_graphs_zoom(df, time_column, data_column, '2022', '06', '07', '25', '05')
+            self.run_graphs_zoom(df, time_column, data_column, '2023', '03', '04', '30', '05')
+            self.run_graphs_zoom(df, time_column, data_column, '2023', '06', '07', '07', '05')
+            self.run_graphs_zoom(df, time_column, data_column, '2023', '10', '10', '01', '10')
+            #self.run_graphs_zoom(df, time_column, data_column, '2023', '11', '11', '13', '30')
+            #self.run_graphs_zoom(df, time_column, data_column, '2023', '12', '12', '25', '31')
         elif self.station == 'Qaqortoq':
-            self.extract_period(df, time_column, data_column, '2006', '02', '03', '01', '10')
-            #self.extract_period(df, time_column, data_column, '2008', '06', '07', '20', '05')
-            #self.extract_period(df, time_column, data_column, '2008', '10', '10', '01', '20')
-            #self.extract_period(df, time_column, data_column, '2011', '11', '11', '15', '24')
-            #self.extract_period(df, time_column, data_column, '2014', '01', '01', '22', '30')
-            #self.extract_period(df, time_column, data_column, '2015', '07', '07', '02', '23')  
-            #self.extract_period(df, time_column, data_column, '2018', '05', '05', '03', '20')
-            #self.extract_period(df, time_column, data_column, '2022', '10', '10', '01', '20')
-            #self.extract_period(df, time_column, data_column, '2023', '10', '10', '20', '30')
-            #self.extract_period(df, time_column, data_column, '2023', '07', '07', '01', '10')
-            #self.extract_period(df, time_column, data_column, '2024', '06', '07', '25', '10')
+            self.run_graphs_zoom(df, time_column, data_column, '2006', '02', '03', '01', '10')
+            #self.run_graphs_zoom(df, time_column, data_column, '2008', '06', '07', '20', '05')
+            #self.run_graphs_zoom(df, time_column, data_column, '2008', '10', '10', '01', '20')
+            #self.run_graphs_zoom(df, time_column, data_column, '2011', '11', '11', '15', '24')
+            #self.run_graphs_zoom(df, time_column, data_column, '2014', '01', '01', '22', '30')
+            #self.run_graphs_zoom(df, time_column, data_column, '2015', '07', '07', '02', '23')  
+            #self.run_graphs_zoom(df, time_column, data_column, '2018', '05', '05', '03', '20')
+            #self.run_graphs_zoom(df, time_column, data_column, '2022', '10', '10', '01', '20')
+            #self.run_graphs_zoom(df, time_column, data_column, '2023', '10', '10', '20', '30')
+            #self.run_graphs_zoom(df, time_column, data_column, '2023', '07', '07', '01', '10')
+            #self.run_graphs_zoom(df, time_column, data_column, '2024', '06', '07', '25', '10')
         elif self.station == 'Nuuk':
-            self.extract_period(df, time_column, data_column, '2014', '11', '11', '20', '22')
-            #self.extract_period(df, time_column, data_column, '2014', '12', '12', '27', '29')
-            #self.extract_period(df, time_column, data_column, '2016', '09', '10', '01', '25') 
-            #self.extract_period(df, time_column, data_column, '2017', '04', '04', '15', '25') 
-            #self.extract_period(df, time_column, data_column, '2020', '11', '11', '15', '30') 
-            #self.extract_period(df, time_column, data_column, '2020', '12', '12', '15', '30')
-            #self.extract_period(df, time_column, data_column, '2022', '02', '02', '01', '10') 
+            self.run_graphs_zoom(df, time_column, data_column, '2014', '11', '11', '20', '22')
+            #self.run_graphs_zoom(df, time_column, data_column, '2014', '12', '12', '27', '29')
+            #self.run_graphs_zoom(df, time_column, data_column, '2016', '09', '10', '01', '25') 
+            #self.run_graphs_zoom(df, time_column, data_column, '2017', '04', '04', '15', '25') 
+            #self.run_graphs_zoom(df, time_column, data_column, '2020', '11', '11', '15', '30') 
+            #self.run_graphs_zoom(df, time_column, data_column, '2020', '12', '12', '15', '30')
+            #self.run_graphs_zoom(df, time_column, data_column, '2022', '02', '02', '01', '10') 
         elif self.station == 'Nuuk1':
-            self.extract_period(df, time_column, data_column, '2022', '11', '12', '27', '12')
-            #self.extract_period(df, time_column, data_column, '2023', '04', '04', '10', '25') 
-            #self.extract_period(df, time_column, data_column, '2023', '11', '11', '15', '25') 
-            #self.extract_period(df, time_column, data_column, '2024', '02', '02', '15', '20') 
+            self.run_graphs_zoom(df, time_column, data_column, '2022', '11', '12', '27', '12')
+            #self.run_graphs_zoom(df, time_column, data_column, '2023', '04', '04', '10', '25') 
+            #self.run_graphs_zoom(df, time_column, data_column, '2023', '11', '11', '15', '25') 
+            #self.run_graphs_zoom(df, time_column, data_column, '2024', '02', '02', '15', '20') 
         elif self.station == 'Pituffik':
-            self.extract_period(df, time_column, data_column, '2007', '07', '08', '22', '05')
-            #self.extract_period(df, time_column, data_column, '2007', '09', '09', '09', '21')
-            #self.extract_period(df, time_column, data_column, '2008', '08', '08', '10', '20')        
-            #self.extract_period(df, time_column, data_column, '2016', '02', '02', '01', '29')
-            #self.extract_period(df, time_column, data_column, '2016', '03', '03', '01', '30')
-            #self.extract_period(df, time_column, data_column, '2017', '11', '11', '01', '05')
-            #self.extract_period(df, time_column, data_column, '2019', '01', '01', '13', '19')
-            #self.extract_period(df, time_column, data_column, '2020', '09', '09', '01', '30')
-            #self.extract_period(df, time_column, data_column, '2022', '09', '09', '13', '25')
-            #self.extract_period(df, time_column, data_column, '2023', '09', '09', '01', '15')
-            #self.extract_period(df, time_column, data_column, '2023', '12', '12', '10', '20')
-            #self.extract_period(df, time_column, data_column, '2024', '03', '03', '01', '10')
-            #self.extract_period(df, time_column, data_column, '2024', '05', '05', '20', '30')
-            #self.extract_period(df, time_column, data_column, '2024', '10', '10', '25', '31')
+            self.run_graphs_zoom(df, time_column, data_column, '2007', '07', '08', '22', '05')
+            #self.run_graphs_zoom(df, time_column, data_column, '2007', '09', '09', '09', '21')
+            #self.run_graphs_zoom(df, time_column, data_column, '2008', '08', '08', '10', '20')        
+            #self.run_graphs_zoom(df, time_column, data_column, '2016', '02', '02', '01', '29')
+            #self.run_graphs_zoom(df, time_column, data_column, '2016', '03', '03', '01', '30')
+            #self.run_graphs_zoom(df, time_column, data_column, '2017', '11', '11', '01', '05')
+            #self.run_graphs_zoom(df, time_column, data_column, '2019', '01', '01', '13', '19')
+            #self.run_graphs_zoom(df, time_column, data_column, '2020', '09', '09', '01', '30')
+            #self.run_graphs_zoom(df, time_column, data_column, '2022', '09', '09', '13', '25')
+            #self.run_graphs_zoom(df, time_column, data_column, '2023', '09', '09', '01', '15')
+            #self.run_graphs_zoom(df, time_column, data_column, '2023', '12', '12', '10', '20')
+            #self.run_graphs_zoom(df, time_column, data_column, '2024', '03', '03', '01', '10')
+            #self.run_graphs_zoom(df, time_column, data_column, '2024', '05', '05', '20', '30')
+            #self.run_graphs_zoom(df, time_column, data_column, '2024', '10', '10', '25', '31')
         elif self.station == 'Upernavik1':
-            self.extract_period(df, time_column, data_column, '2023', '08', '08', '12', '12', '03', '22')
-            #self.extract_period(df, time_column, data_column, '2023', '08', '08', '15', '31')
+            self.run_graphs_zoom(df, time_column, data_column, '2023', '08', '08', '12', '12', '03', '22')
+            self.run_graphs_zoom(df, time_column, data_column, '2023', '08', '08', '21', '31')
         elif self.station == 'Upernavik2':   
-            self.extract_period(df, time_column, data_column, '2024', '09', '09', '15', '30')
-            #self.extract_period(df, time_column, data_column, '2024', '10', '10', '15', '31')       
+            self.run_graphs_zoom(df, time_column, data_column, '2024', '09', '09', '21', '22', '03', '15')
+            self.run_graphs_zoom(df, time_column, data_column, '2024', '10', '10', '16', '16')       
         else:
             return 
 
@@ -130,7 +140,8 @@ class GraphMaker():
         print(self.relev_df)
 
         #Visualization of different spike detection methods
-        relev_columns = ['spike_value_statistical', 'cotede_spikes', 'cotede_improved_spikes', 'selene_spikes', 'selene_improved_spikes', 'harmonic_detected_spikes']
+        pot_relev_columns = ['spike_value_statistical', 'cotede_spikes', 'cotede_improved_spikes', 'selene_spikes', 'selene_improved_spikes', 'harmonic_detected_spikes']
+        relev_columns = [col for col in pot_relev_columns if col in self.relev_df.columns]
         lable_title = ['Implausible change rate', 'Neighboring outlier', 'Neighboring outlier (improved)', 'Spline fit', 'Spline fit (improved)', 'Polynomial offset']
         markers = ["s" , "o" , "v" , "D" , "*", "d"]
 
@@ -138,21 +149,74 @@ class GraphMaker():
         color_map = plt.cm.plasma  # Choose a colormap (other good ones: Viridis, Cividis, Plasma)
         colors = [color_map(i /len(relev_columns)) for i in range(len(relev_columns))]
         #colors = ['red','green','blue','cyan','magenta', 'darkorange', 'lime']        
-        offset_value = np.zeros(len(self.relev_df))
+        offset_value = np.zeros(len(self.relev_df))+0.03
         title = 'Comparison of Spike Detection Methods'
         plt.figure(figsize=(14, 7), dpi=300)
-        plt.plot(self.relev_df[time_column], self.relev_df[data_column], label='Measurements', color='black', marker='o',  markersize=0.5, linestyle='None')
+        plt.plot(self.relev_df[time_column], self.relev_df[data_column], label='Measurements', color='black', marker='o',  markersize=0.6, linestyle='None')
         # Stack markers using offsets
         for i in range(len(relev_columns)):
             mask = self.relev_df[relev_columns[i]]
             scatter_marker = markers[i]
             scatter_colors = colors[i]
-            plt.scatter(self.relev_df[time_column][mask], self.relev_df[data_column][mask] + offset_value[mask], color=scatter_colors, marker=scatter_marker, s=25, alpha=0.7, edgecolors='black', linewidth=0.5, label=lable_title[i])
-            offset_value[mask] += 0.01
+            plt.scatter(self.relev_df[time_column][mask], self.relev_df[data_column][mask] + offset_value[mask], color=scatter_colors, marker=scatter_marker, s=25, alpha=0.5, edgecolors='black', linewidth=0.5, label=lable_title[i])
+            offset_value[mask] += 0.03
 
-        plt.legend(title="Spike Detection Methods:", fontsize=10, title_fontsize=10, frameon=False).set_title("Spike Detection Methods:", prop={"weight": "bold"}) 
-        plt.xlabel('Time', fontsize=10)
-        plt.ylabel('Water Level [m]', fontsize=10)
+        plt.legend(title="Spike Detection Methods:", frameon=False).set_title("Spike Detection Methods:", prop={"weight": "bold"}) 
+        plt.xlabel('Time')
+        plt.ylabel('Water Level [m]')
+        # Remove top and right spines
+        plt.gca().spines['top'].set_visible(False)
+        plt.gca().spines['right'].set_visible(False)
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {self.relev_df[time_column].iloc[0]}.png"),  bbox_inches="tight")
+        plt.close()
+
+    def two_in_one_graph(self, time_column, data_column):
+        print(self.relev_df)
+
+        #Visualization of different spike detection methods
+        pot_relev_columns = ['spike_value_statistical', 'cotede_spikes', 'cotede_improved_spikes', 'selene_spikes', 'selene_improved_spikes', 'harmonic_detected_spikes']
+        relev_columns = [col for col in pot_relev_columns if col in self.relev_df.columns]
+        lable_title = ['Implausible change rate', 'Neighboring outlier', 'Neighboring outlier (improved)', 'Spline fit', 'Spline fit (improved)', 'Polynomial offset']
+        markers = ["s" , "o" , "v" , "D" , "*", "d"]
+
+        # Generate colors from a single-hue colormap
+        color_map = plt.cm.plasma  # Choose a colormap (other good ones: Viridis, Cividis, Plasma)
+        colors = [color_map(i /len(relev_columns)) for i in range(len(relev_columns))]
+        #colors = ['red','green','blue','cyan','magenta', 'darkorange', 'lime'] 
+        grid_heights = [-0.005, 0.005, 0.015, 0.025, 0.035, 0.045, 0.055]  # Adjust as needed       
+        offset_value = np.zeros(len(self.relev_df))+0.05
+        title = 'Comparison of Spike Detection Methods'
+        # Create the figure and axes with shared x-axis
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(14, 8), gridspec_kw={'height_ratios': [2, 1]}, dpi=300)
+
+        # Plot the first graph (Sea Level Measurements)
+        ax1.plot(self.relev_df[time_column], self.relev_df[data_column], color='black', label='Sea Level Measurement', marker='o',  markersize=0.7, linestyle='None')
+        ax1.set_ylabel('Water Level [m]')
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
+        ax1.set_xlabel('Time')
+        ax1.tick_params(axis='x', labelbottom=True)
+        ax1.legend()
+
+        # Plot the second graph (Icons)
+        # Stack markers using offsets
+        for i in range(len(relev_columns)):
+            mask = self.relev_df[relev_columns[i]]
+            scatter_marker = markers[i]
+            scatter_colors = colors[i]
+            ax2.scatter(self.relev_df[time_column][mask], offset_value[mask], color=scatter_colors, marker=scatter_marker, s=25, alpha=0.5, edgecolors='black', linewidth=0.5, label=lable_title[i])
+            offset_value -= 0.01
+
+        # Add gridlines at specific heights
+        for height in grid_heights:
+            ax2.axhline(y=height, color='gray', linewidth=0.3, alpha=0.5)
+
+        ax2.axis('off')
+        #ax2.legend(loc='lower left', handleheight=2.6, frameon=False)
+        ax2.legend(loc='lower left', bbox_to_anchor=(-0.2, 0),  handleheight=2.6, frameon=False)
+
+        # Display the plot
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {self.relev_df[time_column].iloc[0]}-2in1.png"),  bbox_inches="tight")
         plt.close()

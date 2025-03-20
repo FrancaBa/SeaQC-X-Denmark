@@ -61,8 +61,8 @@ class Interpolation_Detector():
         data[f'interpolated_value{suffix}'] = gradient_mask
 
         ratio = (gradient_mask.sum()/original_length)*100
-        print(f"There are {gradient_mask.sum()} interpolated values in this timeseries. This is {ratio}% of the overall dataset.")
-        information.append([f"There are {gradient_mask.sum()} interpolated values in this timeseries. This is {ratio}% of the overall dataset."])
+        print(f"There are {gradient_mask.sum()} interpolated values in this time series. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {gradient_mask.sum()} interpolated values in this time series. This is {ratio}% of the overall dataset."])
 
         return data
     
@@ -105,7 +105,7 @@ class Interpolation_Detector():
             for i in range(1, max_range): 
                 min = builtins.max(0,(true_indices[i]-10000))
                 max = builtins.min(len(data), min+20000)
-                self.helper.plot_two_df_same_axis(data[column_time][min:max], data[data_column_name][min:max],'Water Level', 'Water Level', data['y_nan'][min:max], 'Timestamp', 'Interpolated WL',f'Constant gradient period in TS -{self.suffix}-{i}')
+                self.helper.plot_two_df_same_axis(data[column_time][min:max], data[data_column_name][min:max],'Water Level [m]', 'Water Level', data['y_nan'][min:max], 'Timestamp', 'Interpolated WL',f'Constant gradient period in TS -{self.suffix}-{i}')
             del data['y_nan']
 
         del data['slope']

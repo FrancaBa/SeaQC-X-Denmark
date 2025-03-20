@@ -42,7 +42,7 @@ class QualityFlagger():
 
     def set_station(self, station):
         self.station = station
-        self.information.append(['The following text summarizes the QC perfromed on measurements from ',station,':'])
+        self.information.append(['The following text summarizes the QC performed on measurements from ',station,':'])
     
     #provids details on station like coordinates
     def set_gauge_details(self, gauge_details_path):
@@ -144,8 +144,10 @@ class QualityFlagger():
         # Here, we extract the time difference in minutes
         self.df_meas['time_diff'] = self.df_meas[self.time_column].diff()
         self.df_meas['resolution'] = self.df_meas['time_diff'].dt.total_seconds()/60
-        frequent_timestep = self.df_meas['resolution'].value_counts().head(3)
+        frequent_timestep = self.df_meas['resolution'].value_counts().head(4)
         frequent_timestep_int =[int(res) for res in frequent_timestep.index]
+        self.information.append(['The three most frequent time steps in dataset are:', frequent_timestep])
+        print('The three most frequent time steps in dataset are:', frequent_timestep)
         self.min_timestep_int = reduce(math.gcd, frequent_timestep_int)
         self.min_timestep = str(float(self.min_timestep_int)) + 'min'
         #Select correct parameters based on timestep
@@ -171,7 +173,7 @@ class QualityFlagger():
         # Count the new NaN values after the transformation -> Where there any invalid characters?
         new_nan_count = self.df_meas[self.measurement_column].isna().sum() - original_nan_count
         print('The measurement series contained',new_nan_count,'invalid data entires.')
-        self.information.append(['The measurement series contains',new_nan_count,'invalid data entires.'])
+        self.information.append(['The measurement series contains',new_nan_count,'invalid data entries.'])
         
         #2. Replace the missing values with nan
         self.df_meas['missing_values'] = self.df_meas[self.measurement_column] == self.missing_meas_value
@@ -307,15 +309,16 @@ class QualityFlagger():
         implausible_change = qc_implausible_change.ImplausibleChangeDetector()
         implausible_change.set_output_folder(self.folder_path)
         implausible_change.set_parameters(self.params)
-        df = implausible_change.run(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
+        if self.active_tests['spike_value_statistical']:
+            df = implausible_change.detect_spikes_statistical(df, self.time_column, relevant_measurements, self.information, self.original_length, suffix)
+        if self.active_tests['implausible_change']:
+            df = implausible_change.run(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
 
         #Detect spike values
         spike_detection = qc_spike.SpikeDetector()
         spike_detection.set_output_folder(self.folder_path)
         spike_detection.set_parameters(self.params)
         self.information.append(['Various Spike detection approaches and their outcomes:'])
-        if self.active_tests['spike_value_statistical']:
-            df = spike_detection.detect_spikes_statistical(df, f'poly_interpolated_data{suffix}', self.time_column, relevant_measurements, self.information, self.original_length, suffix)
         if self.active_tests['cotede_spikes']:
             df = spike_detection.remove_spikes_cotede(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
         if self.active_tests['cotede_improved_spikes']:
@@ -337,9 +340,6 @@ class QualityFlagger():
             df = shift_detection.detect_shifts_ruptures(df, relevant_measurements, self.time_column, f'poly_interpolated_data{suffix}', self.segment_column, self.information, self.original_length, suffix)
         if self.active_tests['shifted_value']:
             df = shift_detection.detect_shifts_statistical(df, f'poly_interpolated_data{suffix}', self.time_column, relevant_measurements, self.segment_column, self.information, self.original_length, suffix)
-
-        #Check what unsupervised ML would do
-        self.unsupervised_outlier_detection(df, relevant_measurements, f'poly_interpolated_data{suffix}', self.time_column, self.segment_column, suffix)
 
         return df
 
@@ -428,7 +428,7 @@ class QualityFlagger():
                     self.helper.plot_df(data[self.time_column][min:max], data[self.measurement_column][min:max],'Water Level', 'Timestamp', f'Bad and empty periods (monthly) - Graph {i} -{suffix}')
                     self.helper.plot_df(data[self.time_column][min:max], data[data_column][min:max],'Water Level', 'Timestamp', f'Bad and empty periods (monthly)- Cleaned - Graph{i} -{suffix}')
         print(f"There are {z} bad segments in this timeseries.")
-        self.information.append([f"There are {z} bad segments in this timeseries."])
+        self.information.append([f"There are {z} bad segments in this time series."])
 
         #for segment
         shift_points = (data[segment_column] != data[segment_column].shift())
@@ -456,113 +456,3 @@ class QualityFlagger():
                 file.write("\n")
 
         print(f"QC test statements have been saved to {file_path}")
-
-
-    def unsupervised_outlier_detection(self, df, data_column_name, interpolated_data_colum, time_column, segment_column, suffix):
-        """
-        Run a simple unsupervised ML algorithm to see how it performs in grouping the measurments.
-
-        Input:
-        -Main dataframe [pandas df]
-        -Column name of measurement series of interest [str]
-        -Column name of filled series [str]
-        -Column name of time & date information [str]
-        -Column name of segmentation information [str]
-        -suffix: ending for columns and graphs in order to run in different modes [str]
-        """
-        #one high-high or low-low cycle in tide for slicing ts for unsupervised ML test
-        self.window_size = self.params['window_size_slicing_unsupervised_ml']
-
-        shift_points = (df[segment_column] != df[segment_column].shift())
-        df[f'unsupervised_ml_outliers{suffix}'] = False
-        df['test'] = df[data_column_name].copy()
-
-        for i in range(0,len(df[segment_column][shift_points]), 1):
-            start_index = df[segment_column][shift_points].index[i]
-            if i == len(df[segment_column][shift_points])-1:
-                end_index = len(df)
-            else:
-                end_index = df[segment_column][shift_points].index[i+1]
-            if df[segment_column][start_index] == 0:
-                relev_df = df[start_index:end_index]
-                #true_anomalies = relev_df[true_anomalies_column]
-
-                # Initialize a padded array
-                padding = self.window_size // 2
-                padded_values = np.pad(relev_df[interpolated_data_colum].ffill(), pad_width=padding, mode='edge') 
-                
-                # Prepare data for Isolation Forest including reelv features
-                X = []
-                for i in range(len(relev_df)):
-                    content = padded_values[i:i + self.window_size]
-                    # Extract features (mean, std, min, max)
-                    #mean = np.array([np.mean(content)])
-                    #std = np.array([np.std(content)])
-                    #min_val = np.array([np.min(content)])
-                    #max_val = np.array([np.max(content)])
-                    #features =  np.append(content, [mean, std, min_val, max_val])
-                    X.append(content)
-                X = np.array(X)
-
-                # Grid search for optimal contamination
-                #contamination_values = np.linspace(0.001, 0.1, 10)  # Test contamination levels from 0.1% to 10%
-                #best_contamination = None
-                #best_precision = 0
-
-                #for contamination in contamination_values:
-                #    isolation_forest = IsolationForest(contamination=contamination, n_estimators=200, random_state=42)
-                #    anomaly_score = isolation_forest.fit_predict(X)
-                        
-                    # Convert anomaly scores to binary (1 for anomalies, 0 for normal)
-                #    predicted_anomalies = (anomaly_score == -1).astype(int)
-                        
-                    # Compute precision score (you can also use recall or F1-score)
-                #    precision = precision_score(true_anomalies, predicted_anomalies, zero_division=0)
-                        
-                #    if precision > best_precision:
-                #        best_precision = precision
-                #        best_contamination = contamination
-                #        print(best_contamination, best_precision)
-
-                # Fit Isolation Forest
-                model = IsolationForest(contamination=0.1, n_estimators=200, random_state=42)  # Adjust contamination as needed
-                anomaly = model.fit_predict(X)
-
-                # Identify anomalies
-                anomalies = relev_df[anomaly == -1]
-
-                #Drop non-nan indices
-                relev_index = anomalies.index
-                non_nan_indices = relev_df[~relev_df[data_column_name].isna()].index.to_numpy()
-                common_indices = relev_index.intersection(non_nan_indices)
-                df.loc[common_indices, f'unsupervised_ml_outliers{suffix}'] = True
-
-                # Visualization
-                title = 'Anomaly Detection with Isolation Forest (Using Interpolation)'
-                plt.figure(figsize=(12, 6))
-                plt.plot(relev_df[time_column], relev_df[data_column_name], label='Time Series', color='blue', marker='o',  markersize=1)
-                plt.scatter(anomalies[time_column], anomalies[data_column_name], color='red', label='Anomalies', zorder=1)
-                plt.legend()
-                plt.title(title)
-                plt.xlabel('Time')
-                plt.ylabel('Water Level')
-                plt.tight_layout()
-                plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {relev_df[time_column].iloc[0]} -{suffix}.png"),  bbox_inches="tight")
-                plt.close()
-
-        #Analyse spike detectionunsupervised ML outcomes
-        df['test'] = np.where(df[f'unsupervised_ml_outliers{suffix}'], np.nan, df['test'])
-        true_indices = df[f'unsupervised_ml_outliers{suffix}'][df[f'unsupervised_ml_outliers{suffix}']].index
-        #More plots
-        if true_indices.any():
-            max_range = builtins.min(31, len(true_indices))
-            for i in range(1, max_range):
-                min = builtins.max(0,(true_indices[i]-2000))
-                max = builtins.min(len(df), min+4000)
-                self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level', 'Water Level (corrected)', df[data_column_name][min:max], 'Timestamp ', 'Water Level (all)', f'Unsupervised ML Graph {i} -{suffix}')
-                
-        print('There are', len(true_indices),'incorrect values in the timeseries based on the unsupervised ML step.')
-        self.information.append([f'There are {len(true_indices)} incorrect values in the timeseries based on the unsupervised ML step.'])
-
-        del df['test']
-

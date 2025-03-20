@@ -78,8 +78,8 @@ class OutlierRemover():
                 
             
         ratio = (outlier_mask.sum()/original_length)*100
-        print(f"There are {outlier_mask.sum()} outliers in this timeseries. This is {ratio}% of the overall dataset.")
-        information.append([f"There are {outlier_mask.sum()} outliers in this timeseries. This is {ratio}% of the overall dataset."])
+        print(f"There are {outlier_mask.sum()} outliers in this time series. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {outlier_mask.sum()} outliers in this time series. This is {ratio}% of the overall dataset."])
         self.helper.plot_df(df_meas_long[time_column], df_meas_long[adapted_meas_col_name],'Water Level','Timestamp ', f'Measured water level wo outliers in 1 min timestamp{suffix}')
         
         #Plot distribution for analysis after outlier removal

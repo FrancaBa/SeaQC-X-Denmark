@@ -10,6 +10,7 @@ import pandas as pd
 import utide
 import builtins
 import random
+import pickle
 
 import source.helper_methods as helper
 
@@ -58,30 +59,33 @@ class TidalSignalGenerator():
         #For tidal analysis, it needs anomaly data. After tidal analysis, one can add the mean again to get the clean original data.
         #Calculate anomaly
         df['anomaly'] = df[measurement_column] - df[measurement_column].mean()
-        #Define time span for which tidal signal is needed
-        df['time_array'] =  df[time_column].values
 
         #Extract good data measurements based on first QC over 1 year for tidal analysis
         boolean_columns = df.select_dtypes(include='bool')
-        del boolean_columns['missing_values']
+        #del boolean_columns['missing_values']
         df['combined_mask'] = boolean_columns.any(axis=1)
+        good_df = df[~df['combined_mask']]
         # Get the year with the most entries and calibrate tide constitents based on that year
-        year_counts = df[time_column].dt.year.value_counts()
+        year_counts = good_df[time_column].dt.year.value_counts()
         most_frequent_year = year_counts.idxmax()
-        tidal_df = df[df[time_column].dt.year == most_frequent_year]
-        #Extract needed inputs for U-Tide
-        time_array_good = tidal_df['time_array'][~tidal_df['combined_mask']]
-        anomaly_good = tidal_df['anomaly'][~tidal_df['combined_mask']]
+        calibration_df = good_df[good_df[time_column].dt.year == most_frequent_year]
+        #Extract needed inputs for U-Tide (resample to 5 min for memory issue)
+        calibration_df = calibration_df.set_index(time_column)
+        calibration_df_resampled = calibration_df.resample('5min').mean().interpolate()
+        time_array_good = calibration_df_resampled.index.values
+        anomaly_good = calibration_df_resampled['anomaly']
+        #time_array_good = calibration_df.index.values
+        #anomaly_good = calibration_df['anomaly']
 
-        #coef = utide.solve(time_array_good, anomaly_good.values, lat=lat, method="ols", conf_int="MC", trend=False, nodal=True, verbose=False)
-        coef = utide.solve(time_array_good, anomaly_good.values, lat=lat, method="ols", conf_int="MC", trend=True, nodal=True, verbose=False)
+        coef = utide.solve(time_array_good, anomaly_good.values, lat=lat, method="ols", conf_int="MC", trend=False, nodal=True, verbose=False)
+        #coef = utide.solve(time_array_good, anomaly_good.values, lat=lat, method="ols", conf_int="MC", trend=True, nodal=True, verbose=False)
        
         #Reconstruct function to generate a tidal signal at the times specified in the time array
         #Split it in 10 parts to avoid memory issues or run it on server!!
-        period = round(len(df['time_array'])/10)
+        period = round(len(time_array_good)/10)
         period_tide = []
         for i in range(0, len(df), period):
-            period_array = df['time_array'][i:i+period]
+            period_array = df[time_column].values[i:i+period]
             tide = utide.reconstruct(period_array, coef, verbose=False)
             period_tide.append(tide.h)
         combined_tide = np.concatenate(period_tide)
@@ -96,9 +100,9 @@ class TidalSignalGenerator():
 
         #Insight for tidal analysis
         fig, (ax0, ax1, ax2) = plt.subplots(figsize=(17, 5), nrows=3, sharey=False, sharex=True)
-        ax0.plot(df['time_array'], df['anomaly'], label="SL Measurements", color="C0", marker='o',  markersize=1)
-        ax1.plot(df['time_array'], combined_tide, label="Tidal prediction", color="C1", marker='o',  markersize=1)
-        ax2.plot(df['time_array'], df['detided_series'], label="Residual", color="C2", marker='o',  markersize=1)
+        ax0.plot(df[time_column], df['anomaly'], label="SL Measurements", color="C0", marker='o',  markersize=1)
+        ax1.plot(df[time_column], combined_tide, label="Tidal prediction", color="C1", marker='o',  markersize=1)
+        ax2.plot(df[time_column], df['detided_series'], label="Residual", color="C2", marker='o',  markersize=1)
         fig.legend(ncol=3, loc="upper center")
         plt.savefig(os.path.join(self.folder_path,f"Tidal Decomposition-whole period"),  bbox_inches="tight")
         plt.close()
@@ -109,12 +113,19 @@ class TidalSignalGenerator():
             self.helper.plot_two_df_same_axis(df[time_column][min:max], df['anomaly'][min:max],'Water Level', 'Water Level (anomaly)', df['tidal_signal'][min:max], 'Timestamp', 'Tidal signal',f'Measurements vs tide signal - Index: {min}')
             self.helper.plot_df(df[time_column][min:max], df['detided_series'][min:max], 'Detided signal', 'Timestamp', f'Detided sea level - Index: {min}')
 
+        # Export parameters to .pkl
+        filename = os.path.join(self.folder_path,f"tidal_components_{self.station}.pkl")
+        # Save to file
+        with open(filename, "wb") as f:
+            pickle.dump(coef, f)
+        
+        print(f"Parameters exported to {filename}")
+
         print('Tidal signal has been successfully created for this timeseries.')
         information.append(['Tidal signal has been successfully created for this timeseries.'])
 
         del df['combined_mask']
         del df['anomaly']
-        del df['time_array']
 
         return df
     

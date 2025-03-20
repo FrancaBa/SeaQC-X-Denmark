@@ -69,7 +69,7 @@ class QualityMasking():
             elif col_name == f'short_bad_measurement_series{suffix}' and self.active_tests['bad_segment']:
                 bitmask_elem = self.bitmask_def[f'bad_segment{suffix}']
                 df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == f'outlier_change_rate{suffix}' and self.active_tests['outlier_change_rate']:
+            elif col_name == f'outlier_change_rate{suffix}' and self.active_tests['implausible_change']:
                 bitmask_elem = self.bitmask_def[f'spikes{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 if f'bit_{bitmask_elem}{suffix}' in df.columns:
@@ -77,7 +77,7 @@ class QualityMasking():
                 else:
                     df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == f'noisy_period{suffix}' and self.active_tests['noisy_period']:
+            elif col_name == f'noisy_period{suffix}' and self.active_tests['implausible_change']:
                 bitmask_elem = self.bitmask_def[f'noisy_period{suffix}']
                 df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
             elif col_name == f'spike_value_statistical{suffix}' and self.active_tests['spike_value_statistical']:
@@ -179,17 +179,15 @@ class QualityMasking():
             relev_qc_tests = [test for test in relev_qc_tests if not test.endswith("_detided")]
             relev_qc_tests = [x for x in relev_qc_tests if x not in ['probably_good_data', 'incorrect_format', 'missing_data']]
             for elem in relev_qc_tests:
-                #Extract relevant columns (detided and tided) for each QC test
-                column_with_tide = self.bitmask_def[f'{elem}']
-                column_without_tide = self.bitmask_def[f'{elem}{suffix}']
-                filtered_df = df[[f'bit_{column_with_tide}',f'bit_{column_without_tide}{suffix}']]
-                #save how the test fail respectively for tided or detided series
-                positives_tidal = (df[f'bit_{column_with_tide}'] != 0).sum()
-                positives_detided = (df[f'bit_{column_without_tide}{suffix}'] != 0).sum()
-                print(f'The QC test {elem} fails {positives_tidal} times for measurement series with tides and {positives_detided} times for detided data. This is a difference of {positives_tidal-positives_detided} flagged entries.')
-                information.append([f'The QC test {elem} fails {positives_tidal} times for measurement series with tides and {positives_detided} times for detided data. This is a difference of {positives_tidal-positives_detided} flagged entries.'])
-                #merge columns to assign flags irrespectively if test fails for detided or for tidal measurements (this overwrites the original bits!)
-                df[f'bit_{column_with_tide}'] = filtered_df.max(axis=1).replace(column_without_tide, column_with_tide)
+                #Only merge QC columns if they exists
+                if elem in self.active_tests.keys():
+                    if self.active_tests[elem]:
+                        self.merge_columns_qc(elem, df, information, suffix)
+                else:
+                    if elem == 'noisy_period' and self.active_tests['implausible_change']:
+                        self.merge_columns_qc(elem, df, information, suffix)
+                    if elem == 'spike' and any(value for key, value in self.active_tests.items() if "spike" in key and value):
+                        self.merge_columns_qc(elem, df, information, suffix)
         
             #Overwrite 'combined_int' by numbers representing merged columns for the same test based on detided and tided data
             bit_dfs = df.filter(regex='^bit_')
@@ -198,6 +196,19 @@ class QualityMasking():
             df['combined_int'] = np.bitwise_or.reduce(bit_dfs, axis=1)
 
         return df
+    
+    def merge_columns_qc(self, elem, df, information, suffix):
+        #Extract relevant columns (detided and tided) for each QC test
+        column_with_tide = self.bitmask_def[f'{elem}']
+        column_without_tide = self.bitmask_def[f'{elem}{suffix}']
+        filtered_df = df[[f'bit_{column_with_tide}',f'bit_{column_without_tide}{suffix}']]
+        #save how the test fail respectively for tided or detided series
+        positives_tidal = (df[f'bit_{column_with_tide}'] != 0).sum()
+        positives_detided = (df[f'bit_{column_without_tide}{suffix}'] != 0).sum()
+        print(f'The QC test {elem} fails {positives_tidal} times for measurement series with tides and {positives_detided} times for detided data. This is a difference of {positives_tidal-positives_detided} flagged entries.')
+        information.append([f'The QC test {elem} fails {positives_tidal} times for measurement series with tides and {positives_detided} times for detided data. This is a difference of {positives_tidal-positives_detided} flagged entries.'])
+        #merge columns to assign flags irrespectively if test fails for detided or for tidal measurements (this overwrites the original bits!)
+        df[f'bit_{column_with_tide}'] = filtered_df.max(axis=1).replace(column_without_tide, column_with_tide)
 
     def convert_bitmask_to_flags(self, df):
         """

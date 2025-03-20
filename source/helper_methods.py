@@ -6,10 +6,48 @@
 import os, sys
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
+import matplotlib.dates as mdates
+import matplotlib.font_manager as fm
+
+mpl.rcdefaults()  # Reset everything
+
+if os.name == 'nt':  # Windows
+    font_path = "C:\\Windows\\Fonts\\TimesNewRoman.ttf"
+else: #else Linux(Ubuntu)
+    font_path = "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf" 
+
+#prop = fm.FontProperties(fname=font_path, size=12)
+prop = fm.FontProperties(fname=font_path)
+#plt.rcParams["font.family"] = "DejaVu Serif"
+plt.rcParams["font.size"] = 12  # Set global font size (adjust as needed)
+plt.rcParams["axes.labelsize"] = 12  # Set x and y label size
+plt.rcParams["axes.titlesize"] = 12  # Set title size
+plt.rcParams["xtick.labelsize"] = 12  # Set x-axis tick labels size
+plt.rcParams["ytick.labelsize"] = 12  # Set y-axis tick labels size
+plt.rcParams["legend.fontsize"] = 12  # Set x-axis tick labels size
+plt.rcParams["figure.titlesize"] = 12  # Set y-axis tick labels size
+
+BIGGER_SIZE = 12
+#plt.rc('font', size=BIGGER_SIZE)          # controls default text sizes
+#plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
+#plt.rc('axes', labelsize=BIGGER_SIZE)    # fontsize of the x and y labels
+#plt.rc('xtick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
+#plt.rc('ytick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
+#plt.rc('legend', fontsize=BIGGER_SIZE)    # legend fontsize
+#plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
+#plt.rcParams.update({'font.size': BIGGER_SIZE})
+#plt.rcParams.update({'axes.titlesize': BIGGER_SIZE})
+#plt.rcParams.update({'axes.labelsize': BIGGER_SIZE})
+#plt.rcParams.update({'xtick.labelsize': BIGGER_SIZE})
+#plt.rcParams.update({'xtick.labelsize': BIGGER_SIZE})
+#plt.rcParams.update({'legend.fontsize': BIGGER_SIZE})
+#plt.rcParams.update({'figure.titlesize': BIGGER_SIZE})
 
 pio.renderers.default = "browser"
 
@@ -85,14 +123,14 @@ class HelperMethods():
         """
                 
         plt.figure(figsize=(18, 9))
-        plt.plot(x_axis, data,  marker='o', markersize=1, linestyle='None')
-        if title != None:
-            plt.title(f"{title} - Date: {x_axis.iloc[0]}")
+        plt.plot(x_axis, data,  marker='o', markersize=1.2, label = 'Water Level', linestyle='None', color = 'black')
+        #if title != None:
+        #    plt.title(f"{title} - Date: {x_axis.iloc[0]}")
         plt.xlabel(x_title)
         plt.ylabel(y_title)
-        plt.xticks(rotation=45, ha='right')
+        plt.legend(frameon=False)
         plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {x_axis.iloc[0]}.png"),  bbox_inches="tight")
+        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {x_axis.iloc[0]}.png"), dpi=200, bbox_inches="tight")
         plt.close()  # Close the figure to release memory
 
 
@@ -109,26 +147,58 @@ class HelperMethods():
         -x_title [str]
         -title: default is None, but can be overwritten [str]
         """
+        #plt.rcParams["font.size"] = 12  # Set global font size (adjust as needed)
+        #plt.rcParams["axes.labelsize"] = 12  # Set x and y label size
+        #plt.rcParams["axes.titlesize"] = 12  # Set title size
+        #plt.rcParams["xtick.labelsize"] = 12  # Set x-axis tick labels size
+        #plt.rcParams["ytick.labelsize"] = 12  # Set y-axis tick labels size
 
         fig, ax1 = plt.subplots(figsize=(18, 10))
 
+        #BIGGER_SIZE = 12
+        #plt.rc('font', size=BIGGER_SIZE)          # controls default text sizes
+        #plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
+        #plt.rc('axes', labelsize=BIGGER_SIZE)    # fontsize of the x and y labels
+        #plt.rc('xtick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
+        #plt.rc('ytick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
+        #plt.rc('legend', fontsize=BIGGER_SIZE)    # legend fontsize
+        #plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
+        #plt.rcParams.update({'font.size': BIGGER_SIZE})
+        #plt.rcParams.update({'axes.titlesize': BIGGER_SIZE})
+        #plt.rcParams.update({'axes.labelsize': BIGGER_SIZE})
+        #plt.rcParams.update({'xtick.labelsize': BIGGER_SIZE})
+        #plt.rcParams.update({'xtick.labelsize': BIGGER_SIZE})
+        #plt.rcParams.update({'legend.fontsize': BIGGER_SIZE})
+        #plt.rcParams.update({'figure.titlesize': BIGGER_SIZE})
+
         color = 'black'
-        ax1.set_xlabel(x_title)
-        ax1.set_ylabel(y_title_1 , color=color)
-        ax1.plot(x_axis, data_1, marker='+', markersize=5, color=color, linestyle='None')
+        ax1.set_xlabel(x_title, fontproperties=prop)
+        ax1.set_ylabel(y_title_1 , color=color, fontproperties=prop)
+        #ax1.plot(x_axis, data_1, marker='+', markersize=7, color=color, linestyle='None')
+        ax1.plot(x_axis, data_1, marker='o', markersize=3, color=color, linestyle='None')
         ax1.tick_params(axis='y', labelcolor=color)
 
         ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 
         color = 'tab:green'
         ax2.set_ylabel(y_title_2, color=color)  # we already handled the x-label with ax1
-        ax2.plot(x_axis, data_2, marker='o', markersize=2, color=color, linestyle='None', alpha=0.6)
+        ax2.plot(x_axis, data_2, marker='o', markersize=3, color=color, linestyle='None', alpha=0.6)
         ax2.tick_params(axis='y', labelcolor=color)
 
+        # Format x-axis to show only numbers
+        ax2.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))  # Format: MM-DD HH:MM
+        #ax2.xaxis.set_major_locator(mdates.HourLocator(interval=6))  # Tick every 6 hours
+        #plt.xticks(rotation=45) 
+
+        # Ensure all spines (box edges) are visible
+        for spine in ax2.spines.values():
+            spine.set_visible(True)
+
         fig.tight_layout() 
-        if title != None:
-            plt.title(f"{title} - Date: {x_axis.iloc[0]}")
-        plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
+        #if title != None:
+        #    plt.title(f"{title} - Date: {x_axis.iloc[0]}")
+        fig.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
         plt.close()  # Close the figure to release memory
 
 
@@ -146,21 +216,53 @@ class HelperMethods():
         -legend_2 [str] (describes what measurement 2 is)
         -title: default is None, but can be overwritten [str]
         """
+        #plt.rcParams["font.size"] = 12  # Set global font size (adjust as needed)
+        #plt.rcParams["axes.labelsize"] = 12  # Set x and y label size
+        #plt.rcParams["axes.titlesize"] = 12  # Set title size
+        #plt.rcParams["xtick.labelsize"] = 12  # Set x-axis tick labels size
+        #plt.rcParams["ytick.labelsize"] = 12  # Set y-axis tick labels size
 
         fig, ax1 = plt.subplots(figsize=(18, 10))
+        #BIGGER_SIZE = 12
+        #plt.rc('font', size=BIGGER_SIZE)          # controls default text sizes
+        #plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
+        #plt.rc('axes', labelsize=BIGGER_SIZE)    # fontsize of the x and y labels
+        #plt.rc('xtick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
+        #plt.rc('ytick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
+        #plt.rc('legend', fontsize=BIGGER_SIZE)    # legend fontsize
+        #plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
+        #plt.rcParams.update({'font.size': BIGGER_SIZE})
+        #plt.rcParams.update({'axes.titlesize': BIGGER_SIZE})
+        #plt.rcParams.update({'axes.labelsize': BIGGER_SIZE})
+        #plt.rcParams.update({'xtick.labelsize': BIGGER_SIZE})
+        #plt.rcParams.update({'xtick.labelsize': BIGGER_SIZE})
+        #plt.rcParams.update({'legend.fontsize': BIGGER_SIZE})
+        #plt.rcParams.update({'figure.titlesize': BIGGER_SIZE})
+                    
         color = 'black'
-        ax1.set_xlabel(x_title)
-        ax1.set_ylabel(y_title)
-        ax1.plot(x_axis, data_1, marker='+', markersize=5, color=color, linestyle='None', label= legend_1)
+        ax1.set_xlabel(x_title, fontsize=16, fontproperties=prop)
+        ax1.set_ylabel(y_title, fontsize=16, fontproperties=prop)
+        #ax1.set_xlabel(x_title)
+        #ax1.set_ylabel(y_title)
+        ax1.plot(x_axis, data_1, marker='o', markersize=3, color=color, linestyle='None', label= legend_1)
         ax1.tick_params(axis='y')
 
         color = 'tab:green'
-        ax1.plot(x_axis, data_2, marker='o', markersize=2, color=color, linestyle='None', alpha=0.6, label= legend_2)
+        ax1.plot(x_axis, data_2, marker='o', markersize=3, color=color, linestyle='None', alpha=0.6, label= legend_2)
         ax1.legend(loc='upper right')  # Position the legend as desired
 
-        fig.tight_layout() 
-        if title != None:
-            plt.title(f"{title} - Date: {x_axis.iloc[0]}")
-        plt.savefig(os.path.join(self.folder_path,f"{title}.png"),  bbox_inches="tight")
+        #Format x-axis to show only numbers
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))  # Format: MM-DD HH:MM
+        #ax1.xaxis.set_major_locator(mdates.HourLocator(interval=6))  # Tick every 6 hours
+        #plt.xticks(rotation=45) 
+
+        # Ensure all spines (box edges) are visible
+        for spine in ax1.spines.values():
+            spine.set_visible(True)
+
+        fig.tight_layout()
+        #if title != None:
+        #    plt.title(f"{title} - Date: {x_axis.iloc[0]}")
+        fig.savefig(os.path.join(self.folder_path,f"{title}.png"), dpi=300,  bbox_inches="tight")
         plt.close()  # Close the figure to release memory

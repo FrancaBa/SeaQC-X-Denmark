@@ -1,6 +1,6 @@
 {
-  "date_alteration": "23.01.2025",
-  "detide_mode": false,
+  "date_alteration": "20.03.2025",
+  "detide_mode": true,
   "ML_mode": true,
   "qc_flag_classification": {
     "no_qc": 0,
@@ -34,17 +34,16 @@
     "interpolated_value_detided": 65536
   },
   "qc_active_tests": {
-    "shifted_value": true,
+    "shifted_value": false,
     "shifted_ruptures": false,
-    "noisy_period": true,
     "probably_good_data": true,
     "stuck_value": true,
     "global_outliers": true,
-    "outlier_change_rate": true,
+    "implausible_change": true,
     "spike_value_statistical": true,
     "cotede_spikes": true,
     "cotede_improved_spikes": true,
-    "selene_spikes": true,
+    "selene_spikes": false,
     "selene_improved_spikes": true,
     "harmonic_detected_spikes": true,
     "ml_detected_spikes": true,
@@ -71,22 +70,22 @@
       },
       "implausible_change":{
         "search_step_neighbours": 15,
+        "change_threshold": 0.05,
         "threshold_max_change": 0.2,
         "range_spike_pair": 10,
         "shifting_periods": 0.2,
         "outliers_per_hour": 3
       },
       "spike_detection":{
-        "change_threshold": 0.05,
-        "cotede_threshold": 0.01,
-        "improved_cotede_threshold": 0.03,
+        "cotede_threshold": 0.02,
+        "improved_cotede_threshold": 0.1,
         "max_window_neighbours":60,
         "test_size": 0.15,
         "lag_05tide": 375,
         "lag_1tide": 750,
         "lag_2tide": 1500,
         "seven_days": 10430,
-        "nsigma": 3,
+        "nsigma": 2,
         "splinelength": 420,
         "splinedegree": 2
       },
@@ -115,15 +114,15 @@
       },
       "implausible_change":{
         "search_step_neighbours": 3,
+        "change_threshold": 0.25,
         "threshold_max_change": 0.2,
         "range_spike_pair": 3,
         "shifting_periods": 0.2,
         "outliers_per_hour": 3
       },
       "spike_detection":{
-        "change_threshold": 0.25,
         "cotede_threshold": 0.05,
-        "improved_cotede_threshold": 0.25,
+        "improved_cotede_threshold": 0.3,
         "max_window_neighbours":12,
         "test_size": 0.85,
         "lag_05tide": 75,
@@ -159,13 +158,13 @@
       },
       "implausible_change":{
         "search_step_neighbours": 2,
+        "change_threshold": 0.5,
         "threshold_max_change": 0.4,
         "range_spike_pair": 2,
         "shifting_periods": 0.4,
         "outliers_per_hour": 2
       },
       "spike_detection":{
-        "change_threshold": 0.5,
         "cotede_threshold": 0.1,
         "improved_cotede_threshold": 0.5,
         "max_window_neighbours":6,
@@ -203,13 +202,13 @@
       },
       "implausible_change":{
         "search_step_neighbours": 2,
+        "change_threshold": 0.75,
         "threshold_max_change": 0.5,
         "range_spike_pair": 2,
         "shifting_periods": 0.5,
         "outliers_per_hour": 2
       },
       "spike_detection":{
-        "change_threshold": 0.75,
         "cotede_threshold": 0.15,
         "improved_cotede_threshold": 0.7,
         "max_window_neighbours":4,
