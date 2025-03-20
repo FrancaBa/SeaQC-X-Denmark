@@ -22,7 +22,9 @@ class Test_QC_ML_Station(unittest.TestCase):
         self.stations = ['Qaqortoq', 'Ittoqqortoormiit', 'Nuuk', 'Nuuk1', 'Pituffik', 'Upernavik1', 'Upernavik2'] 
 
         #Set path to measurements
-        self.datadir = '/dmidata/users/frb/greenland_data_raw/manual_labelled_GL_data/double_checked_labelled'
+        #self.datadir = '/dmidata/users/frb/greenland_data_raw/manual_labelled_GL_data/double_checked_labelled'
+        self.datadir = '/home/frb/Documents/Franca_Project/double_checked_labelled'
+        self.datadir_tides = os.path.join(os.getcwd(), 'tests', 'tidal_information')
 
         #Set other parameter accordingly
         self.missing_meas_value = 999.999 #999.000
@@ -33,13 +35,9 @@ class Test_QC_ML_Station(unittest.TestCase):
         self.json_path = os.path.join(os.getcwd(), 'config.json')
 
     def test_quality_check_upernavik1(self):
-
         #select the station (here: Upernavik 2023)
-        index_station=5
-        station = self.stations[index_station]
         station = 'Upernavik1'
-
-        print(os.getcwd())
+        #station = 'Upernavik'
 
         #select output folder
         output_path = os.path.join(os.getcwd(),'output', 'ml_classes', station)
@@ -47,9 +45,9 @@ class Test_QC_ML_Station(unittest.TestCase):
 
         data_flagging_ml = qc_ml_detector.MLOutlierDetection()
         data_flagging_ml.set_output_folder(output_path)
-        data_flagging_ml.load_config_json(self.json_path)
         data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
         data_flagging_ml.set_station(station)
-        data_flagging_ml.set_missing_value_filler(self.missing_meas_value)
-        labelled_df, station_df = data_flagging_ml.import_data(self.datadir, self.ending)
-        data_flagging_ml.run(labelled_df, station_df)
+        data_flagging_ml.set_tidal_components_file(self.datadir_tides)
+        data_flagging_ml.import_data(self.datadir)
+        data_flagging_ml.run()
+        data_flagging_ml.run_unsupervised()

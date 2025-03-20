@@ -1,6 +1,6 @@
 {
-  "date_alteration": "13.03.2025",
-  "detide_mode": false,
+  "date_alteration": "20.03.2025",
+  "detide_mode": true,
   "ML_mode": true,
   "qc_flag_classification": {
     "no_qc": 0,
@@ -43,7 +43,7 @@
     "spike_value_statistical": true,
     "cotede_spikes": true,
     "cotede_improved_spikes": true,
-    "selene_spikes": true,
+    "selene_spikes": false,
     "selene_improved_spikes": true,
     "harmonic_detected_spikes": true,
     "ml_detected_spikes": true,
@@ -78,7 +78,7 @@
       },
       "spike_detection":{
         "cotede_threshold": 0.02,
-        "improved_cotede_threshold": 0.07,
+        "improved_cotede_threshold": 0.1,
         "max_window_neighbours":60,
         "test_size": 0.15,
         "lag_05tide": 375,
@@ -122,7 +122,7 @@
       },
       "spike_detection":{
         "cotede_threshold": 0.05,
-        "improved_cotede_threshold": 0.25,
+        "improved_cotede_threshold": 0.3,
         "max_window_neighbours":12,
         "test_size": 0.85,
         "lag_05tide": 75,

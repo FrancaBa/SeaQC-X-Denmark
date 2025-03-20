@@ -241,8 +241,8 @@ class HelperMethods():
         #plt.rcParams.update({'figure.titlesize': BIGGER_SIZE})
                     
         color = 'black'
-        ax1.set_xlabel(x_title, fontsize=12, fontproperties=prop)
-        ax1.set_ylabel(y_title, fontsize=12, fontproperties=prop)
+        ax1.set_xlabel(x_title, fontsize=16, fontproperties=prop)
+        ax1.set_ylabel(y_title, fontsize=16, fontproperties=prop)
         #ax1.set_xlabel(x_title)
         #ax1.set_ylabel(y_title)
         ax1.plot(x_axis, data_1, marker='o', markersize=3, color=color, linestyle='None', label= legend_1)
