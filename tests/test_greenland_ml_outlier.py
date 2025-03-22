@@ -28,7 +28,6 @@ class Test_QC_ML_Station(unittest.TestCase):
 
         #Set other parameter accordingly
         self.missing_meas_value = 999.999 #999.000
-        self.ending = '.csv'
         self.param = 'value'
 
         #Set path to config json and tidal constituents
@@ -50,4 +49,22 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_tidal_components_file(self.datadir_tides)
         data_flagging_ml.import_data(self.datadir)
         data_flagging_ml.run()
-        data_flagging_ml.run_unsupervised()
+        #data_flagging_ml.run_unsupervised()
+    
+
+    def test_quality_check_Nuuk1(self):
+        #select the station (here: Nuuk)
+        station = 'Nuuk'
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', 'ml_classes', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_flagging_ml = qc_ml_detector.MLOutlierDetection()
+        data_flagging_ml.set_output_folder(output_path)
+        data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
+        data_flagging_ml.set_station(station)
+        data_flagging_ml.set_tidal_components_file(self.datadir_tides)
+        data_flagging_ml.import_data(self.datadir)
+        data_flagging_ml.run()
+        #data_flagging_ml.run_unsupervised()

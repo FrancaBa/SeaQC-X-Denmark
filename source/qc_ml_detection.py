@@ -12,6 +12,7 @@ import utide
 import random
 import matplotlib.dates as mdates 
 import pickle
+import csv
 
 import torch
 import torch.nn as nn
@@ -40,7 +41,7 @@ from imblearn.pipeline import Pipeline
 from imblearn.combine import SMOTETomek
 from imblearn.ensemble import BalancedRandomForestClassifier
 from sklearn.utils.class_weight import compute_sample_weight
-from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, average_precision_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import AdaBoostClassifier
@@ -54,11 +55,15 @@ class MLOutlierDetection():
 
         #Empty element to store different texts about QC tests and save as a summary document
         self.information = []
+        self.scores = []
+        self.scores.append("PR-AUC")
+        self.scores.append("Precision")
+        self.scores.append("Recall")
 
     def set_station(self, station):
         self.station = station
-        self.information.append(['The following text summarizes the supervised ML QC perfromed on measurements from ', station,':'])
-    
+        self.information.append([f'The following text summarizes the supervised ML spike detection performed on the manual labelled data.', '\n', f'{station} has been used for training:', '\n'])
+        
     def set_tidal_components_file(self, folder_path):
         self.tidal_infos = []
         #Open .csv file and fix the column names
@@ -107,12 +112,14 @@ class MLOutlierDetection():
         for elem in self.dfs:
             if self.station in elem:
                 #duplicate df of station for training data and analyse it
-                df_train = self.dfs[elem]
+                df_train = self.dfs[elem].copy()
                 unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
                 for value, count in zip(unique_values, counts):
+                    self.information.append(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
                     print(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
+                self.information.append('\n')
                 #Preprocess the training data if needed
-                #df_train = self.preprocessing_data(df_train)
+                df_train = self.preprocessing_data(df_train)
                 #Decied if whole station df is used for training or only subset. If subset, split here
                 #df_train, df_test = train_test_split(self.dfs[elem], test_size=0.2, shuffle=False)
                 #Add features to the original data series and the training data
@@ -123,9 +130,9 @@ class MLOutlierDetection():
                 tidal_signal= [path for path in self.tidal_infos if elem.strip("0123456789") in path]
                 self.dfs[elem] = self.add_features(self.dfs[elem], tidal_signal[0], elem)
 
-        X_train = df_train.drop(columns=["Timestamp", "label"]).values
+        #X_train = df_train.drop(columns=["Timestamp", "label"]).values
         #X_train = df_train[[self.measurement_column, 'lag_1', 'lag_2', 'lag_-1', 'lag_-2', 'gradient_1', 'gradient_-1']].values
-        #X_train = df_train[[self.measurement_column, 'gradient_1', 'gradient_-1']].values
+        X_train = df_train[self.features].values
         y_train = df_train[self.qc_column].values
 
         #Visualize training data
@@ -138,10 +145,13 @@ class MLOutlierDetection():
         #Runs all dataset again for testing (also training set)
         for elem in self.dfs:
             self.run_testing_model(self.dfs[elem], elem)
+        
+        self.save_to_txt()
+        self.save_to_csv()
 
     def preprocessing_data(self, df):
         #Undersampling: Mark 10% of random good rows to be deleted
-        rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.1, random_state=42).index
+        #rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.1, random_state=42).index
         #Drop selected rows
         #df = df.drop(rows_to_drop).reset_index(drop=True).copy()
         
@@ -152,13 +162,13 @@ class MLOutlierDetection():
         #df_res_new = pd.concat([bad_rows, df_res]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='first').reset_index(drop=True)
         
         # Oversampling:Select good rows and shift them up and down
-        rows_shift_neg = df[df[self.qc_column]==1].sample(frac=0.1, random_state=42)
-        shift_array = np.random.uniform(0.02, 0.12, len(rows_shift_neg))
+        rows_shift_neg = df[df[self.qc_column]==1].sample(frac=0.05, random_state=42)
+        shift_array = np.random.uniform(0.03, 0.12, len(rows_shift_neg))
         rows_shift_neg[self.measurement_column] = rows_shift_neg[self.measurement_column] - shift_array
         rows_shift_neg[self.qc_column] = 3
         df = pd.concat([df, rows_shift_neg]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='last').reset_index(drop=True) 
-        rows_shift_pos = df[df[self.qc_column]==1].sample(frac=0.1, random_state=42)
-        shift_array = np.random.uniform(0.05, 0.12, len(rows_shift_pos))
+        rows_shift_pos = df[df[self.qc_column]==1].sample(frac=0.05, random_state=42)
+        shift_array = np.random.uniform(0.03, 0.12, len(rows_shift_pos))
         rows_shift_pos[self.measurement_column] = rows_shift_pos[self.measurement_column] + shift_array
         rows_shift_pos[self.qc_column] = 3
         df = pd.concat([df, rows_shift_pos]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='last').reset_index(drop=True)
@@ -169,12 +179,12 @@ class MLOutlierDetection():
         self.zoomable_plot_df(df, 'QC classes - Resampled', anomalies)
 
         #Oversampling:Add some extreme values
-        rows_shift_neg = df[df[self.qc_column]==1].sample(frac=0.01, random_state=42)
+        rows_shift_neg = df[df[self.qc_column]==1].sample(frac=0.005, random_state=42)
         shift_array = np.random.uniform(0.1, 1.5, len(rows_shift_neg))
         rows_shift_neg[self.measurement_column] = rows_shift_neg[self.measurement_column] - shift_array
         rows_shift_neg[self.qc_column] = 3
         df = pd.concat([df, rows_shift_neg]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='last').reset_index(drop=True) 
-        rows_shift_pos = df[df[self.qc_column]==1].sample(frac=0.01, random_state=42)
+        rows_shift_pos = df[df[self.qc_column]==1].sample(frac=0.005, random_state=42)
         shift_array = np.random.uniform(0.1, 1.5, len(rows_shift_pos))
         rows_shift_pos[self.measurement_column] = rows_shift_pos[self.measurement_column] + shift_array
         rows_shift_pos[self.qc_column] = 3
@@ -183,7 +193,9 @@ class MLOutlierDetection():
         #Analysis
         unique_values, counts = np.unique(df[self.qc_column], return_counts=True)
         for value, count in zip(unique_values, counts):
+            self.information.append(f"Class {value} exists {count} times in the resampled dataset. This is {count/len(df)}.")
             print(f"Class {value} exists {count} times in the resampled dataset. This is {count/len(df)}.")
+        self.information.append('\n')
 
         #Visualization resampled data
         anomalies = np.isin(df[self.qc_column], [3])
@@ -204,6 +216,8 @@ class MLOutlierDetection():
         df['lag_-2'] = df['value'].shift(-2)
         df['gradient_1'] = df['value'] - df['value'].shift(1)
         df['gradient_-1'] = df['value'].shift(-1) - df['value']
+        df['gradient_2'] = df['value'] - df['value'].shift(2)
+        df['gradient_-2'] = df['value'].shift(-2) - df['value']
 
         #Advanced features:
         #Generate wavelets
@@ -218,10 +232,14 @@ class MLOutlierDetection():
         df_wavelet['timestep'] = df_wavelet['timestep'].dt.round('min')
         merged_df = pd.merge(df, df_wavelet, left_index=True, right_on='timestep', how='left')
         #df['wavelet'] = merged_df['wavelet_coef'].values
+
         #Add tidal signal
         tidal_signal_series = self.reinitialize_utide_from_txt(df, tidal_signal, station)
         df['tidal_signal'] = tidal_signal_series
-        self.features = ['lag_1', 'lag_2', 'lag_-1', 'lag_-2', 'tidal_signal', 'wavelet', 'gradient_1', 'gradient_-1']
+        rolling_corr = df['value'].rolling(10).corr(pd.Series(tidal_signal_series))
+        df['tidal_corr'] = rolling_corr
+        #self.features = ['lag_1', 'lag_2', 'lag_-1', 'lag_-2', 'tidal_signal', 'wavelet', 'gradient_1', 'gradient_-1', 'gradient_2', 'gradient_-2']
+        self.features = [self.measurement_column, 'gradient_1', 'gradient_-1', 'gradient_2', 'gradient_-2']
 
         #reset index and timestep back to column
         df = df.reset_index().rename(columns={'index': self.time_column})
@@ -285,7 +303,6 @@ class MLOutlierDetection():
         #model = AdaBoostClassifier(estimator=base_estimator)
         #model = BalancedRandomForestClassifier(n_estimators=100, random_state=42)
 
-
         # Train the model
         #model.fit(self.X_train_res, self.y_train_res, eval_set=[(self.X_train_res, self.y_train_res), (self.X_val, self.y_val_transformed)], verbose=True)
         #model.fit(self.X_train_res, self.y_train_res) #, sample_weight=sample_weights)
@@ -297,29 +314,63 @@ class MLOutlierDetection():
         #Print details on how testing dataset is expected to look like  
         unique_values, counts = np.unique(df_test[self.qc_column], return_counts=True)
         for value, count in zip(unique_values, counts):
-            print(f"Class {value} exists {count} times in testing dataset. This is {count/len(df_test)}.")
+            self.information.append(f"Class {value} exists {count} times in testing dataset. This is {count/len(df_test)}.")
+            #print(f"Class {value} exists {count} times in testing dataset. This is {count/len(df_test)}.")
 
         title = f'QC classes (for testing data) for {station}'
         anomalies = np.isin(df_test[self.qc_column], [3])
         self.basic_plotter_no_xaxis(df_test, title, anomalies)
 
         #Extract test data
-        #X_test = df_test[[self.measurement_column, 'gradient_1', 'gradient_-1']].values
+        X_test = df_test[self.features].values
         #X_test = df_test[[self.measurement_column, 'lag_1', 'lag_2', 'lag_-1', 'lag_-2', 'gradient_1', 'gradient_-1']].values
-        X_test = df_test.drop(columns=["Timestamp", "label"]).values
+        #X_test = df_test.drop(columns=["Timestamp", "label"]).values
         y_test = df_test[self.qc_column].values
 
         # Predictions
-        y_pred = self.model.predict(X_test)
+        #y_pred = self.model.predict(X_test)
+        y_probs = self.model.predict_proba(X_test)[:, 1] 
+        # Find the best threshold for F1-score
+        thresholds = np.linspace(0.2, 0.8, 20)
+        y_test_binary = (y_test == 3).astype(int)
+        f1_scores = [f1_score(y_test_binary, (y_probs >= t).astype(int)) for t in thresholds]
+        best_threshold = thresholds[np.argmax(f1_scores)]
+        print(f"Best Threshold for F1-score: {best_threshold:.2f}")
+        y_pred = (y_probs >= best_threshold).astype(int)
+        y_test = y_test_binary
 
         # Visualization predictions vs testing label   
         # Create confusion matix
         cm = confusion_matrix(y_test, y_pred)
-        print(f"Confusion Matrix for testing data for {station}:")
-        print(cm)
+        #precision = precision_score(y_test, y_pred, pos_label=3)
+        #recall = recall_score(y_test, y_pred, pos_label=3)
+        precision = precision_score(y_test, y_pred, pos_label=1)
+        recall = recall_score(y_test, y_pred, pos_label=1)
+        pr_auc = average_precision_score(y_test, y_pred)  # Precision-Recall AUC
+        #print(f"Confusion Matrix for testing data for {station}:")
+        #print(cm)
+        #print("Proportion of the predicted minority class labels are actually correct:")
+        #print(precision)
+        #print("Proportion of actual minority class instances that are correctly predicted:")
+        #print(recall)
+        print(f"{station} PR-AUC: {pr_auc:.3f}")
+        self.information.append(f"Confusion Matrix for testing data for {station}:")
+        self.information.append(str(cm.tolist()))
+        self.information.append("Precision (Proportion of the predicted minority class labels are actually correct)")
+        self.information.append(str(precision))
+        self.information.append("Recall (Proportion of actual minority class instances that are correctly predicted)")
+        self.information.append(str(recall))
+        self.information.append(f"PR-AUC: {pr_auc:.3f}")
+        self.information.append('\n')
+        self.scores.append(station)
+        self.scores.append(str(pr_auc))
+        self.scores.append(str(precision))
+        self.scores.append(str(recall))
+
         # Identify anomalies: Visualization
         title = f"ML predicted QC classes (for testing data)- Binary -{station}"
-        anomalies_pred = np.isin(y_pred, [3])
+        anomalies_pred = np.isin(y_pred, [1])
+        #anomalies_pred = np.isin(y_pred, [3])
         self.basic_plotter_no_xaxis(df_test, title, anomalies_pred)
         self.zoomable_plot_df(df_test, title, anomalies, anomalies_pred)
 
@@ -366,6 +417,32 @@ class MLOutlierDetection():
         # Show the figure
         fig.show()
 
+    def save_to_txt(self):
+        """
+        Save the print statements from each QC test to a common txt-file. This can be used later on to compare between stations and set-ups.
+        """
+        # Filepath to save the text file
+        filename = f"ML_spike_summary.txt"
+        file_path = os.path.join(self.folder_path, filename)
+
+        # Save the list to a .txt file
+        with open(file_path, "w") as file:
+            for list in self.information:
+                # Write each elem as a row
+                file.write("".join(list) + "\n")
+
+        print(f"ML QC test statements have been saved to {file_path}")
+
+    def save_to_csv(self):
+
+        file_path = os.path.join(self.folder_path, "scores.csv")
+        with open(file_path, mode='w', newline='') as file:
+            for list in self.scores:
+                # Write each elem as a row
+                file.write("".join(list) + "\n")
+
+        print("CSV file 'scores.csv' created successfully.")
+        
 
     def run_unsupervised(self, df):
         #one high-high or low-low cycle in tide for slicing ts for unsupervised ML test
@@ -409,4 +486,5 @@ class MLOutlierDetection():
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {relev_df[time_column].iloc[0]} -{suffix}.png"),  bbox_inches="tight")
         plt.close()
+
 
