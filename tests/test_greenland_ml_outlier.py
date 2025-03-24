@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import source.qc_ml_detection as qc_ml_detector
+import source.qc_ml_unsupervised_detection as qc_ml_unsupervised_detector
+
 
 class Test_QC_ML_Station(unittest.TestCase):
 
@@ -33,10 +35,11 @@ class Test_QC_ML_Station(unittest.TestCase):
         #Set path to config json and tidal constituents
         self.json_path = os.path.join(os.getcwd(), 'config.json')
 
-    def test_quality_check_upernavik1(self):
+    def test_quality_check_upernavik(self):
         #select the station (here: Upernavik 2023)
-        station = 'Upernavik1'
-        #station = 'Upernavik'
+        #station = 'Upernavik1'
+        #station = 'Upernavik2'
+        station = 'Upernavik'
 
         #select output folder
         output_path = os.path.join(os.getcwd(),'output', 'ml_classes', station)
@@ -48,11 +51,10 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_station(station)
         data_flagging_ml.set_tidal_components_file(self.datadir_tides)
         data_flagging_ml.import_data(self.datadir)
-        data_flagging_ml.run()
-        #data_flagging_ml.run_unsupervised()
-    
+        #data_flagging_ml.run()
+        data_flagging_ml.run_combined()
 
-    def test_quality_check_Nuuk1(self):
+    def test_quality_check_Nuuk(self):
         #select the station (here: Nuuk)
         station = 'Nuuk'
 
@@ -66,5 +68,73 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_station(station)
         data_flagging_ml.set_tidal_components_file(self.datadir_tides)
         data_flagging_ml.import_data(self.datadir)
-        data_flagging_ml.run()
-        #data_flagging_ml.run_unsupervised()
+        #data_flagging_ml.run()
+        data_flagging_ml.run_combined()
+
+    def backup_test_quality_check_Qaqortoq(self):
+        #select the station (here: Qaqortoq)
+        station = 'Qaqortoq'
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', 'ml_classes', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_flagging_ml = qc_ml_detector.MLOutlierDetection()
+        data_flagging_ml.set_output_folder(output_path)
+        data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
+        data_flagging_ml.set_station(station)
+        data_flagging_ml.set_tidal_components_file(self.datadir_tides)
+        data_flagging_ml.import_data(self.datadir)
+        #data_flagging_ml.run()
+        data_flagging_ml.run_combined()
+
+    def test_quality_check_Pituffik(self):
+        #select the station (here: Pituffik)
+        station = 'Pituffik'
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', 'ml_classes', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_flagging_ml = qc_ml_detector.MLOutlierDetection()
+        data_flagging_ml.set_output_folder(output_path)
+        data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
+        data_flagging_ml.set_station(station)
+        data_flagging_ml.set_tidal_components_file(self.datadir_tides)
+        data_flagging_ml.import_data(self.datadir)
+        #Training data equals to 1 manual labelled files/dataset from the respectiv station
+        #data_flagging_ml.run()
+        #Training data equals to X% of manual labelled data from all the files for the station combined
+        data_flagging_ml.run_combined()
+
+    def test_quality_check_all(self):
+        #select the station (here: Pituffik)
+        station = 'combined'
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', 'ml_classes', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_flagging_ml = qc_ml_detector.MLOutlierDetection()
+        data_flagging_ml.set_output_folder(output_path)
+        data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
+        data_flagging_ml.set_station(station)
+        data_flagging_ml.set_tidal_components_file(self.datadir_tides)
+        data_flagging_ml.import_data(self.datadir)
+        #Training data equals to X% of manual labelled data from all the files for ALL the stations combined (f.e: 50% of labelled data from each station is used for training)
+        data_flagging_ml.run_combined_training()
+
+    def test_quality_check_unsupervised(self):
+        station = 'unsupervised_learning'
+
+        #select output folder
+        output_path = os.path.join(os.getcwd(),'output', 'ml_classes', station)
+        if Path(output_path).exists(): shutil.rmtree(Path(output_path))
+
+        data_flagging_ml = qc_ml_unsupervised_detector.MLOutlierDetectionUNSU()
+        data_flagging_ml.set_output_folder(output_path)
+        data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
+        data_flagging_ml.set_station(station)
+        data_flagging_ml.set_tidal_components_file(self.datadir_tides)
+        data_flagging_ml.import_data(self.datadir)
+        data_flagging_ml.run_unsupervised()

@@ -46,7 +46,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, IsolationForest, AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 
-class MLOutlierDetection(): 
+class MLOutlierDetectionUNSU(): 
 
     def __init__(self):
 
@@ -129,83 +129,7 @@ class MLOutlierDetection():
             if (df[self.qc_column] == 4).any():
                 raise Exception('Code is build for binary classification. QC flags can currently only be 1 and 3!')
     
-    def run_combined(self):
-        
-        print(self.dfs_testing.keys())
-        print(self.dfs_training.keys())
-        for elem in self.dfs_training:
-            if self.station in elem:
-                ##Decied if whole station df is used for training or only subset. For whole station:
-                #df_train = self.dfs[elem].copy()
-                #If subset, split here
-                df_train, df_test = train_test_split(self.dfs_training[elem], test_size=0.4, shuffle=False)
-                unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
-                for value, count in zip(unique_values, counts):
-                    self.information.append(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
-                    print(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
-                    self.information.append('\n')
-                #Preprocess the training data if needed
-                df_train = self.preprocessing_data(df_train)
-                #Add features to the original data series and the training data
-                tidal_signal = [path for path in self.tidal_infos if elem in path]
-                df_train = self.add_features(df_train, tidal_signal[0], elem)
-
-        #Visualize training data
-        anomalies = np.isin(df_train[self.qc_column], [3])
-        self.basic_plotter_no_xaxis(df_train, 'QC classes (for training data)', anomalies)
-
-        X_train = df_train[self.features].values
-        y_train = self.le.fit_transform(np.array(df_train[self.qc_column].values))
-        print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
-
-        #Fit ML model to data
-        self.run_model(X_train, y_train)
-
-        #Runs all dataset again for testing (also training set)
-        for elem in self.dfs_testing:
-                self.run_testing_model(self.dfs_testing[elem], elem)
-        
-        self.save_to_txt()
-        self.save_to_csv()
-
-    def run(self):
-        
-        for elem in self.dfs_testing:
-            if self.station in elem:
-                ##Decied if whole station df is used for training or only subset. For whole station:
-                df_train = self.dfs_testing[elem].copy()
-                #If subset, split here
-                #df_train, df_test = train_test_split(self.dfs_training[elem], test_size=0.15, shuffle=False)
-                unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
-                for value, count in zip(unique_values, counts):
-                    self.information.append(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
-                    print(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
-                    self.information.append('\n')
-                #Preprocess the training data if needed
-                df_train = self.preprocessing_data(df_train)
-                #Add features to the original data series and the training data
-                tidal_signal = [path for path in self.tidal_infos if elem.strip("0123456789") in path]
-                df_train = self.add_features(df_train, tidal_signal[0], elem)
-
-        #Visualize training data
-        anomalies = np.isin(df_train[self.qc_column], [3])
-        self.basic_plotter_no_xaxis(df_train, 'QC classes (for training data)', anomalies)
-
-        X_train = df_train[self.features].values
-        y_train = self.le.fit_transform(np.array(df_train[self.qc_column].values))
-        print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
-
-        #Fit ML model to data
-        self.run_model(X_train, y_train)
-
-        #Runs all dataset again for testing (also training set)
-        for elem in self.dfs_testing:
-                self.run_testing_model(self.dfs_testing[elem], elem)
-        
-        self.save_to_txt()
-        self.save_to_csv()
-
-    def run_combined_training(self):
+    def run_unsupervised(self):
         
         print(self.dfs_testing.keys())
         print(self.dfs_training.keys())
@@ -213,7 +137,7 @@ class MLOutlierDetection():
         dfs_train = {}
         for elem in self.dfs_training:
             #Decied if whole station df is used for training or only subset. If subset, split here
-            df_train, df_test = train_test_split(self.dfs_training[elem], test_size=0.15, shuffle=False)
+            df_train = self.dfs_training[elem].copy()
             anomalies = np.isin(df_train[self.qc_column], [3])
             self.basic_plotter_no_xaxis(df_train, f'QC classes (for training data) - Subset {elem}', anomalies)
             #Preprocess the training data if needed
@@ -222,7 +146,7 @@ class MLOutlierDetection():
             tidal_signal = [path for path in self.tidal_infos if elem in path]
             df_train = self.add_features(df_train, tidal_signal[0], elem)
             dfs_train[f"{elem}"] = df_train
-            dfs_testing_new[f"{elem}"] = df_test
+            dfs_testing_new[f"{elem}"] = self.dfs_training[elem].copy()
 
         # Merge all DataFrames in the dictionary for training_df
         merged_df = pd.concat(dfs_train.values())
@@ -233,23 +157,23 @@ class MLOutlierDetection():
             print(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
             self.information.append('\n')
 
+        X_train = df_train[self.features].values
+        y_train = self.le.fit_transform(df_train[self.qc_column].values)
+
         #Visualize training data
         anomalies = np.isin(df_train[self.qc_column], [3])
-        self.basic_plotter_no_xaxis(df_train, 'QC classes (for training data)', anomalies)
-
-        X_train = df_train[self.features].values
-        y_train = self.le.fit_transform(np.array(df_train[self.qc_column].values))
-        print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
+        self.basic_plotter_no_xaxis(df_train, 'QC classes (full dataset)', anomalies)
 
         #Fit ML model to data
-        self.run_model(X_train, y_train)
+        self.get_model_unsupervised(X_train, y_train)
 
-        #Runs all dataset again for testing (also training set)
+        #Runs model again for manual labelled dataset and check the score
         for elem in dfs_testing_new:
                 self.run_testing_model(dfs_testing_new[elem], elem)
         
         self.save_to_txt()
         self.save_to_csv()
+
 
     def preprocessing_data(self, df):
         #Undersampling: Mark 10% of random good rows to be deleted
@@ -378,100 +302,50 @@ class MLOutlierDetection():
         # Return the reinitialized tide results
         return new_tide_results['h']
     
-    def run_model(self, X_train, y_train):
+    def get_model_unsupervised(self, X, y):
 
-        #Get best XGBClassifier model based on hyperparameters
+        # Define the hyperparameter grid
         param_dist = {
-            'n_estimators': np.arange(100, 1001, 100),
-            'max_depth': np.arange(3, 11, 2),
-            'learning_rate': np.linspace(0.01, 0.3, 10),
-            'min_child_weight': np.arange(1, 11, 2),
-            'gamma': np.linspace(0, 5, 10),
-            'subsample': np.linspace(0.5, 1.0, 10),
-            'colsample_bytree': np.linspace(0.3, 1.0, 10),
-            'scale_pos_weight': [1, 10, 25, 50, 75, 100]
+            'n_estimators': np.arange(50, 501, 50),
+            'max_samples': np.linspace(0.1, 1.0, 10),
+            'contamination': [0.01, 0.05, 0.1, 'auto'],
+            'max_features': np.linspace(0.5, 1.0, 5),
+            'bootstrap': [True, False]
         }
 
         # Initialize the model
-        xgb = XGBClassifier(objective='binary:logistic', random_state=42, use_label_encoder=False, eval_metric='aucpr')
+        iso_forest = IsolationForest(random_state=42)
+
+        # Custom scorer for F1-score
+        def f1_scorer(estimator, X, y):
+            y_pred = estimator.predict(X)
+            y_pred = (y_pred == -1).astype(int)  # Convert -1 (anomaly) to 1, 1 (normal) to 0
+            return f1_score(y, y_pred)  # Compare with true labels
+
+        # Wrap the function in make_scorer
+        scorer = make_scorer(f1_scorer, greater_is_better=True, needs_proba=False)
 
         # Initialize RandomizedSearchCV
         random_search = RandomizedSearchCV(
-            estimator=xgb,
+            estimator=iso_forest,
             param_distributions=param_dist,
-            n_iter=20,  # Number of different combinations to try
-            cv=5,
-            scoring='f1',  # Use F1-score for imbalanced data
+            n_iter=20,
+            cv=3,
+            scoring=scorer,
             random_state=42,
             n_jobs=-1
         )
 
-        #scale_pos_weight = sum(y_train == 0) / sum(y_train== 1)
-        #model = XGBClassifier(objective="binary:logistic", scale_pos_weight=scale_pos_weight, eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
-        #self.model = XGBClassifier(objective="binary:logistic", eval_metric="aucpr", learning_rate=0.01, n_estimators=200, random_state=42)
-        #model = XGBClassifier(objective="binary:logistic", eval_metric="aucpr", random_state=42, **best_params)
-
-        #param_dist = {
-        #    'n_estimators': np.arange(10, 501, 100),
-        #    'max_depth': np.arange(3, 21, 3),
-        #    'min_samples_split': np.arange(2, 21, 2),
-        #    'min_samples_leaf': np.arange(1, 11, 1),
-        #    'max_features': ['sqrt', 'log2', None],
-        #    'bootstrap': [True, False],
-        #    'class_weight': [None, 'balanced']
-        #}
-
-        # Initialize the model
-        #rf = RandomForestClassifier(random_state=42)
-
-        # Initialize RandomizedSearchCV
-        #random_search = RandomizedSearchCV(
-        #    estimator=rf,
-        #    param_distributions=param_dist,
-        #    n_iter=20,  # Number of different combinations to try
-        #    cv=5,       # 5-fold cross-validation
-        #    scoring='f1',
-        #    random_state=42
-        #)
-
-        #self.model = RandomForestClassifier(n_estimators=50, random_state=42)
-        #self.model = RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=42)
-        #self.model.fit(X_train, y_train)
-        
-        #Adaboost: Define the hyperparameter grid
-        #param_dist = {
-        #    'n_estimators': np.arange(50, 1001, 50),
-        #    'learning_rate': np.linspace(0.01, 1.0, 10),
-        #    'estimator': [DecisionTreeClassifier(max_depth=d) for d in range(1, 6)],
-        #    'algorithm': ['SAMME', 'SAMME.R']
-        #}
-
-        #Initialize the model
-        #adaboost = AdaBoostClassifier(random_state=42)
-
-        # Initialize RandomizedSearchCV
-        #random_search = RandomizedSearchCV(
-        #    estimator=adaboost,
-        #    param_distributions=param_dist,
-        #    n_iter=20,
-        #    cv=5,
-        #    scoring='f1',
-        #    random_state=42,
-        #    n_jobs=-1
-        #)
-
         # Fit the model
-        random_search.fit(X_train, y_train)
-
+        random_search.fit(X,  y)
         # Print the best parameters
         print("Best Parameters:", random_search.best_params_)
-
         # Evaluate the best model
         self.model = random_search.best_estimator_
 
-        # Train the model
-        #model.fit(self.X_train_res, self.y_train_res, eval_set=[(self.X_train_res, self.y_train_res), (self.X_val, self.y_val_transformed)], verbose=True)
-        #model.fit(self.X_train, self.y_train_transformed, eval_set=[(X_train, y_train_transformed), (X_val, y_val_transformed)], verbose=True)
+        # Fit Isolation Forest
+        #self.model = IsolationForest(contamination=0.1, n_estimators=200, random_state=42)  # Adjust contamination as needed
+        #self.model.fit(X)
 
     def run_testing_model(self, df_test, station):
         #Print details on how testing dataset is expected to look like  
@@ -491,22 +365,13 @@ class MLOutlierDetection():
         y_test = self.le.fit_transform(df_test[self.qc_column].values)
 
         # Predictions
-        #y_pred = self.model.predict(X_test)
-        y_probs = self.model.predict_proba(X_test)[:, 1] 
-        # Find the best threshold for F1-score
-        thresholds = np.linspace(0.2, 0.8, 20)
-        y_test_binary = (y_test == 1).astype(int)
-        f1_scores = [f1_score(y_test_binary, (y_probs >= t).astype(int)) for t in thresholds]
-        best_threshold = thresholds[np.argmax(f1_scores)]
-        print(f"Best Threshold for F1-score: {best_threshold:.2f}")
-        y_pred = (y_probs >= best_threshold).astype(int)
-        y_test = y_test_binary
+        y_pred = self.model.predict(X_test)
+        # Convert IsolationForest output (-1 → 1, 1 → 0)
+        y_pred = (y_pred == -1).astype(int)
 
         # Visualization predictions vs testing label   
         # Create confusion matix
         cm = confusion_matrix(y_test, y_pred)
-        #precision = precision_score(y_test, y_pred, pos_label=3)
-        #recall = recall_score(y_test, y_pred, pos_label=3)
         precision = precision_score(y_test, y_pred, pos_label=1)
         recall = recall_score(y_test, y_pred, pos_label=1)
         pr_auc = average_precision_score(y_test, y_pred)  # Precision-Recall AUC
