@@ -89,7 +89,6 @@ class DataExtractor():
             self.extract_period(filtered_df, time_column, data_column, '2017', '04', '04', '15', '25') 
             self.extract_period(filtered_df, time_column, data_column, '2020', '11', '11', '15', '30') 
             self.extract_period(filtered_df, time_column, data_column, '2020', '12', '12', '15', '30')
-            self.extract_period(filtered_df, time_column, data_column, '2022', '02', '02', '01', '10') 
         elif self.station == 'Nuuk1':
             self.extract_period(filtered_df, time_column, data_column, '2022', '11', '12', '27', '12')
             self.extract_period(filtered_df, time_column, data_column, '2023', '04', '04', '10', '25') 
@@ -129,6 +128,8 @@ class DataExtractor():
         
         for i in range(0,len(self.list_relev_section)-1):
             end_date = pd.to_datetime(self.list_relev_section[i][time_column].iloc[-1])
+            if i ==5:
+                print(end_date)
             start_date = pd.to_datetime(self.list_relev_section[i+1][time_column].iloc[0])
             if (start_date - end_date).days < 10:
                 combined_df = pd.concat([combined_df, self.list_relev_section[i+1]], ignore_index=True)

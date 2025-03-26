@@ -46,6 +46,16 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, IsolationForest, AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 
+plt.rcParams["font.size"] = 13  # Set global font size (adjust as needed)
+plt.rcParams["axes.labelsize"] = 13  # Set x and y label size
+plt.rcParams["axes.titlesize"] = 13  # Set title size
+plt.rcParams["xtick.labelsize"] = 13  # Set x-axis tick labels size
+plt.rcParams["ytick.labelsize"] = 13  # Set y-axis tick labels size
+plt.rcParams["legend.fontsize"] = 13  # Set x-axis tick labels size
+plt.rcParams["figure.titlesize"] = 13  # Set y-axis tick labels size
+
+BIGGER_SIZE = 13
+
 class MLOutlierDetection(): 
 
     def __init__(self):
@@ -92,7 +102,7 @@ class MLOutlierDetection():
     def import_data(self, folder_path):
 
         self.dfs_training = {}
-        self.dfs_testing = {}
+        self.dfs_station_subsets = {}
         #Open .csv file and fix the column names
         for file in os.listdir(folder_path):  # Loops through files in the current directory
             print(file)
@@ -120,25 +130,25 @@ class MLOutlierDetection():
             anomaly = np.isin(self.dfs_training[f"{df_name}"][self.qc_column], [3,4])
             self.basic_plotter_no_xaxis(self.dfs_training[f"{df_name}"], f'Manual QC for {df_name} station combined',anomaly)
             #Keep dataset according to station for testing
-            if file.split("-")[0] in self.dfs_testing.keys(): 
-                merged_df = pd.concat([self.dfs_testing[f"{file.split("-")[0]}"], df])
+            if file.split("-")[0] in self.dfs_station_subsets.keys(): 
+                merged_df = pd.concat([self.dfs_station_subsets[f"{file.split("-")[0]}"], df])
                 merged_df = merged_df.sort_values(by='Timestamp').reset_index(drop=True)
-                self.dfs_testing[f"{file.split("-")[0]}"] = merged_df.copy()
+                self.dfs_station_subsets[f"{file.split("-")[0]}"] = merged_df.copy()
             else:
-                self.dfs_testing[f"{file.split("-")[0]}"] = df.copy()
+                self.dfs_station_subsets[f"{file.split("-")[0]}"] = df.copy()
             if (df[self.qc_column] == 4).any():
                 raise Exception('Code is build for binary classification. QC flags can currently only be 1 and 3!')
     
     def run_combined(self):
         
-        print(self.dfs_testing.keys())
+        print(self.dfs_station_subsets.keys())
         print(self.dfs_training.keys())
         for elem in self.dfs_training:
             if self.station in elem:
                 ##Decied if whole station df is used for training or only subset. For whole station:
                 #df_train = self.dfs[elem].copy()
                 #If subset, split here
-                df_train, df_test = train_test_split(self.dfs_training[elem], test_size=0.4, shuffle=False)
+                df_train, df_test = train_test_split(self.dfs_training[elem], test_size=0.15, shuffle=False)
                 unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
                 for value, count in zip(unique_values, counts):
                     self.information.append(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
@@ -162,18 +172,23 @@ class MLOutlierDetection():
         self.run_model(X_train, y_train)
 
         #Runs all dataset again for testing (also training set)
-        for elem in self.dfs_testing:
-                self.run_testing_model(self.dfs_testing[elem], elem)
+        #for elem in self.dfs_station_subsets:
+        for elem in self.dfs_training:
+            if self.station in elem:
+                self.run_testing_model(df_test, elem)
+            else:
+                #self.run_testing_model(self.dfs_station_subsets[elem], elem)
+                self.run_testing_model(self.dfs_training[elem], elem)
         
         self.save_to_txt()
         self.save_to_csv()
 
     def run(self):
         
-        for elem in self.dfs_testing:
+        for elem in self.dfs_station_subsets:
             if self.station in elem:
                 ##Decied if whole station df is used for training or only subset. For whole station:
-                df_train = self.dfs_testing[elem].copy()
+                df_train = self.dfs_station_subsets[elem].copy()
                 #If subset, split here
                 #df_train, df_test = train_test_split(self.dfs_training[elem], test_size=0.15, shuffle=False)
                 unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
@@ -199,15 +214,15 @@ class MLOutlierDetection():
         self.run_model(X_train, y_train)
 
         #Runs all dataset again for testing (also training set)
-        for elem in self.dfs_testing:
-                self.run_testing_model(self.dfs_testing[elem], elem)
+        for elem in self.dfs_station_subsets:
+                self.run_testing_model(self.dfs_station_subsets[elem], elem)
         
         self.save_to_txt()
         self.save_to_csv()
 
     def run_combined_training(self):
         
-        print(self.dfs_testing.keys())
+        print(self.dfs_station_subsets.keys())
         print(self.dfs_training.keys())
         dfs_testing_new = {}
         dfs_train = {}
@@ -396,15 +411,15 @@ class MLOutlierDetection():
         xgb = XGBClassifier(objective='binary:logistic', random_state=42, use_label_encoder=False, eval_metric='aucpr')
 
         # Initialize RandomizedSearchCV
-        random_search = RandomizedSearchCV(
-            estimator=xgb,
-            param_distributions=param_dist,
-            n_iter=20,  # Number of different combinations to try
-            cv=5,
-            scoring='f1',  # Use F1-score for imbalanced data
-            random_state=42,
-            n_jobs=-1
-        )
+        #random_search = RandomizedSearchCV(
+        #    estimator=xgb,
+        #    param_distributions=param_dist,
+        #    n_iter=20,  # Number of different combinations to try
+        #    cv=5,
+        #    scoring='f1',  # Use F1-score for imbalanced data
+        #    random_state=42,
+        #    n_jobs=-1
+        #)
 
         #scale_pos_weight = sum(y_train == 0) / sum(y_train== 1)
         #model = XGBClassifier(objective="binary:logistic", scale_pos_weight=scale_pos_weight, eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
@@ -434,9 +449,9 @@ class MLOutlierDetection():
         #    random_state=42
         #)
 
-        #self.model = RandomForestClassifier(n_estimators=50, random_state=42)
+        self.model = RandomForestClassifier(n_estimators=50, random_state=42)
         #self.model = RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=42)
-        #self.model.fit(X_train, y_train)
+        self.model.fit(X_train, y_train)
         
         #Adaboost: Define the hyperparameter grid
         #param_dist = {
@@ -461,13 +476,13 @@ class MLOutlierDetection():
         #)
 
         # Fit the model
-        random_search.fit(X_train, y_train)
+        #random_search.fit(X_train, y_train)
 
         # Print the best parameters
-        print("Best Parameters:", random_search.best_params_)
+        #print("Best Parameters:", random_search.best_params_)
 
         # Evaluate the best model
-        self.model = random_search.best_estimator_
+        #self.model = random_search.best_estimator_
 
         # Train the model
         #model.fit(self.X_train_res, self.y_train_res, eval_set=[(self.X_train_res, self.y_train_res), (self.X_val, self.y_val_transformed)], verbose=True)
@@ -534,15 +549,35 @@ class MLOutlierDetection():
         title = f"ML predicted QC classes (for testing data)- Binary -{station}"
         anomalies_pred = np.isin(y_pred, [1])
         #anomalies_pred = np.isin(y_pred, [3])
-        self.basic_plotter_no_xaxis(df_test, title, anomalies_pred)
+        self.basic_plotter_no_xaxis(df_test, title, anomalies, anomalies_pred)
+        self.basic_plotter(df_test, title, anomalies, anomalies_pred)
         self.zoomable_plot_df(df_test, title, anomalies, anomalies_pred)
 
-    def basic_plotter_no_xaxis(self, df, title, anomalies):
+    def basic_plotter_no_xaxis(self, df, title, anomalies, anomalies2=np.array([])):
         #Visualization of station data
-        plt.figure(figsize=(12, 6))
+        plt.figure(figsize=(11, 6))
         plt.plot(df[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
-        plt.scatter(df.index[anomalies], df[self.measurement_column][anomalies], color='red', label='QC Classes', zorder=0.5)
-        plt.legend()
+        plt.scatter(df.index[anomalies], df[self.measurement_column][anomalies], color='red', label='Manual-labelled spike', zorder=0.5)
+        # Add QC flags
+        if not anomalies2.size == 0:
+            plt.scatter(df.index[anomalies2], df[self.measurement_column][anomalies2], color='red', label='ML-predicted spike', zorder=0.5)
+        plt.legend(frameon=False)
+        plt.title(title)
+        plt.xlabel('Time')
+        plt.ylabel('Water Level [m]')
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column].iloc[0]}.png"),  bbox_inches="tight")
+        plt.close() 
+
+    def basic_plotter(self, df, title, anomalies, anomalies2=np.array([])):
+        #Visualization of station data
+        plt.figure(figsize=(11, 6))
+        plt.plot(df['Timestamp'], df[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
+        plt.scatter(df['Timestamp'][anomalies], df[self.measurement_column][anomalies], color='red', label='Manual-labelled spike', zorder=0.5)
+        # Add QC flags
+        if not anomalies2.size == 0:
+            plt.scatter(df['Timestamp'][anomalies2], df[self.measurement_column][anomalies2], color='red', label='ML-predicted spike', zorder=0.5)
+        plt.legend(frameon=False)
         plt.title(title)
         plt.xlabel('Time')
         plt.ylabel('Water Level [m]')

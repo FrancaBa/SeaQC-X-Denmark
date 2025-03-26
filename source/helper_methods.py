@@ -22,17 +22,17 @@ else: #else Linux(Ubuntu)
     font_path = "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf" 
 
 #prop = fm.FontProperties(fname=font_path, size=12)
-prop = fm.FontProperties(fname=font_path)
+#prop = fm.FontProperties(fname=font_path)
 #plt.rcParams["font.family"] = "DejaVu Serif"
-plt.rcParams["font.size"] = 12  # Set global font size (adjust as needed)
-plt.rcParams["axes.labelsize"] = 12  # Set x and y label size
-plt.rcParams["axes.titlesize"] = 12  # Set title size
-plt.rcParams["xtick.labelsize"] = 12  # Set x-axis tick labels size
-plt.rcParams["ytick.labelsize"] = 12  # Set y-axis tick labels size
-plt.rcParams["legend.fontsize"] = 12  # Set x-axis tick labels size
-plt.rcParams["figure.titlesize"] = 12  # Set y-axis tick labels size
+plt.rcParams["font.size"] = 13  # Set global font size (adjust as needed)
+plt.rcParams["axes.labelsize"] = 13  # Set x and y label size
+plt.rcParams["axes.titlesize"] = 13  # Set title size
+plt.rcParams["xtick.labelsize"] = 13  # Set x-axis tick labels size
+plt.rcParams["ytick.labelsize"] = 13  # Set y-axis tick labels size
+plt.rcParams["legend.fontsize"] = 13  # Set x-axis tick labels size
+plt.rcParams["figure.titlesize"] = 13  # Set y-axis tick labels size
 
-BIGGER_SIZE = 12
+BIGGER_SIZE = 13
 #plt.rc('font', size=BIGGER_SIZE)          # controls default text sizes
 #plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
 #plt.rc('axes', labelsize=BIGGER_SIZE)    # fontsize of the x and y labels
@@ -173,15 +173,17 @@ class HelperMethods():
         #plt.rcParams.update({'figure.titlesize': BIGGER_SIZE})
 
         color = 'black'
-        ax1.set_xlabel(x_title, fontproperties=prop)
-        ax1.set_ylabel(y_title_1 , color=color, fontproperties=prop)
+        #ax1.set_xlabel(x_title, fontproperties=prop)
+        #ax1.set_ylabel(y_title_1 , color=color, fontproperties=prop)
+        ax1.set_xlabel(x_title)
+        ax1.set_ylabel(y_title_1 , color=color)
         #ax1.plot(x_axis, data_1, marker='+', markersize=7, color=color, linestyle='None')
         ax1.plot(x_axis, data_1, marker='o', markersize=3, color=color, linestyle='None')
         ax1.tick_params(axis='y', labelcolor=color)
 
         ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 
-        color = 'tab:green'
+        color = 'tab:red'
         ax2.set_ylabel(y_title_2, color=color)  # we already handled the x-label with ax1
         ax2.plot(x_axis, data_2, marker='o', markersize=3, color=color, linestyle='None', alpha=0.6)
         ax2.tick_params(axis='y', labelcolor=color)
@@ -222,7 +224,7 @@ class HelperMethods():
         #plt.rcParams["xtick.labelsize"] = 12  # Set x-axis tick labels size
         #plt.rcParams["ytick.labelsize"] = 12  # Set y-axis tick labels size
 
-        fig, ax1 = plt.subplots(figsize=(18, 10))
+        fig, ax1 = plt.subplots(figsize=(11, 6))
         #BIGGER_SIZE = 12
         #plt.rc('font', size=BIGGER_SIZE)          # controls default text sizes
         #plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
@@ -239,21 +241,25 @@ class HelperMethods():
         #plt.rcParams.update({'xtick.labelsize': BIGGER_SIZE})
         #plt.rcParams.update({'legend.fontsize': BIGGER_SIZE})
         #plt.rcParams.update({'figure.titlesize': BIGGER_SIZE})
-                    
         color = 'black'
-        ax1.set_xlabel(x_title, fontsize=16, fontproperties=prop)
-        ax1.set_ylabel(y_title, fontsize=16, fontproperties=prop)
+        ax1.plot(x_axis, data_2, marker='o', markersize=3, color=color, linestyle='None', alpha=0.6, label= legend_2)
+        
+        color = 'tab:red'
+        ax1.set_xlabel(x_title, fontsize=14)
+        ax1.set_ylabel(y_title, fontsize=14)
+        #ax1.set_xlabel(x_title, fontsize=14, fontproperties=prop)
+        #ax1.set_ylabel(y_title, fontsize=14, fontproperties=prop)
         #ax1.set_xlabel(x_title)
         #ax1.set_ylabel(y_title)
         ax1.plot(x_axis, data_1, marker='o', markersize=3, color=color, linestyle='None', label= legend_1)
+        
         ax1.tick_params(axis='y')
-
-        color = 'tab:green'
-        ax1.plot(x_axis, data_2, marker='o', markersize=3, color=color, linestyle='None', alpha=0.6, label= legend_2)
-        ax1.legend(loc='upper right')  # Position the legend as desired
+        ax1.legend(loc='upper right', frameon=False)  # Position the legend as desired   
 
         #Format x-axis to show only numbers
-        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))  # Format: MM-DD HH:MM
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))  # Format: YYY-MM-DD HH:MM
+        ax1.xaxis.set_major_locator(mdates.AutoDateLocator())
+        ax1.set_xticks(ax1.get_xticks()[::2]) 
         #ax1.xaxis.set_major_locator(mdates.HourLocator(interval=6))  # Tick every 6 hours
         #plt.xticks(rotation=45) 
 
