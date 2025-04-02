@@ -13,6 +13,7 @@ import random
 import matplotlib.dates as mdates 
 import pickle
 import csv
+from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -402,18 +403,96 @@ class MLOutlierDetectionUNSU():
         self.basic_plotter_no_xaxis(df_test, title, anomalies_pred)
         self.zoomable_plot_df(df_test, title, anomalies, anomalies_pred)
 
-    def basic_plotter_no_xaxis(self, df, title, anomalies):
+        #Plot specific times
+        if station == 'Nuuk':
+            start_date = datetime(int(2023), int(1), int(24), int(21))
+            end_date = datetime(int(2023), int(1), int(25), int(18))
+            start_date1 = datetime(int(2023), int(1), int(25), int(0))
+            end_date1 = datetime(int(2023), int(1), int(25), int(1))
+        elif station == 'Upernavik':
+            start_date = datetime(int(2024), int(10), int(20), int(19))
+            end_date = datetime(int(2024), int(10), int(21), int(11))
+            start_date1 = datetime(int(2024), int(10), int(26), int(22))
+            end_date1 = datetime(int(2024), int(10), int(27), int(13))
+        elif station == 'Pituffik':
+            start_date = datetime(int(2017), int(12), int(14), int(10))
+            end_date = datetime(int(2017), int(12), int(15), int(0))
+            start_date1 = datetime(int(2017), int(12), int(14), int(16))
+            end_date1 = datetime(int(2017), int(12), int(14), int(19))
+        else:
+            relev_df = []
+
+        df_test['Timestamp_helper'] = df_test['Timestamp'].dt.tz_convert(None)
+        relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
+        if not relev_df.empty:
+            anomalies = np.isin(relev_df[self.qc_column], [3])
+            start = relev_df.index[0] - df_test.index[0]
+            end = relev_df.index[-1] - df_test.index[0] + 1
+            anomalies_pred_short = anomalies_pred[start:end]
+            # Identify False Positives (FP) and False Negatives (FN)
+            fp = (anomalies_pred_short == True) & (anomalies == False)  # False Positives (FP)
+            fn = (anomalies_pred_short == False) & (anomalies == True)  # False Negatives (FN)
+            tp = (anomalies_pred_short == True) & (anomalies == True)  # True Positives (TP)
+            self.basic_plotter(relev_df, title, anomalies, anomalies_pred_short, fn, fp, tp)
+        relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
+        if not relev_df1.empty:
+            anomalies = np.isin(relev_df1[self.qc_column], [3])
+            start = relev_df1.index[0] - df_test.index[0]
+            end = relev_df1.index[-1] - df_test.index[0] + 1
+            anomalies_pred1 = anomalies_pred[start:end]
+            # Identify False Positives (FP) and False Negatives (FN)
+            fp = (anomalies_pred1 == True) & (anomalies == False)  # False Positives (FP)
+            fn = (anomalies_pred1 == False) & (anomalies == True)  # False Negatives (FN)
+            tp = (anomalies_pred1 == True) & (anomalies == True)  # True Positives (TP)
+            self.basic_plotter(relev_df1, title, anomalies, anomalies_pred1, fn, fp, tp)
+
+        del df_test['Timestamp_helper']
+
+    def basic_plotter_no_xaxis(self, df, title, anomalies, anomalies2=np.array([])):
         #Visualization of station data
-        plt.figure(figsize=(12, 6))
-        plt.plot(df[self.measurement_column], label='Time Series', color='black', marker='o',  markersize=0.5, linestyle='None')
-        plt.scatter(df.index[anomalies], df[self.measurement_column][anomalies], color='red', label='QC Classes', zorder=0.5)
-        plt.legend()
-        plt.title(title)
-        plt.xlabel('Time')
+        plt.figure(figsize=(11, 6))
+        plt.plot(df[self.measurement_column], label='Measured Water Level', color='black', marker='o',  markersize=2, linestyle='None')
+        plt.scatter(df.index[anomalies], df[self.measurement_column][anomalies], color='blue', label='Manual spike label', facecolors='none', edgecolors='blue', zorder=0.5)
+        # Add QC flags
+        if not anomalies2.size == 0:
+            plt.scatter(df.index[anomalies2], df[self.measurement_column][anomalies2], color='red', label='ML spike prediction', zorder=0.2)
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))  # Format: YYYY-MM-DD HH:MM
+        plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
+        plt.xticks(plt.gca().get_xticks()[::2])
+        plt.legend(frameon=False)
+        plt.xlabel('Timestamp')
         plt.ylabel('Water Level [m]')
         plt.tight_layout()
-        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column].iloc[0]}.png"),  bbox_inches="tight")
+        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column].iloc[0]}.png"), dpi=300, bbox_inches="tight")
         plt.close() 
+
+    def basic_plotter(self, df, title, anomalies, anomalies2=np.array([]), fn=np.array([]), fp=np.array([]), tp=np.array([])):
+        #Visualization of station data
+        plt.figure(figsize=(11, 6))
+        plt.plot(df['Timestamp'], df[self.measurement_column], label='Measured Water Level', color='black', marker='o',  markersize=1, linestyle='None')
+        #plt.scatter(df['Timestamp'][anomalies], df[self.measurement_column][anomalies], color='blue', marker='*', label='Manual spike label', edgecolors='blue', zorder=1)
+        # Add QC flags
+        #if not anomalies2.size == 0:
+        #    plt.scatter(df['Timestamp'][anomalies2], df[self.measurement_column][anomalies2], color='red', label='ML spike prediction', zorder=0.1)
+        #Add false negatives
+        if not fn.size == 0:
+            plt.scatter(df['Timestamp'][fn], df[self.measurement_column][fn], color='lawngreen', label='False Negatives (FN)', zorder=0.15)
+        #Add false positives
+        if not fp.size == 0:
+            plt.scatter(df['Timestamp'][fp], df[self.measurement_column][fp], color='blue', label='False Positives (FP)', zorder=0.15)
+        #Add true positives
+        if not tp.size == 0:
+            plt.scatter(df['Timestamp'][tp], df[self.measurement_column][tp], color='red', label='True Positives (TP)', zorder=0.1)
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))  # Format: YYYY-MM-DD HH:MM
+        plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
+        plt.xticks(plt.gca().get_xticks()[::2])
+        plt.legend(frameon=False)
+        plt.xlabel('Timestamp')
+        plt.ylabel('Water Level [m]')
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column].iloc[0]}.png"), dpi=300, bbox_inches="tight")
+        plt.close() 
+
 
     def zoomable_plot_df(self, df, title, anomaly1, anomaly2=np.array([])):
         """
