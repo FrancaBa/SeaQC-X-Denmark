@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
 import matplotlib.font_manager as fm
+import matplotlib.dates as mdates
 
 from datetime import datetime
 
@@ -22,7 +23,7 @@ else: #else Linux(Ubuntu)
 prop = fm.FontProperties(fname=font_path)
 #plt.rcParams["font.family"] = prop.get_name()
 plt.rcParams["font.family"] = "DejaVu Serif"
-plt.rcParams["font.size"] = 14  # Set global font size (adjust as needed)
+plt.rcParams["font.size"] = 13  # Set global font size (adjust as needed)
 pio.renderers.default = "browser"
 
 class GraphMaker():
@@ -175,48 +176,60 @@ class GraphMaker():
         print(self.relev_df)
 
         #Visualization of different spike detection methods
-        pot_relev_columns = ['spike_value_statistical', 'cotede_spikes', 'cotede_improved_spikes', 'selene_spikes', 'selene_improved_spikes', 'harmonic_detected_spikes']
+        self.relev_df['spike_value_statistical_improved'] = self.relev_df['outlier_change_rate'] | self.relev_df['noisy_period']
+        pot_relev_columns = ['spike_value_statistical', 'spike_value_statistical_improved', 'cotede_spikes', 'cotede_improved_spikes', 'selene_spikes', 'selene_improved_spikes', 'ml_detected_anomalies']
+        lable_title = ['Implausible change rate', 'Implausible change rate (improved)', 'Neighboring outlier', 'Neighboring outlier (improved)', 'Spline fit', 'Spline fit (improved)', 'ML algorithm']
+        markers = ["s" , "d", "o", "v", "h", "*", "P"]
         relev_columns = [col for col in pot_relev_columns if col in self.relev_df.columns]
-        lable_title = ['Implausible change rate', 'Neighboring outlier', 'Neighboring outlier (improved)', 'Spline fit', 'Spline fit (improved)', 'Polynomial offset']
-        markers = ["s" , "o" , "v" , "D" , "*", "d"]
+        count = [None] * len(lable_title)
 
         # Generate colors from a single-hue colormap
-        color_map = plt.cm.plasma  # Choose a colormap (other good ones: Viridis, Cividis, Plasma)
-        colors = [color_map(i /len(relev_columns)) for i in range(len(relev_columns))]
+        #color_map = plt.cm.plasma  # Choose a colormap (other good ones: Viridis, Cividis, Plasma)
+        #colors = [color_map(i /len(lable_title)) for i in range(len(lable_title))]
         #colors = ['red','green','blue','cyan','magenta', 'darkorange', 'lime'] 
-        grid_heights = [-0.005, 0.005, 0.015, 0.025, 0.035, 0.045, 0.055]  # Adjust as needed       
-        offset_value = np.zeros(len(self.relev_df))+0.05
+        grid_heights = [-0.28, -0.17, -0.08, 0.02, 0.11, 0.2]  # Adjust as needed       
+        offset_value = np.zeros(len(self.relev_df))+0.27
         title = 'Comparison of Spike Detection Methods'
         # Create the figure and axes with shared x-axis
-        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(14, 8), gridspec_kw={'height_ratios': [2, 1]}, dpi=300)
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(12, 8), gridspec_kw={'height_ratios': [5, 4]}, dpi=300)
 
         # Plot the first graph (Sea Level Measurements)
-        ax1.plot(self.relev_df[time_column], self.relev_df[data_column], color='black', label='Sea Level Measurement', marker='o',  markersize=0.7, linestyle='None')
+        ax1.plot(self.relev_df[time_column], self.relev_df[data_column], color='black', label='Measurement', marker='o',  markersize=1.2, linestyle='None')
         ax1.set_ylabel('Water Level [m]')
         ax1.spines['top'].set_visible(False)
         ax1.spines['right'].set_visible(False)
-        ax1.set_xlabel('Time')
+        ax1.set_xlabel('Timestamp')
         ax1.tick_params(axis='x', labelbottom=True)
-        ax1.legend()
+        ax1.legend(loc='upper right', frameon=False)
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))  # Format: YYY-MM-DD HH:MM
+        ax1.xaxis.set_major_locator(mdates.AutoDateLocator())
+        ax1.set_xticks(ax1.get_xticks()[::2]) 
 
         # Plot the second graph (Icons)
         # Stack markers using offsets
         for i in range(len(relev_columns)):
             mask = self.relev_df[relev_columns[i]]
             scatter_marker = markers[i]
-            scatter_colors = colors[i]
-            ax2.scatter(self.relev_df[time_column][mask], offset_value[mask], color=scatter_colors, marker=scatter_marker, s=25, alpha=0.5, edgecolors='black', linewidth=0.5, label=lable_title[i])
-            offset_value -= 0.01
+            #scatter_colors = colors[i]
+            #ax2.scatter(self.relev_df[time_column][mask], offset_value[mask], color=scatter_colors, marker=scatter_marker, s=25, alpha=0.5, edgecolors='black', linewidth=0.5, label=lable_title[i])
+            ax2.scatter(self.relev_df[time_column][mask], offset_value[mask], color='black', marker=scatter_marker, s=30, alpha=0.5, edgecolors='black', linewidth=0.5, label=lable_title[i])
+            count[i] = len(offset_value[mask])
+            offset_value -= 0.1
 
         # Add gridlines at specific heights
         for height in grid_heights:
-            ax2.axhline(y=height, color='gray', linewidth=0.3, alpha=0.5)
+            ax2.axhline(y=height, color='gray', linewidth=0.6, alpha=0.5)
 
         ax2.axis('off')
-        #ax2.legend(loc='lower left', handleheight=2.6, frameon=False)
-        ax2.legend(loc='lower left', bbox_to_anchor=(-0.2, 0),  handleheight=2.6, frameon=False)
+        #ax2.legend(loc='lower right', frameon=False)
+        #Add multi-line text
+        text_box = """Implausible change rate\n\nImplausible change rate (improved)\n\nNeighboring outlier\n\nNeighboring outlier (improved)\n\nSpline fit\n\nSpline fit (improved)\n\nML algorithm"""
+        ax2.figure.text(-0.24, 0.035, text_box, transform=ax2.figure.transFigure, fontsize=14, verticalalignment='bottom', horizontalalignment='left')
+        text_box = f"""= {count[0]}\n\n= {count[1]}\n\n= {count[2]}\n\n= {count[3]}\n\n= {count[4]}\n\n= {count[5]}\n\n= {count[6]}"""
+        ax2.figure.text(1, 0.035, text_box, transform=ax2.figure.transFigure, fontsize=14, verticalalignment='bottom', horizontalalignment='left')
 
         # Display the plot
+        plt.subplots_adjust(hspace=0.01)
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {self.relev_df[time_column].iloc[0]}-2in1.png"),  bbox_inches="tight")
         plt.close()

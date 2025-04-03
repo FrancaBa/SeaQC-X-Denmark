@@ -35,11 +35,11 @@ class Test_QC_ML_Station(unittest.TestCase):
         #Set path to config json and tidal constituents
         self.json_path = os.path.join(os.getcwd(), 'config.json')
 
-    def test_quality_check_upernavik(self):
+    def test_quality_check_Upernavik(self):
         #select the station (here: Upernavik 2023)
         #station = 'Upernavik1'
-        #station = 'Upernavik2'
-        station = 'Upernavik'
+        station = 'Upernavik2'
+        #station = 'Upernavik'
 
         #select output folder
         output_path = os.path.join(os.getcwd(),'output', 'ml_classes', station)
@@ -50,9 +50,12 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
         data_flagging_ml.set_station(station)
         data_flagging_ml.set_tidal_components_file(self.datadir_tides)
-        data_flagging_ml.import_data(self.datadir)
-        #data_flagging_ml.run()
-        data_flagging_ml.run_combined()
+        dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir)
+        #For running one specific file connected to a station as training data (choose station accordingl f.e. Upernavik1)
+        df_dict, df_test = data_flagging_ml.run(dfs_station_subsets)
+        #For running all files connected to a station as training data (choose station accordingly f.e. Upernavik)
+        #df_dict, df_test = data_flagging_ml.run(dfs_training)
+        outcomes = data_flagging_ml.run_testing(df_dict, df_test)
 
     def test_quality_check_Nuuk(self):
         #select the station (here: Nuuk)
@@ -67,9 +70,13 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
         data_flagging_ml.set_station(station)
         data_flagging_ml.set_tidal_components_file(self.datadir_tides)
-        data_flagging_ml.import_data(self.datadir)
-        #data_flagging_ml.run()
-        data_flagging_ml.run_combined()
+        dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir)
+        #For running one specific file connected to a station as training data (choose station accordingly)
+        #df_dict, df_test = data_flagging_ml.run(dfs_station_subsets)
+        #For running all files connected to a station as training data (choose station accordingly)
+        df_dict, df_test = data_flagging_ml.run(dfs_training)
+        outcomes = data_flagging_ml.run_testing(df_dict, df_test)
+
 
     def backup_test_quality_check_Qaqortoq(self):
         #select the station (here: Qaqortoq)
@@ -84,13 +91,20 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
         data_flagging_ml.set_station(station)
         data_flagging_ml.set_tidal_components_file(self.datadir_tides)
-        data_flagging_ml.import_data(self.datadir)
-        #data_flagging_ml.run()
-        data_flagging_ml.run_combined()
+        dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir)
+        #For running one specific file connected to a station as training data (choose station accordingly)
+        df_dict, df_test = data_flagging_ml.run(dfs_station_subsets)
+        #For running all files connected to a station as training data (choose station accordingly)
+        #df_dict, df_test = data_flagging_ml.run(dfs_training)
+        outcomes = data_flagging_ml.run_testing(df_dict, df_test)
+
 
     def test_quality_check_Pituffik(self):
         #select the station (here: Pituffik)
-        station = 'Pituffik'
+        #station = 'Pituffik'
+        #station = 'Pituffik1'
+        #station = 'Pituffik2'
+        station = 'Pituffik3'
 
         #select output folder
         output_path = os.path.join(os.getcwd(),'output', 'ml_classes', station)
@@ -101,11 +115,13 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
         data_flagging_ml.set_station(station)
         data_flagging_ml.set_tidal_components_file(self.datadir_tides)
-        data_flagging_ml.import_data(self.datadir)
-        #Training data equals to 1 manual labelled files/dataset from the respectiv station
-        #data_flagging_ml.run()
-        #Training data equals to X% of manual labelled data from all the files for the station combined
-        data_flagging_ml.run_combined()
+        dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir)
+        #For running all files connected to a station as training data (choose station accordingly)
+        df_dict, df_test = data_flagging_ml.run(dfs_station_subsets)
+        #For running one specific file connected to a station as training data (choose station accordingly)
+        #df_dict, df_test = data_flagging_ml.run(dfs_training)
+        outcomes = data_flagging_ml.run_testing(df_dict, df_test)
+
 
     def test_quality_check_all(self):
         #select the station (here: Pituffik)
@@ -120,9 +136,10 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
         data_flagging_ml.set_station(station)
         data_flagging_ml.set_tidal_components_file(self.datadir_tides)
-        data_flagging_ml.import_data(self.datadir)
+        dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir)
         #Training data equals to X% of manual labelled data from all the files for ALL the stations combined (f.e: 50% of labelled data from each station is used for training)
-        data_flagging_ml.run_combined_training()
+        dfs_testing_new = data_flagging_ml.run_combined_training(dfs_training)
+        outcomes = data_flagging_ml.run_testing(dfs_testing_new)
 
     def test_quality_check_unsupervised(self):
         station = 'unsupervised_learning'

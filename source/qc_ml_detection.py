@@ -138,59 +138,18 @@ class MLOutlierDetection():
                 self.dfs_station_subsets[f"{file.split("-")[0]}"] = df.copy()
             if (df[self.qc_column] == 4).any():
                 raise Exception('Code is build for binary classification. QC flags can currently only be 1 and 3!')
-    
-    def run_combined(self):
+
+        return self.dfs_station_subsets, self.dfs_training
+
+    def run(self, df_dict):
+
+        print(df_dict.keys())
+        print(df_dict.keys())
         
-        print(self.dfs_station_subsets.keys())
-        print(self.dfs_training.keys())
-        for elem in self.dfs_training:
+        for elem in df_dict:
             if self.station in elem:
-                ##Decied if whole station df is used for training or only subset. For whole station:
-                #df_train = self.dfs[elem].copy()
-                #If subset, split here
-                df_train, df_test = train_test_split(self.dfs_training[elem], test_size=0.15, shuffle=False)
-                unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
-                for value, count in zip(unique_values, counts):
-                    self.information.append(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
-                    print(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
-                    self.information.append('\n')
-                #Preprocess the training data if needed
-                df_train = self.preprocessing_data(df_train)
-                #Add features to the original data series and the training data
-                tidal_signal = [path for path in self.tidal_infos if elem in path]
-                df_train = self.add_features(df_train, tidal_signal[0], elem)
-
-        #Visualize training data
-        anomalies = np.isin(df_train[self.qc_column], [3])
-        self.basic_plotter_no_xaxis(df_train, 'QC classes (for training data)', anomalies)
-
-        X_train = df_train[self.features].values
-        y_train = self.le.fit_transform(np.array(df_train[self.qc_column].values))
-        print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
-
-        #Fit ML model to data
-        self.run_model(X_train, y_train)
-
-        #Runs all dataset again for testing (also training set)
-        #for elem in self.dfs_station_subsets:
-        for elem in self.dfs_training:
-            if self.station in elem:
-                self.run_testing_model(df_test, elem)
-            else:
-                #self.run_testing_model(self.dfs_station_subsets[elem], elem)
-                self.run_testing_model(self.dfs_training[elem], elem)
-        
-        self.save_to_txt()
-        self.save_to_csv()
-
-    def run(self):
-        
-        for elem in self.dfs_station_subsets:
-            if self.station in elem:
-                ##Decied if whole station df is used for training or only subset. For whole station:
-                df_train = self.dfs_station_subsets[elem].copy()
-                #If subset, split here
-                #df_train, df_test = train_test_split(self.dfs_training[elem], test_size=0.15, shuffle=False)
+                ##Use subset of one station for training and test on other stations and leftover data from this station. 
+                df_train, df_test = train_test_split(df_dict[elem], test_size=0.15, shuffle=False)
                 unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
                 for value, count in zip(unique_values, counts):
                     self.information.append(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
@@ -213,22 +172,17 @@ class MLOutlierDetection():
         #Fit ML model to data
         self.run_model(X_train, y_train)
 
-        #Runs all dataset again for testing (also training set)
-        for elem in self.dfs_station_subsets:
-                self.run_testing_model(self.dfs_station_subsets[elem], elem)
-        
-        self.save_to_txt()
-        self.save_to_csv()
+        return df_dict, df_test
 
-    def run_combined_training(self):
+    def run_combined_training(self, df_dict):
         
-        print(self.dfs_station_subsets.keys())
-        print(self.dfs_training.keys())
+        print(df_dict.keys())
+        print(df_dict.keys())
         dfs_testing_new = {}
         dfs_train = {}
-        for elem in self.dfs_training:
+        for elem in df_dict:
             #Decied if whole station df is used for training or only subset. If subset, split here
-            df_train, df_test = train_test_split(self.dfs_training[elem], test_size=0.15, shuffle=False)
+            df_train, df_test = train_test_split(df_dict[elem], test_size=0.15, shuffle=False)
             anomalies = np.isin(df_train[self.qc_column], [3])
             self.basic_plotter_no_xaxis(df_train, f'QC classes (for training data) - Subset {elem}', anomalies)
             #Preprocess the training data if needed
@@ -259,24 +213,32 @@ class MLOutlierDetection():
         #Fit ML model to data
         self.run_model(X_train, y_train)
 
+        return dfs_testing_new
+
+    def run_testing(self, df_dict, df_test=pd.DataFrame()):
+
         #Runs all dataset again for testing (also training set)
-        for elem in dfs_testing_new:
-                self.run_testing_model(dfs_testing_new[elem], elem)
-        
+        outcomes = {}
+        for elem in df_dict:
+            if not df_test.empty:
+                if self.station in elem:
+                    df_outcome = self.run_testing_model(df_test, elem)
+                else:
+                    df_outcome = self.run_testing_model(df_dict[elem], elem)
+            else:
+                df_outcome = self.run_testing_model(df_dict[elem], elem)
+            outcomes[elem]= df_outcome
+
         self.save_to_txt()
         self.save_to_csv()
+
+        return outcomes
 
     def preprocessing_data(self, df):
         #Undersampling: Mark 10% of random good rows to be deleted
         #rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.1, random_state=42).index
         #Drop selected rows
         #df = df.drop(rows_to_drop).reset_index(drop=True).copy()
-        
-        #Oversampling:Filter rows which bad qc flag and multiply them and assign them randomly 
-        #bad_rows = df_res[df_res[self.qc_column].isin([3,4])].copy()
-        #bad_rows[self.time_column] = bad_rows[self.time_column]  + pd.to_timedelta(np.random.randint(1, 60, size=len(bad_rows)), unit='m')
-        #df_res_new = pd.concat([df_res, bad_rows]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='last').reset_index(drop=True)
-        #df_res_new = pd.concat([bad_rows, df_res]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='first').reset_index(drop=True)
         
         # Oversampling:Select good rows and shift them up and down
         rows_shift_neg = df[df[self.qc_column]==1].sample(frac=0.05, random_state=42)
@@ -293,7 +255,7 @@ class MLOutlierDetection():
         #Visualization resampled data
         anomalies = np.isin(df[self.qc_column], [3])
         self.basic_plotter_no_xaxis(df, 'Resampled QC classes (small distribution)', anomalies)
-        self.zoomable_plot_df(df, 'QC classes - Resampled', anomalies)
+        #self.zoomable_plot_df(df, 'QC classes - Resampled', anomalies)
 
         #Oversampling:Add some extreme values
         rows_shift_neg = df[df[self.qc_column]==1].sample(frac=0.005, random_state=42)
@@ -317,7 +279,7 @@ class MLOutlierDetection():
         #Visualization resampled data
         anomalies = np.isin(df[self.qc_column], [3])
         self.basic_plotter_no_xaxis(df, 'Resampled QC classes (large distribution)', anomalies)
-        self.zoomable_plot_df(df, 'QC classes - Resampled', anomalies)
+        #self.zoomable_plot_df(df, 'QC classes - Resampled', anomalies)
 
         return df
 
@@ -355,10 +317,10 @@ class MLOutlierDetection():
         #Add tidal signal
         tidal_signal_series = self.reinitialize_utide_from_txt(df, tidal_signal, station)
         df['tidal_signal'] = tidal_signal_series
-        rolling_corr = df['value'].rolling(10).corr(pd.Series(tidal_signal_series))
+        rolling_corr = df['value'].rolling(window=10).corr(df['tidal_signal'])
         df['tidal_corr'] = rolling_corr
-        #self.features = [self.measurement_column, 'tidal_signal']
-        #self.features = [self.measurement_column, 'tidal_signal', 'tidal_corr', 'gradient_1', 'gradient_-1', 'gradient_2', 'gradient_-2']
+
+        #Define relevant features
         self.features = [self.measurement_column, 'tidal_signal', 'gradient_1', 'gradient_-1', 'gradient_2', 'gradient_-2']
 
         #reset index and timestep back to column
@@ -552,29 +514,35 @@ class MLOutlierDetection():
         #anomalies_pred = np.isin(y_pred, [3])
         self.basic_plotter_no_xaxis(df_test, title, anomalies, anomalies_pred)
         self.basic_plotter(df_test, title, anomalies, anomalies_pred)
-        self.zoomable_plot_df(df_test, title, anomalies, anomalies_pred)
+        #self.zoomable_plot_df(df_test, title, anomalies, anomalies_pred)
 
         #Plot specific times
+        df_test['Timestamp_helper'] = df_test['Timestamp'].dt.tz_convert(None)
         if station == 'Nuuk':
             start_date = datetime(int(2023), int(1), int(24), int(21))
             end_date = datetime(int(2023), int(1), int(25), int(18))
             start_date1 = datetime(int(2023), int(1), int(25), int(0))
             end_date1 = datetime(int(2023), int(1), int(25), int(1))
+            relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
+            relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
         elif station == 'Upernavik':
             start_date = datetime(int(2024), int(10), int(20), int(19))
             end_date = datetime(int(2024), int(10), int(21), int(11))
             start_date1 = datetime(int(2024), int(10), int(26), int(22))
             end_date1 = datetime(int(2024), int(10), int(27), int(13))
+            relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
+            relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
         elif station == 'Pituffik':
             start_date = datetime(int(2017), int(12), int(14), int(10))
             end_date = datetime(int(2017), int(12), int(15), int(0))
             start_date1 = datetime(int(2017), int(12), int(14), int(16))
             end_date1 = datetime(int(2017), int(12), int(14), int(19))
+            relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
+            relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
         else:
-            relev_df = []
+            relev_df = pd.DataFrame()
+            relev_df1 = pd.DataFrame()
 
-        df_test['Timestamp_helper'] = df_test['Timestamp'].dt.tz_convert(None)
-        relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
         if not relev_df.empty:
             anomalies = np.isin(relev_df[self.qc_column], [3])
             start = relev_df.index[0] - df_test.index[0]
@@ -585,7 +553,7 @@ class MLOutlierDetection():
             fn = (anomalies_pred_short == False) & (anomalies == True)  # False Negatives (FN)
             tp = (anomalies_pred_short == True) & (anomalies == True)  # True Positives (TP)
             self.basic_plotter(relev_df, title, anomalies, anomalies_pred_short, fn, fp, tp)
-        relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
+        
         if not relev_df1.empty:
             anomalies = np.isin(relev_df1[self.qc_column], [3])
             start = relev_df1.index[0] - df_test.index[0]
@@ -598,6 +566,10 @@ class MLOutlierDetection():
             self.basic_plotter(relev_df1, title, anomalies, anomalies_pred1, fn, fp, tp)
 
         del df_test['Timestamp_helper']
+
+        df_test['ml_anomaly_predicted'] = y_pred
+        
+        return df_test
 
     def basic_plotter_no_xaxis(self, df, title, anomalies, anomalies2=np.array([])):
         #Visualization of station data
@@ -699,4 +671,5 @@ class MLOutlierDetection():
                 file.write("".join(list) + "\n")
 
         print("CSV file 'scores.csv' created successfully.")
+
         
