@@ -289,22 +289,22 @@ class MLOutlierDetection():
         df.set_index(self.time_column, inplace=True)  
         
         #simple features like lag time and gradient
-        df['lag_1'] = df['value'].shift(1)
-        df['lag_2'] = df['value'].shift(2)
-        df['lag_-1'] = df['value'].shift(-1)
-        df['lag_-2'] = df['value'].shift(-2)
-        df['gradient_1'] = df['value'] - df['value'].shift(1)
-        df['gradient_-1'] = df['value'].shift(-1) - df['value']
-        df['gradient_2'] = df['value'] - df['value'].shift(2)
-        df['gradient_-2'] = df['value'].shift(-2) - df['value']
-        df['gradient_3'] = df['value'] - df['value'].shift(3)
-        df['gradient_-3'] = df['value'].shift(-3) - df['value']
+        df['lag_1'] = df[self.measurement_column].shift(1)
+        df['lag_2'] = df[self.measurement_column].shift(2)
+        df['lag_-1'] = df[self.measurement_column].shift(-1)
+        df['lag_-2'] = df[self.measurement_column].shift(-2)
+        df['gradient_1'] = df[self.measurement_column] - df[self.measurement_column].shift(1)
+        df['gradient_-1'] = df[self.measurement_column].shift(-1) - df[self.measurement_column]
+        df['gradient_2'] = df[self.measurement_column] - df[self.measurement_column].shift(2)
+        df['gradient_-2'] = df[self.measurement_column].shift(-2) - df[self.measurement_column]
+        df['gradient_3'] = df[self.measurement_column] - df[self.measurement_column].shift(3)
+        df['gradient_-3'] = df[self.measurement_column].shift(-3) - df[self.measurement_column]
 
         #Advanced features:
         #Generate wavelets
         #freq_hours = pd.Timedelta('1min').total_seconds() / 3600
         #self.wavelet_analyzer = wavelet_analysis.TidalWaveletAnalysis(target_sampling_rate_hours=freq_hours)
-        #wavelet_outcomes = self.wavelet_analyzer.analyze(df, column='value', detrend='False', max_gap_hours=24)
+        #wavelet_outcomes = self.wavelet_analyzer.analyze(df, column=self.measurement_column, detrend='False', max_gap_hours=24)
         #df_wavelet = pd.DataFrame(index=range(len(wavelet_outcomes.times)))
         #test = wavelet_outcomes.power_spectrum.T.tolist()
         #df_wavelet = pd.DataFrame(test)
@@ -317,7 +317,7 @@ class MLOutlierDetection():
         #Add tidal signal
         tidal_signal_series = self.reinitialize_utide_from_txt(df, tidal_signal, station)
         df['tidal_signal'] = tidal_signal_series
-        rolling_corr = df['value'].rolling(window=10).corr(df['tidal_signal'])
+        rolling_corr = df[self.measurement_column].rolling(window=10).corr(df['tidal_signal'])
         df['tidal_corr'] = rolling_corr
 
         #Define relevant features
@@ -342,7 +342,7 @@ class MLOutlierDetection():
         fig, ax1 = plt.subplots(figsize=(18, 10))
         ax1.set_xlabel('Time')
         ax1.set_ylabel('WaterLevel')
-        ax1.plot(new_time, df['value'], marker='o', markersize=3, color='black', linestyle='None', label = 'WaterLevel')
+        ax1.plot(new_time, df[self.measurement_column], marker='o', markersize=3, color='black', linestyle='None', label = 'WaterLevel')
         ax1.plot(new_time, new_tide_results['h'], marker='o', markersize=3, color='blue', linestyle='None', alpha=0.6, label = 'TidalSignal')
         ax1.legend(loc='upper right')
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%m-%d %H:%M'))
