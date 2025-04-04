@@ -1,6 +1,6 @@
 {
-  "date_alteration": "20.03.2025",
-  "detide_mode": true,
+  "date_alteration": "01.04.2025",
+  "detide_mode": false,
   "ML_mode": true,
   "qc_flag_classification": {
     "no_qc": 0,
@@ -85,7 +85,7 @@
         "lag_1tide": 750,
         "lag_2tide": 1500,
         "seven_days": 10430,
-        "nsigma": 2,
+        "nsigma": 4,
         "splinelength": 420,
         "splinedegree": 2
       },
@@ -129,7 +129,7 @@
         "lag_1tide": 150,
         "lag_2tide": 300,
         "seven_days": 2016,
-        "nsigma": 3,
+        "nsigma": 4,
         "splinelength": 84,
         "splinedegree": 2
       },

@@ -12,6 +12,7 @@ import utide
 import random
 import matplotlib.dates as mdates 
 import pickle
+import csv
 from datetime import datetime
 
 import torch
@@ -46,17 +47,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, IsolationForest, AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 
-plt.rcParams["font.size"] = 13  # Set global font size (adjust as needed)
-plt.rcParams["axes.labelsize"] = 13  # Set x and y label size
-plt.rcParams["axes.titlesize"] = 13  # Set title size
-plt.rcParams["xtick.labelsize"] = 13  # Set x-axis tick labels size
-plt.rcParams["ytick.labelsize"] = 13  # Set y-axis tick labels size
-plt.rcParams["legend.fontsize"] = 13  # Set x-axis tick labels size
-plt.rcParams["figure.titlesize"] = 13  # Set y-axis tick labels size
-
-BIGGER_SIZE = 13
-
-class MLOutlierDetection(): 
+class MLOutlierDetectionUNSU(): 
 
     def __init__(self):
 
@@ -102,7 +93,7 @@ class MLOutlierDetection():
     def import_data(self, folder_path):
 
         self.dfs_training = {}
-        self.dfs_station_subsets = {}
+        self.dfs_testing = {}
         #Open .csv file and fix the column names
         for file in os.listdir(folder_path):  # Loops through files in the current directory
             print(file)
@@ -130,59 +121,24 @@ class MLOutlierDetection():
             anomaly = np.isin(self.dfs_training[f"{df_name}"][self.qc_column], [3,4])
             self.basic_plotter_no_xaxis(self.dfs_training[f"{df_name}"], f'Manual QC for {df_name} station combined',anomaly)
             #Keep dataset according to station for testing
-            if file.split("-")[0] in self.dfs_station_subsets.keys(): 
-                merged_df = pd.concat([self.dfs_station_subsets[f"{file.split("-")[0]}"], df])
+            if file.split("-")[0] in self.dfs_testing.keys(): 
+                merged_df = pd.concat([self.dfs_testing[f"{file.split("-")[0]}"], df])
                 merged_df = merged_df.sort_values(by='Timestamp').reset_index(drop=True)
-                self.dfs_station_subsets[f"{file.split("-")[0]}"] = merged_df.copy()
+                self.dfs_testing[f"{file.split("-")[0]}"] = merged_df.copy()
             else:
-                self.dfs_station_subsets[f"{file.split("-")[0]}"] = df.copy()
+                self.dfs_testing[f"{file.split("-")[0]}"] = df.copy()
             if (df[self.qc_column] == 4).any():
                 raise Exception('Code is build for binary classification. QC flags can currently only be 1 and 3!')
-
-        return self.dfs_station_subsets, self.dfs_training
-
-    def run(self, df_dict):
-
-        print(df_dict.keys())
-        print(df_dict.keys())
+    
+    def run_unsupervised(self):
         
-        for elem in df_dict:
-            if self.station in elem:
-                ##Use subset of one station for training and test on other stations and leftover data from this station. 
-                df_train, df_test = train_test_split(df_dict[elem], test_size=0.15, shuffle=False)
-                unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
-                for value, count in zip(unique_values, counts):
-                    self.information.append(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
-                    print(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
-                    self.information.append('\n')
-                #Preprocess the training data if needed
-                df_train = self.preprocessing_data(df_train)
-                #Add features to the original data series and the training data
-                tidal_signal = [path for path in self.tidal_infos if elem.strip("0123456789") in path]
-                df_train = self.add_features(df_train, tidal_signal[0], elem)
-
-        #Visualize training data
-        anomalies = np.isin(df_train[self.qc_column], [3])
-        self.basic_plotter_no_xaxis(df_train, 'QC classes (for training data)', anomalies)
-
-        X_train = df_train[self.features].values
-        y_train = self.le.fit_transform(np.array(df_train[self.qc_column].values))
-        print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
-
-        #Fit ML model to data
-        self.run_model(X_train, y_train)
-
-        return df_dict, df_test
-
-    def run_combined_training(self, df_dict):
-        
-        print(df_dict.keys())
-        print(df_dict.keys())
+        print(self.dfs_testing.keys())
+        print(self.dfs_training.keys())
         dfs_testing_new = {}
         dfs_train = {}
-        for elem in df_dict:
+        for elem in self.dfs_training:
             #Decied if whole station df is used for training or only subset. If subset, split here
-            df_train, df_test = train_test_split(df_dict[elem], test_size=0.15, shuffle=False)
+            df_train = self.dfs_training[elem].copy()
             anomalies = np.isin(df_train[self.qc_column], [3])
             self.basic_plotter_no_xaxis(df_train, f'QC classes (for training data) - Subset {elem}', anomalies)
             #Preprocess the training data if needed
@@ -191,7 +147,7 @@ class MLOutlierDetection():
             tidal_signal = [path for path in self.tidal_infos if elem in path]
             df_train = self.add_features(df_train, tidal_signal[0], elem)
             dfs_train[f"{elem}"] = df_train
-            dfs_testing_new[f"{elem}"] = df_test
+            dfs_testing_new[f"{elem}"] = self.dfs_training[elem].copy()
 
         # Merge all DataFrames in the dictionary for training_df
         merged_df = pd.concat(dfs_train.values())
@@ -202,43 +158,35 @@ class MLOutlierDetection():
             print(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
             self.information.append('\n')
 
+        X_train = df_train[self.features].values
+        y_train = self.le.fit_transform(df_train[self.qc_column].values)
+
         #Visualize training data
         anomalies = np.isin(df_train[self.qc_column], [3])
-        self.basic_plotter_no_xaxis(df_train, 'QC classes (for training data)', anomalies)
-
-        X_train = df_train[self.features].values
-        y_train = self.le.fit_transform(np.array(df_train[self.qc_column].values))
-        print(dict(zip(self.le.classes_, self.le.transform(self.le.classes_))))
+        self.basic_plotter_no_xaxis(df_train, 'QC classes (full dataset)', anomalies)
 
         #Fit ML model to data
-        self.run_model(X_train, y_train)
+        self.get_model_unsupervised(X_train, y_train)
 
-        return dfs_testing_new
-
-    def run_testing(self, df_dict, df_test=pd.DataFrame()):
-
-        #Runs all dataset again for testing (also training set)
-        outcomes = {}
-        for elem in df_dict:
-            if not df_test.empty:
-                if self.station in elem:
-                    df_outcome = self.run_testing_model(df_test, elem)
-                else:
-                    df_outcome = self.run_testing_model(df_dict[elem], elem)
-            else:
-                df_outcome = self.run_testing_model(df_dict[elem], elem)
-            outcomes[elem]= df_outcome
-
+        #Runs model again for manual labelled dataset and check the score
+        for elem in dfs_testing_new:
+                self.run_testing_model(dfs_testing_new[elem], elem)
+        
         self.save_to_txt()
         self.save_to_csv()
 
-        return outcomes
 
     def preprocessing_data(self, df):
         #Undersampling: Mark 10% of random good rows to be deleted
         #rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.1, random_state=42).index
         #Drop selected rows
         #df = df.drop(rows_to_drop).reset_index(drop=True).copy()
+        
+        #Oversampling:Filter rows which bad qc flag and multiply them and assign them randomly 
+        #bad_rows = df_res[df_res[self.qc_column].isin([3,4])].copy()
+        #bad_rows[self.time_column] = bad_rows[self.time_column]  + pd.to_timedelta(np.random.randint(1, 60, size=len(bad_rows)), unit='m')
+        #df_res_new = pd.concat([df_res, bad_rows]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='last').reset_index(drop=True)
+        #df_res_new = pd.concat([bad_rows, df_res]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='first').reset_index(drop=True)
         
         # Oversampling:Select good rows and shift them up and down
         rows_shift_neg = df[df[self.qc_column]==1].sample(frac=0.05, random_state=42)
@@ -255,7 +203,7 @@ class MLOutlierDetection():
         #Visualization resampled data
         anomalies = np.isin(df[self.qc_column], [3])
         self.basic_plotter_no_xaxis(df, 'Resampled QC classes (small distribution)', anomalies)
-        #self.zoomable_plot_df(df, 'QC classes - Resampled', anomalies)
+        self.zoomable_plot_df(df, 'QC classes - Resampled', anomalies)
 
         #Oversampling:Add some extreme values
         rows_shift_neg = df[df[self.qc_column]==1].sample(frac=0.005, random_state=42)
@@ -279,7 +227,7 @@ class MLOutlierDetection():
         #Visualization resampled data
         anomalies = np.isin(df[self.qc_column], [3])
         self.basic_plotter_no_xaxis(df, 'Resampled QC classes (large distribution)', anomalies)
-        #self.zoomable_plot_df(df, 'QC classes - Resampled', anomalies)
+        self.zoomable_plot_df(df, 'QC classes - Resampled', anomalies)
 
         return df
 
@@ -289,22 +237,22 @@ class MLOutlierDetection():
         df.set_index(self.time_column, inplace=True)  
         
         #simple features like lag time and gradient
-        df['lag_1'] = df[self.measurement_column].shift(1)
-        df['lag_2'] = df[self.measurement_column].shift(2)
-        df['lag_-1'] = df[self.measurement_column].shift(-1)
-        df['lag_-2'] = df[self.measurement_column].shift(-2)
-        df['gradient_1'] = df[self.measurement_column] - df[self.measurement_column].shift(1)
-        df['gradient_-1'] = df[self.measurement_column].shift(-1) - df[self.measurement_column]
-        df['gradient_2'] = df[self.measurement_column] - df[self.measurement_column].shift(2)
-        df['gradient_-2'] = df[self.measurement_column].shift(-2) - df[self.measurement_column]
-        df['gradient_3'] = df[self.measurement_column] - df[self.measurement_column].shift(3)
-        df['gradient_-3'] = df[self.measurement_column].shift(-3) - df[self.measurement_column]
+        df['lag_1'] = df['value'].shift(1)
+        df['lag_2'] = df['value'].shift(2)
+        df['lag_-1'] = df['value'].shift(-1)
+        df['lag_-2'] = df['value'].shift(-2)
+        df['gradient_1'] = df['value'] - df['value'].shift(1)
+        df['gradient_-1'] = df['value'].shift(-1) - df['value']
+        df['gradient_2'] = df['value'] - df['value'].shift(2)
+        df['gradient_-2'] = df['value'].shift(-2) - df['value']
+        #df['gradient_3'] = df['value'] - df['value'].shift(3)
+        #df['gradient_-3'] = df['value'].shift(-3) - df['value']
 
         #Advanced features:
         #Generate wavelets
         #freq_hours = pd.Timedelta('1min').total_seconds() / 3600
         #self.wavelet_analyzer = wavelet_analysis.TidalWaveletAnalysis(target_sampling_rate_hours=freq_hours)
-        #wavelet_outcomes = self.wavelet_analyzer.analyze(df, column=self.measurement_column, detrend='False', max_gap_hours=24)
+        #wavelet_outcomes = self.wavelet_analyzer.analyze(df, column='value', detrend='False', max_gap_hours=24)
         #df_wavelet = pd.DataFrame(index=range(len(wavelet_outcomes.times)))
         #test = wavelet_outcomes.power_spectrum.T.tolist()
         #df_wavelet = pd.DataFrame(test)
@@ -317,10 +265,9 @@ class MLOutlierDetection():
         #Add tidal signal
         tidal_signal_series = self.reinitialize_utide_from_txt(df, tidal_signal, station)
         df['tidal_signal'] = tidal_signal_series
-        rolling_corr = df[self.measurement_column].rolling(window=10).corr(df['tidal_signal'])
+        rolling_corr = df['value'].rolling(10).corr(pd.Series(tidal_signal_series))
         df['tidal_corr'] = rolling_corr
-
-        #Define relevant features
+        #self.features = ['lag_1', 'lag_2', 'lag_-1', 'lag_-2', 'tidal_signal', 'wavelet', 'gradient_1', 'gradient_-1', 'gradient_2', 'gradient_-2', 'gradient_3', 'gradient_-3']
         self.features = [self.measurement_column, 'tidal_signal', 'gradient_1', 'gradient_-1', 'gradient_2', 'gradient_-2']
 
         #reset index and timestep back to column
@@ -342,7 +289,7 @@ class MLOutlierDetection():
         fig, ax1 = plt.subplots(figsize=(18, 10))
         ax1.set_xlabel('Time')
         ax1.set_ylabel('WaterLevel')
-        ax1.plot(new_time, df[self.measurement_column], marker='o', markersize=3, color='black', linestyle='None', label = 'WaterLevel')
+        ax1.plot(new_time, df['value'], marker='o', markersize=3, color='black', linestyle='None', label = 'WaterLevel')
         ax1.plot(new_time, new_tide_results['h'], marker='o', markersize=3, color='blue', linestyle='None', alpha=0.6, label = 'TidalSignal')
         ax1.legend(loc='upper right')
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%m-%d %H:%M'))
@@ -356,100 +303,50 @@ class MLOutlierDetection():
         # Return the reinitialized tide results
         return new_tide_results['h']
     
-    def run_model(self, X_train, y_train):
+    def get_model_unsupervised(self, X, y):
 
-        #Get best XGBClassifier model based on hyperparameters
+        # Define the hyperparameter grid
         param_dist = {
-            'n_estimators': np.arange(100, 1001, 100),
-            'max_depth': np.arange(3, 11, 2),
-            'learning_rate': np.linspace(0.01, 0.3, 10),
-            'min_child_weight': np.arange(1, 11, 2),
-            'gamma': np.linspace(0, 5, 10),
-            'subsample': np.linspace(0.5, 1.0, 10),
-            'colsample_bytree': np.linspace(0.3, 1.0, 10),
-            'scale_pos_weight': [1, 10, 25, 50, 75, 100]
+            'n_estimators': np.arange(50, 501, 50),
+            'max_samples': np.linspace(0.1, 1.0, 10),
+            'contamination': [0.01, 0.05, 0.1, 'auto'],
+            'max_features': np.linspace(0.5, 1.0, 5),
+            'bootstrap': [True, False]
         }
 
         # Initialize the model
-        xgb = XGBClassifier(objective='binary:logistic', random_state=42, use_label_encoder=False, eval_metric='aucpr')
+        iso_forest = IsolationForest(random_state=42)
+
+        # Custom scorer for F1-score
+        def f1_scorer(estimator, X, y):
+            y_pred = estimator.predict(X)
+            y_pred = (y_pred == -1).astype(int)  # Convert -1 (anomaly) to 1, 1 (normal) to 0
+            return f1_score(y, y_pred)  # Compare with true labels
+
+        # Wrap the function in make_scorer
+        scorer = make_scorer(f1_scorer, greater_is_better=True, needs_proba=False)
 
         # Initialize RandomizedSearchCV
-        #random_search = RandomizedSearchCV(
-        #    estimator=xgb,
-        #    param_distributions=param_dist,
-        #    n_iter=20,  # Number of different combinations to try
-        #    cv=5,
-        #    scoring='f1',  # Use F1-score for imbalanced data
-        #    random_state=42,
-        #    n_jobs=-1
-        #)
-
-        #scale_pos_weight = sum(y_train == 0) / sum(y_train== 1)
-        #model = XGBClassifier(objective="binary:logistic", scale_pos_weight=scale_pos_weight, eval_metric="logloss", max_depth=4, learning_rate=0.01, n_estimators=200, random_state=42)
-        #self.model = XGBClassifier(objective="binary:logistic", eval_metric="aucpr", learning_rate=0.01, n_estimators=200, random_state=42)
-        #model = XGBClassifier(objective="binary:logistic", eval_metric="aucpr", random_state=42, **best_params)
-
-        #param_dist = {
-        #    'n_estimators': np.arange(10, 501, 100),
-        #    'max_depth': np.arange(3, 21, 3),
-        #    'min_samples_split': np.arange(2, 21, 2),
-        #    'min_samples_leaf': np.arange(1, 11, 1),
-        #    'max_features': ['sqrt', 'log2', None],
-        #    'bootstrap': [True, False],
-        #    'class_weight': [None, 'balanced']
-        #}
-
-        # Initialize the model
-        #rf = RandomForestClassifier(random_state=42)
-
-        # Initialize RandomizedSearchCV
-        #random_search = RandomizedSearchCV(
-        #    estimator=rf,
-        #    param_distributions=param_dist,
-        #    n_iter=20,  # Number of different combinations to try
-        #    cv=5,       # 5-fold cross-validation
-        #    scoring='f1',
-        #    random_state=42
-        #)
-
-        #self.model = RandomForestClassifier(n_estimators=50, n_jobs=1, random_state=42)
-        self.model = RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=42)
-        self.model.fit(X_train, y_train)
-        
-        #Adaboost: Define the hyperparameter grid
-        #param_dist = {
-        #    'n_estimators': np.arange(50, 1001, 50),
-        #    'learning_rate': np.linspace(0.01, 1.0, 10),
-        #    'estimator': [DecisionTreeClassifier(max_depth=d) for d in range(1, 6)],
-        #    'algorithm': ['SAMME', 'SAMME.R']
-        #}
-
-        #Initialize the model
-        #adaboost = AdaBoostClassifier(random_state=42)
-
-        # Initialize RandomizedSearchCV
-        #random_search = RandomizedSearchCV(
-        #    estimator=adaboost,
-        #    param_distributions=param_dist,
-        #    n_iter=20,
-        #    cv=5,
-        #    scoring='f1',
-        #    random_state=42,
-        #    n_jobs=-1
-        #)
+        random_search = RandomizedSearchCV(
+            estimator=iso_forest,
+            param_distributions=param_dist,
+            n_iter=20,
+            cv=3,
+            scoring=scorer,
+            random_state=42,
+            n_jobs=-1
+        )
 
         # Fit the model
-        #random_search.fit(X_train, y_train)
-
+        random_search.fit(X,  y)
         # Print the best parameters
-        #print("Best Parameters:", random_search.best_params_)
-
+        print("Best Parameters:", random_search.best_params_)
         # Evaluate the best model
-        #self.model = random_search.best_estimator_
+        self.model = random_search.best_estimator_
 
-        # Train the model
-        #model.fit(self.X_train_res, self.y_train_res, eval_set=[(self.X_train_res, self.y_train_res), (self.X_val, self.y_val_transformed)], verbose=True)
-        #model.fit(self.X_train, self.y_train_transformed, eval_set=[(X_train, y_train_transformed), (X_val, y_val_transformed)], verbose=True)
+        # Fit Isolation Forest
+        #self.model = IsolationForest(contamination=0.1, n_estimators=200, random_state=42)  # Adjust contamination as needed
+        #self.model.fit(X)
 
     def run_testing_model(self, df_test, station):
         #Print details on how testing dataset is expected to look like  
@@ -469,22 +366,13 @@ class MLOutlierDetection():
         y_test = self.le.fit_transform(df_test[self.qc_column].values)
 
         # Predictions
-        #y_pred = self.model.predict(X_test)
-        y_probs = self.model.predict_proba(X_test)[:, 1] 
-        # Find the best threshold for F1-score
-        thresholds = np.linspace(0.2, 0.8, 20)
-        y_test_binary = (y_test == 1).astype(int)
-        f1_scores = [f1_score(y_test_binary, (y_probs >= t).astype(int)) for t in thresholds]
-        best_threshold = thresholds[np.argmax(f1_scores)]
-        print(f"Best Threshold for F1-score: {best_threshold:.2f}")
-        y_pred = (y_probs >= best_threshold).astype(int)
-        y_test = y_test_binary
+        y_pred = self.model.predict(X_test)
+        # Convert IsolationForest output (-1 → 1, 1 → 0)
+        y_pred = (y_pred == -1).astype(int)
 
         # Visualization predictions vs testing label   
         # Create confusion matix
         cm = confusion_matrix(y_test, y_pred)
-        #precision = precision_score(y_test, y_pred, pos_label=3)
-        #recall = recall_score(y_test, y_pred, pos_label=3)
         precision = precision_score(y_test, y_pred, pos_label=1)
         recall = recall_score(y_test, y_pred, pos_label=1)
         pr_auc = average_precision_score(y_test, y_pred)  # Precision-Recall AUC
@@ -512,37 +400,30 @@ class MLOutlierDetection():
         title = f"ML predicted QC classes (for testing data)- Binary -{station}"
         anomalies_pred = np.isin(y_pred, [1])
         #anomalies_pred = np.isin(y_pred, [3])
-        self.basic_plotter_no_xaxis(df_test, title, anomalies, anomalies_pred)
-        self.basic_plotter(df_test, title, anomalies, anomalies_pred)
-        #self.zoomable_plot_df(df_test, title, anomalies, anomalies_pred)
+        self.basic_plotter_no_xaxis(df_test, title, anomalies_pred)
+        self.zoomable_plot_df(df_test, title, anomalies, anomalies_pred)
 
         #Plot specific times
-        df_test['Timestamp_helper'] = df_test['Timestamp'].dt.tz_convert(None)
         if station == 'Nuuk':
             start_date = datetime(int(2023), int(1), int(24), int(21))
             end_date = datetime(int(2023), int(1), int(25), int(18))
             start_date1 = datetime(int(2023), int(1), int(25), int(0))
             end_date1 = datetime(int(2023), int(1), int(25), int(1))
-            relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
-            relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
         elif station == 'Upernavik':
             start_date = datetime(int(2024), int(10), int(20), int(19))
             end_date = datetime(int(2024), int(10), int(21), int(11))
             start_date1 = datetime(int(2024), int(10), int(26), int(22))
             end_date1 = datetime(int(2024), int(10), int(27), int(13))
-            relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
-            relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
         elif station == 'Pituffik':
             start_date = datetime(int(2017), int(12), int(14), int(10))
             end_date = datetime(int(2017), int(12), int(15), int(0))
             start_date1 = datetime(int(2017), int(12), int(14), int(16))
             end_date1 = datetime(int(2017), int(12), int(14), int(19))
-            relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
-            relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
         else:
-            relev_df = pd.DataFrame()
-            relev_df1 = pd.DataFrame()
+            relev_df = []
 
+        df_test['Timestamp_helper'] = df_test['Timestamp'].dt.tz_convert(None)
+        relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
         if not relev_df.empty:
             anomalies = np.isin(relev_df[self.qc_column], [3])
             start = relev_df.index[0] - df_test.index[0]
@@ -553,7 +434,7 @@ class MLOutlierDetection():
             fn = (anomalies_pred_short == False) & (anomalies == True)  # False Negatives (FN)
             tp = (anomalies_pred_short == True) & (anomalies == True)  # True Positives (TP)
             self.basic_plotter(relev_df, title, anomalies, anomalies_pred_short, fn, fp, tp)
-        
+        relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
         if not relev_df1.empty:
             anomalies = np.isin(relev_df1[self.qc_column], [3])
             start = relev_df1.index[0] - df_test.index[0]
@@ -566,10 +447,6 @@ class MLOutlierDetection():
             self.basic_plotter(relev_df1, title, anomalies, anomalies_pred1, fn, fp, tp)
 
         del df_test['Timestamp_helper']
-
-        df_test['ml_anomaly_predicted'] = y_pred
-        
-        return df_test
 
     def basic_plotter_no_xaxis(self, df, title, anomalies, anomalies2=np.array([])):
         #Visualization of station data
@@ -615,6 +492,7 @@ class MLOutlierDetection():
         plt.tight_layout()
         plt.savefig(os.path.join(self.folder_path,f"{title}- Date: {df[self.time_column].iloc[0]}.png"), dpi=300, bbox_inches="tight")
         plt.close() 
+
 
     def zoomable_plot_df(self, df, title, anomaly1, anomaly2=np.array([])):
         """
@@ -671,5 +549,4 @@ class MLOutlierDetection():
                 file.write("".join(list) + "\n")
 
         print("CSV file 'scores.csv' created successfully.")
-
         

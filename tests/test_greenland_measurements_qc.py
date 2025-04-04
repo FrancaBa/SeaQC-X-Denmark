@@ -48,6 +48,8 @@ class Test_QC_Station(unittest.TestCase):
         #Set path to config json and tidal constituents
         self.json_path = os.path.join(os.getcwd(), 'config.json')
         self.gauge_details_path = os.path.join(os.getcwd(), 'tides.local')
+        self.datadir_labels = '/home/frb/Documents/Franca_Project/double_checked_labelled'
+        self.datadir_tides = os.path.join(os.getcwd(), 'tests', 'tidal_information')
 
     def test_quality_check_qaqortoq(self):
 
@@ -69,6 +71,8 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_components(self.datadir_tides)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -92,6 +96,8 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_components(self.datadir_tides)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
     
@@ -115,6 +121,8 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_components(self.datadir_tides)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -138,6 +146,8 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_components(self.datadir_tides)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -161,6 +171,8 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_components(self.datadir_tides)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -184,6 +196,8 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_components(self.datadir_tides)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -207,6 +221,8 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tidal_components(self.datadir_tides)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
     

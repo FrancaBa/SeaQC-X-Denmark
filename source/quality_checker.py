@@ -25,6 +25,7 @@ import source.data_extractor_monthly as extractor
 import source.qc_test_results_to_mask as qc_test_results_to_mask
 import source.tidal_signal_generation as tidal_signal_generation
 import source.helper_nice_graphs as helper_nice_graphs
+import source.qc_ml_detection as qc_ml_detector
 
 from sklearn.ensemble import IsolationForest
 from sklearn.metrics import precision_score
@@ -65,6 +66,8 @@ class QualityFlagger():
         self.active_tests = config_data['qc_active_tests']
         #Defines if certain tests should be carried out on detided data as well
         self.detide_mode = config_data['detide_mode']
+        #Defines if ML algorithm is run. For now not on all stations possible!
+        self.ml_mode = config_data['ML_mode']
 
     #Create output folder to save results
     def set_output_folder(self, folder_path):
@@ -86,6 +89,12 @@ class QualityFlagger():
     def set_missing_value_filler(self, missing_meas_value):
         #Dummy value for NaN-values in measurement series
         self.missing_meas_value = missing_meas_value 
+    
+    def set_tidal_components(self, path):
+        self.datadir_tides = path
+
+    def set_training_data(self, path):
+        self.datadir = path
 
     def import_data(self, path, file):
         """
@@ -229,7 +238,7 @@ class QualityFlagger():
             data_extractor.run(df, self.time_column, 'detided_series', suffix)
             #3. Carry out QC steps on detided series as well
             df = self.run_qc(df, 'detided_series',suffix)
-
+        
         #Probably good data
         #Mark all data as probably good data if it is only a short measurement period between bad data
         if self.active_tests['probably_good_data']:
@@ -340,6 +349,26 @@ class QualityFlagger():
             df = shift_detection.detect_shifts_ruptures(df, relevant_measurements, self.time_column, f'poly_interpolated_data{suffix}', self.segment_column, self.information, self.original_length, suffix)
         if self.active_tests['shifted_value']:
             df = shift_detection.detect_shifts_statistical(df, f'poly_interpolated_data{suffix}', self.time_column, relevant_measurements, self.segment_column, self.information, self.original_length, suffix)
+
+        if self.ml_mode:
+            #Detect small-scale anomalies with ML
+            training_strategy = 'combined'
+            #select output folder
+            output_path = os.path.join(self.folder_path,'ML Anomaly Detection')
+            data_flagging_ml = qc_ml_detector.MLOutlierDetection()
+            data_flagging_ml.set_output_folder(output_path)
+            data_flagging_ml.set_column_names('Timestamp', 'value', 'label')
+            data_flagging_ml.set_station(training_strategy)
+            data_flagging_ml.set_tidal_components_file(self.datadir_tides)
+            dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir)
+            #Training data equals to X% of manual labelled data from all the files for ALL the stations combined (f.e: 50% of labelled data from each station is used for training)
+            dfs_testing_new = data_flagging_ml.run_combined_training(dfs_training)
+            outcomes = data_flagging_ml.run_testing(dfs_testing_new)
+            if self.station.strip("0123456789") in outcomes.keys():
+                ml_outcomes = outcomes[self.station.strip("0123456789")]
+                ml_outcomes['ml_anomaly_predicted'] = ml_outcomes['ml_anomaly_predicted'].astype(bool)
+                ml_outcomes['Timestamp'] = ml_outcomes['Timestamp'].dt.tz_convert(None)
+                df = df.merge(ml_outcomes[['Timestamp', 'ml_anomaly_predicted']], on='Timestamp', how='left')
 
         return df
 
