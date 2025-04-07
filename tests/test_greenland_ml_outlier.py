@@ -1,19 +1,15 @@
-########################################################################################
-## Test quality check script for sea level tide gauge data by frb for GronSL (2024/25)##
-## This script runs the QC for all 4/5 stations (1 method for each station)           ##
-########################################################################################
+#########################################################################################################
+## Test for ML small-scale detection test as part of QC algorithm developed by frb for GronSL (2024/25)##
+## This script runs the same ML detection test based on different training                             ##
+#########################################################################################################
 
-import os, sys
+import os
 from pathlib import Path
 import shutil
 import unittest
-import datetime
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
 
-import source.qc_ml_detection as qc_ml_detector
-import source.qc_ml_unsupervised_detection as qc_ml_unsupervised_detector
+import source.various_qc_tests.qc_ml_detection as qc_ml_detector
+import source.various_qc_tests.qc_ml_unsupervised_detection as qc_ml_unsupervised_detector
 
 
 class Test_QC_ML_Station(unittest.TestCase):
@@ -38,8 +34,8 @@ class Test_QC_ML_Station(unittest.TestCase):
     def test_quality_check_Upernavik(self):
         #select the station (here: Upernavik 2023)
         #station = 'Upernavik1'
-        station = 'Upernavik2'
-        #station = 'Upernavik'
+        #station = 'Upernavik2'
+        station = 'Upernavik'
 
         #select output folder
         output_path = os.path.join(os.getcwd(),'output', 'ml_classes', station)
@@ -52,9 +48,9 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_tidal_components_file(self.datadir_tides)
         dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir)
         #For running one specific file connected to a station as training data (choose station accordingl f.e. Upernavik1)
-        df_dict, df_test = data_flagging_ml.run(dfs_station_subsets)
+        #df_dict, df_test = data_flagging_ml.run(dfs_station_subsets)
         #For running all files connected to a station as training data (choose station accordingly f.e. Upernavik)
-        #df_dict, df_test = data_flagging_ml.run(dfs_training)
+        df_dict, df_test = data_flagging_ml.run(dfs_training)
         outcomes = data_flagging_ml.run_testing(df_dict, df_test)
 
     def test_quality_check_Nuuk(self):
@@ -137,7 +133,6 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_station(station)
         data_flagging_ml.set_tidal_components_file(self.datadir_tides)
         dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir)
-        #Training data equals to X% of manual labelled data from all the files for ALL the stations combined (f.e: 50% of labelled data from each station is used for training)
         dfs_testing_new = data_flagging_ml.run_combined_training(dfs_training)
         outcomes = data_flagging_ml.run_testing(dfs_testing_new)
 

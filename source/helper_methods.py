@@ -3,13 +3,10 @@
 ## Contains methods for 4 different graphs       ##
 ###################################################
 
-import os, sys
-import numpy as np
+import os
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 import plotly.io as pio
 import matplotlib.dates as mdates
 import matplotlib.font_manager as fm

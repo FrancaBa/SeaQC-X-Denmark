@@ -3,16 +3,12 @@
 ## This script reads the measurements for all 4/5 stations (1 method for each station)       ##
 ###############################################################################################
 
-import os, sys
+import os
 from pathlib import Path
 import shutil
 import unittest
-import datetime
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
 
-import source.DTU_space_data_reader as data_converter
+import source.data_importer.DTU_space_data_reader as data_converter
 
 
 class Test_DTUSpace_DataConverter(unittest.TestCase):

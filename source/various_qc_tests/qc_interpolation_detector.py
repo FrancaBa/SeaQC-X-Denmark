@@ -3,7 +3,6 @@
 ## To detect constant slope/ linear interpolated values ##
 ##########################################################
 
-import random
 import builtins
 import numpy as np
 import os

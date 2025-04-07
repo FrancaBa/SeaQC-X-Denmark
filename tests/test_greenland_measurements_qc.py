@@ -3,16 +3,12 @@
 ## This script runs the QC for all 4/5 stations (1 method for each station)           ##
 ########################################################################################
 
-import os, sys
+import os
 from pathlib import Path
 import shutil
 import unittest
-import datetime
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
 
-import source.quality_checker as qc_generator
+import source.main as qc_generator
 
 class Test_QC_Station(unittest.TestCase):
 
@@ -45,11 +41,10 @@ class Test_QC_Station(unittest.TestCase):
             self.ending = '.dba'
             self.param = 'WaterLevel'
 
-        #Set path to config json and tidal constituents
+        #Set path to config json and and labelled data
         self.json_path = os.path.join(os.getcwd(), 'config.json')
         self.gauge_details_path = os.path.join(os.getcwd(), 'tides.local')
         self.datadir_labels = '/home/frb/Documents/Franca_Project/double_checked_labelled'
-        self.datadir_tides = os.path.join(os.getcwd(), 'tests', 'tidal_information')
 
     def test_quality_check_qaqortoq(self):
 
@@ -71,7 +66,6 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_components(self.datadir_tides)
         data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
@@ -96,7 +90,6 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_components(self.datadir_tides)
         data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
@@ -121,7 +114,6 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_components(self.datadir_tides)
         data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
@@ -146,7 +138,6 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_components(self.datadir_tides)
         data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
@@ -171,7 +162,6 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_components(self.datadir_tides)
         data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
@@ -196,7 +186,6 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_components(self.datadir_tides)
         data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
@@ -221,29 +210,23 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_tidal_components(self.datadir_tides)
         data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
     
-    def plot_map(self):
+    def test_plot_greenland_stations_map(self):
         import matplotlib.pyplot as plt
         import contextily as ctx
         import geopandas as gpd
         from shapely.geometry import Point
 
-        def create_map(stations, output_file):
+        def create_map(stations, output_path):
             """
             Creates a static map with a background and specified stations.
             
             :param stations: List of tuples [(lat, lon, "Label"), ...]
             :param output_file: Filename for the saved map
             """
-            #Graph setting
-            markers = ["s" , "o" , "v" , "D" , "*", "d"]
-            color_map = plt.cm.plasma  # Choose a colormap (other good ones: Viridis, Cividis, Plasma)
-            colors = [color_map(i /len(stations)) for i in range(len(stations))]
-
             # Convert stations to a GeoDataFrame
             geometry = [Point(elem) for elem in list(stations.values())]
             gdf = gpd.GeoDataFrame(geometry=geometry, crs="EPSG:4326")
@@ -253,7 +236,7 @@ class Test_QC_Station(unittest.TestCase):
             # Plot stations
             for index, (key, value) in enumerate(stations.items()):
                 x, y = gdf.geometry[index].x, gdf.geometry[index].y
-                ax.scatter(y, x, marker=markers[index], s=45, label=key, color=colors[index])
+                ax.scatter(y, x, marker="o", s=45, label=key, color='black')
                 ax.text(y - 0.5, x + 0.1, key, fontsize=16, ha='right', color='black')
             
             ax.set_ylabel("Longitude", fontsize=16)

@@ -1,35 +1,33 @@
-########################################################################################################
-## Written by frb for GronSL project (2024-2025)                                                      ##
-## This is the main non-ML script for the QC. From here the different classes and methods are called. ##
-########################################################################################################
+###############################################################################################
+## Written by frb for GronSL project (2024-2025)                                             ##
+## This is the main script for the QC. From here the different tests and methods are called. ##
+###############################################################################################
 
 import os
 import numpy as np
 import pandas as pd
 import json
 import matplotlib.pyplot as plt
-import random
 import builtins
 import math
 
+from functools import reduce
+
 import source.helper_methods as helper
-import source.qc_spike as qc_spike
-import source.qc_interpolation_detector as qc_interpolated
-import source.qc_shifts as qc_shifts
-import source.qc_filling_missing_data as qc_fill_data
-import source.qc_marker_probably_good as qc_prob_good
-import source.qc_implausible_changes as qc_implausible_change
-import source.qc_global_outliers as qc_global_outliers
-import source.qc_stuck_values as qc_stuck_values
 import source.data_extractor_monthly as extractor
 import source.qc_test_results_to_mask as qc_test_results_to_mask
-import source.tidal_signal_generation as tidal_signal_generation
-import source.helper_nice_graphs as helper_nice_graphs
-import source.qc_ml_detection as qc_ml_detector
+import source.helper_advanced_graphs as helper_advanced_graphs
+import source.helper_tidal_signal_generation as helper_tidal_signal_generation
 
-from sklearn.ensemble import IsolationForest
-from sklearn.metrics import precision_score
-from functools import reduce
+import source.various_qc_tests.qc_spike as qc_spike
+import source.various_qc_tests.qc_interpolation_detector as qc_interpolated
+import source.various_qc_tests.qc_shifts as qc_shifts
+import source.various_qc_tests.qc_filling_missing_data as qc_fill_data
+import source.various_qc_tests.qc_marker_probably_good as qc_prob_good
+import source.various_qc_tests.qc_implausible_changes as qc_implausible_change
+import source.various_qc_tests.qc_global_outliers as qc_global_outliers
+import source.various_qc_tests.qc_stuck_values as qc_stuck_values
+import source.various_qc_tests.qc_ml_detection as qc_ml_detector
 
 class QualityFlagger():
     
@@ -66,8 +64,6 @@ class QualityFlagger():
         self.active_tests = config_data['qc_active_tests']
         #Defines if certain tests should be carried out on detided data as well
         self.detide_mode = config_data['detide_mode']
-        #Defines if ML algorithm is run. For now not on all stations possible!
-        self.ml_mode = config_data['ML_mode']
 
     #Create output folder to save results
     def set_output_folder(self, folder_path):
@@ -80,19 +76,17 @@ class QualityFlagger():
 
         self.helper.set_output_folder(self.folder_path)
 
-    #set input table to correct heading
+    #Set input table to correct heading
     def set_column_names(self, time_column, measurement_column, qc_column):
         self.time_column = time_column
         self.measurement_column = measurement_column
         self.qc_column = qc_column
 
+    #Dummy value for NaN-values in measurement series
     def set_missing_value_filler(self, missing_meas_value):
-        #Dummy value for NaN-values in measurement series
         self.missing_meas_value = missing_meas_value 
-    
-    def set_tidal_components(self, path):
-        self.datadir_tides = path
 
+    #Set path to training dataset used for ML test for small-scale anomalies
     def set_training_data(self, path):
         self.datadir = path
 
@@ -105,7 +99,7 @@ class QualityFlagger():
         -Plots for basic understanding
         -Remove invalid characters in measurement period
         -Set missing values to NaN
-        already contains the format check and setting invalid formats to NaN
+        Already contains the format check and setting invalid formats to NaN (2 QC tests).
 
         Input:
         - path to file [str]
@@ -207,8 +201,8 @@ class QualityFlagger():
         #self.helper.zoomable_plot_df(self.df_meas[self.time_column], self.df_meas[self.measurement_column],'Water Level','Timestamp ', 'Measured water level','measured water level')
 
     """
-    The methods above are to open and preprocess the need information and data for the quality check.
-    The run-method below is the core of the QC work. It calls the different QC steps, called detided_mode, converts the masks to a large bitmasks and assigns quality flags.
+    The methods above are to open and preprocess the needed information and data for the quality check.
+    The run-method below is the core of the QC work. It calls the different QC steps, called detided_mode, converts the masks to bitmasks and assigns quality flags.
     """
     def run(self):
         #Set relevant column names
@@ -218,6 +212,13 @@ class QualityFlagger():
         #Padding of ts to a homogenous timestep
         df = self.set_global_timestamp(self.df_meas)
         df[self.adapted_meas_col_name] = df[self.measurement_column]
+
+        #Generate tide signal as needed for further assessment
+        tidal_signal_construction = helper_tidal_signal_generation.TidalSignalGenerator()
+        tidal_signal_construction.set_station(self.station)
+        tidal_signal_construction.set_gauge_details_path(self.gauge_details_path)
+        tidal_signal_construction.set_output_folder(self.folder_path)
+        df = tidal_signal_construction.run(df, self.adapted_meas_col_name, self.time_column, self.information)
         
         #Runs the different steps in the QC algorithm
         df = self.run_qc(df, self.adapted_meas_col_name)
@@ -225,18 +226,12 @@ class QualityFlagger():
         #Run the different steps in the QC algorithm for detided data
         if self.detide_mode == True:
             self.information.append(['The QC steps are now performed again for detided data.'])
-            #1.Generate tidal signal and detided time series
-            tidal_signal_construction = tidal_signal_generation.TidalSignalGenerator()
-            tidal_signal_construction.set_station(self.station)
-            tidal_signal_construction.set_gauge_details_path(self.gauge_details_path)
-            tidal_signal_construction.set_output_folder(self.folder_path)
-            df = tidal_signal_construction.run(df, self.adapted_meas_col_name, self.time_column, self.information)
-            #2.Export the new series to csv files for manual labelling
+            #Export the new series to csv files for manual labelling
             data_extractor = extractor.DataExtractor()
             data_extractor.set_output_folder(self.folder_path, self.station)
             data_extractor.set_missing_value_filler(self.missing_meas_value)
             data_extractor.run(df, self.time_column, 'detided_series', suffix)
-            #3. Carry out QC steps on detided series as well
+            #Carry out QC steps on detided series as well
             df = self.run_qc(df, 'detided_series',suffix)
         
         #Probably good data
@@ -264,14 +259,14 @@ class QualityFlagger():
         self.save_to_txt()
 
         #Make beautiful graphs for papers/presentations (not generalized)
-        plotter = helper_nice_graphs.GraphMaker()
+        plotter = helper_advanced_graphs.GraphMaker()
         plotter.set_output_folder(self.folder_path)
         plotter.set_station(self.station)
         plotter.run(df, self.time_column, self.measurement_column)
 
     def run_qc(self, df, relevant_measurements, suffix=''):
         """
-        As main QC method, it calls the different steps taken in the QC approach. See commented text.
+        As main QC test method, it calls the different steps taken in the QC approach. See commented text.
 
         Input:
         -Main dataframe [pandas df]
@@ -350,7 +345,7 @@ class QualityFlagger():
         if self.active_tests['shifted_value']:
             df = shift_detection.detect_shifts_statistical(df, f'poly_interpolated_data{suffix}', self.time_column, relevant_measurements, self.segment_column, self.information, self.original_length, suffix)
 
-        if self.ml_mode:
+        if self.active_tests['ml_anomalies']:
             #Detect small-scale anomalies with ML
             training_strategy = 'combined'
             #select output folder
@@ -375,7 +370,7 @@ class QualityFlagger():
 
     def set_global_timestamp(self, data):
         """
-        Create a constant timeseries based on most frequent timestep in measurement and align measurements to it. This will introduce a lot of new NaNs for periods higher resolution.
+        Create a constant timeseries based on most frequent timestep in measurement and their greatest common divisor. This will introduce a lot of new NaNs for periods higher resolution.
 
         Input:
         - main dataframe [pandas df]
@@ -391,10 +386,6 @@ class QualityFlagger():
         #Get mask for the new introduced NaNs based on missing_values mask fom before (new NaNs = True)
         df_meas_long['missing_values'] = df_meas_long['missing_values'].fillna(False).infer_objects(copy=False)
         df_meas_long['incorrect_format'] = df_meas_long['incorrect_format'].fillna(False).infer_objects(copy=False)
-
-        #This information is not needed for now
-        #df_meas_long['missing_values_padding'] = np.where(df_meas_long['missing_values'].isna(), True, False)
-        #df_meas_long.loc[df_meas_long['missing_values'] == True, 'missing_values_padding'] = False
 
         print('The new ts is',len(df_meas_long),'entries long.')
         self.information.append(['The new ts is',len(df_meas_long),'entries long.'])
@@ -434,8 +425,6 @@ class QualityFlagger():
                 end_index = data[segment_column][shift_points].index[i+1]
             if data[segment_column][start_index] == 0:
                 self.helper.plot_df(data[self.time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Timestamp',f'Segment graph {start_index} -{suffix}')
-                #test_df = data[(data[time_column].dt.year == 2007) & (data[time_column].dt.month == 9)]
-                #self.helper.plot_two_df_same_axis(test_df[time_column],test_df[data_column],'Water Level', 'Water Level', test_df[segment_column], 'Timestamp', 'Segment',f'Test Graph 0')
                 print(f'Segment is {end_index - start_index} entries long.')
                 print(np.sum(~np.isnan(data[data_column][start_index:end_index]))/len(data[data_column][start_index:end_index]))
                 min = builtins.max(0,(start_index-20))
@@ -469,7 +458,7 @@ class QualityFlagger():
 
     def save_to_txt(self):
         """
-        Save the print statements from each QC test to a common txt-file. This can be used later on to compare between stations and set-ups.
+        Save the print statements from each QC test to a common txt-file as repot. This can be used later on to compare between stations and set-ups.
         """
 
         # Filepath to save the text file

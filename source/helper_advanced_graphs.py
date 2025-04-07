@@ -1,14 +1,11 @@
-###################################################
-## Written by frb for GronSL project (2024-2025) ##
-## Contains methods for more advanced graphs     ##
-###################################################
+############################################################
+## Written by frb for GronSL project (2024-2025)          ##
+## Contains methods for more advanced analysis graphs     ##
+############################################################
 
-import os, sys
+import os
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
 import plotly.io as pio
 import matplotlib.font_manager as fm
 import matplotlib.dates as mdates
@@ -39,13 +36,36 @@ class GraphMaker():
         self.station = station
 
     def run_graphs_zoom(self, df, time_column, data_column, year, start_month, end_month, start_day, end_day, start_hour='00', end_hour='23'):
+        """
+        Generates 2 graphs for a manual defined period of interest based on station.
 
+        Input:
+        -df: whole dataframe [df]
+        -time_column: name of column with timestamp [str]
+        -data_column: name of column with data [str]
+        -year [str]
+        -Start month of period of interest [str]
+        -End month of period of interest [str]
+        -Start day of period of interest [str]
+        -End day of period of interest [str]
+        -Start hour of period of interest [str] (default 00)
+        -End hour of period of interest [str] (default 23)
+        """
+        
         self.extract_period(df, time_column, data_column, year, start_month, end_month, start_day, end_day, start_hour, end_hour)
         self.make_ts_plot(time_column, data_column)
         self.two_in_one_graph(time_column, data_column)
 
     
     def run(self, df, time_column, data_column):
+        """
+        Calls a method for a manual defined period of interest based on station.
+
+        Input:
+        -df: whole dataframe [df]
+        -time_column: name of column with timestamp [str]
+        -data_column: name of column with data [str]
+        """
        
         if self.station == 'Ittoqqortoormiit':
             self.run_graphs_zoom(df, time_column, data_column, '2011', '03', '03', '04', '05','06', '18')
@@ -138,6 +158,14 @@ class GraphMaker():
         self.relev_df = data[(data[time_column] >= start_date) & (data[time_column]<= end_date)]
 
     def make_ts_plot(self, time_column, data_column):
+        """
+        Makes a plot marking the different spikes detected by different approaches for a period of interest.
+
+        Input:
+        -time_column: name of column with timestamp [str]
+        -data_column: name of column with data [str]
+        """
+                
         print(self.relev_df)
 
         #Visualization of different spike detection methods
@@ -173,6 +201,13 @@ class GraphMaker():
         plt.close()
 
     def two_in_one_graph(self, time_column, data_column):
+        """
+        Makes a plot containing two subplots. One presents the period on interest and the table below indicates the performance of the different spike detection tools.
+
+        Input:
+        -time_column: name of column with timestamp [str]
+        -data_column: name of column with data [str]
+        """
         print(self.relev_df)
 
         #Visualization of different spike detection methods

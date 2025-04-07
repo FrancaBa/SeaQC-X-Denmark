@@ -8,9 +8,7 @@ import numpy as np
 import pandas as pandas
 import ruptures as rpt
 import matplotlib.pyplot as plt
-import datetime
 import os
-import random
 import builtins
 
 import source.helper_methods as helper

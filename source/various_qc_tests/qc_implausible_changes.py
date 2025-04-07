@@ -11,7 +11,7 @@ import random
 from datetime import datetime
 
 import source.helper_methods as helper
-import source.qc_spike as qc_spike
+import source.various_qc_tests.qc_spike as qc_spike
 
 class ImplausibleChangeDetector(): 
 

@@ -1,18 +1,14 @@
 ########################################################################################
 ## Test quality check script for sea level tide gauge data by frb for GronSL (2024/25)##
-## This script runs the QC for all 4/5 stations (1 method for each station)           ##
+## This script runs the QC for some Danish Stations as test (1 test per station)      ##
 ########################################################################################
 
-import os, sys
+import os
 from pathlib import Path
 import shutil
 import unittest
-import datetime
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
 
-import source.quality_checker as qc_generator
+import source.main as qc_generator
 
 class Test_QA_Station(unittest.TestCase):
 
@@ -21,11 +17,12 @@ class Test_QA_Station(unittest.TestCase):
 
         #Set path to measurements
         self.datadir = '/net/isilon/ifs/arch/home/ocean/sealevel/WL_data'
-        self.missing_meas_value = -9.99 #in dataset -999, but this has to be m and not cm
+        self.missing_meas_value = -9.99 #in dataset -999, but this has to be in m and not cm
 
-        #Set path to config json
+        #Set path to config json and and labelled data
         self.json_path = os.path.join(os.getcwd(), 'config.json')
         self.gauge_details_path = os.path.join(os.getcwd(), 'tides.local')
+        self.datadir_labels = 'TBD'
 
     def test_quality_check_aabenraa(self):
 
@@ -45,6 +42,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -66,6 +64,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -87,6 +86,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -108,6 +108,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -129,6 +130,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -150,6 +152,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -171,6 +174,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -192,6 +196,7 @@ class Test_QA_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_training_data(self.datadir_labels)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 

@@ -1,7 +1,6 @@
 {
   "date_alteration": "01.04.2025",
   "detide_mode": false,
-  "ML_mode": true,
   "qc_flag_classification": {
     "no_qc": 0,
     "good_data": 1,
@@ -10,7 +9,7 @@
     "bad_data": 4,
     "shifted_value": 5,
     "spikes": 6, 
-    "stuck_value": 7,
+    "ml_anomalies": 7,
     "interpolated_value": 8,
     "missing_data": 9
   },
@@ -25,13 +24,15 @@
     "bad_segment": 128,
     "interpolated_value": 256,
     "missing_data": 512,
-    "shifted_value_detided": 1024,
-    "noisy_period_detided": 2048,
-    "stuck_value_detided": 4096,
-    "global_outliers_detided": 8192,
-    "spikes_detided": 16384,
-    "bad_segment_detided": 32768,
-    "interpolated_value_detided": 65536
+    "ml_anomalies": 1024,
+    "shifted_value_detided": 2048,
+    "noisy_period_detided": 4096,
+    "stuck_value_detided": 8192,
+    "global_outliers_detided": 16384,
+    "spikes_detided": 32768,
+    "interpolated_value_detided": 65536,
+    "ml_anomalies_detided": 131072
+
   },
   "qc_active_tests": {
     "shifted_value": false,
@@ -50,7 +51,8 @@
     "incorrect_format": true,
     "bad_segment": true,
     "interpolated_value": true,
-    "missing_data": true
+    "missing_data": true,
+    "ml_anomalies": true
   },
   "parameter_definition":{
     "1.0min":{

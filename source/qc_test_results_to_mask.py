@@ -1,7 +1,7 @@
-####################################################################################
-## Written by frb for GronSL project (2024-2025)                                  ##
-## Conversion various test outcomes to bitmaks/QC flags as defined in config.json ##
-####################################################################################
+#######################################################################################
+## Written by frb for GronSL project (2024-2025)                                     ##
+## Conversion various QC test outcomes to bitmaks/QC flags as defined in config.json ##
+#######################################################################################
 
 import os
 import pandas as pd
