@@ -87,8 +87,9 @@ class QualityFlagger():
         self.missing_meas_value = missing_meas_value 
 
     #Set path to training dataset used for ML test for small-scale anomalies
-    def set_training_data(self, path):
-        self.datadir = path
+    def set_ml_training_data(self, path1, path2):
+        self.datadir = path1
+        self.tidal_path = path2
 
     def import_data(self, path, file):
         """
@@ -250,7 +251,7 @@ class QualityFlagger():
         conversion_bitmask.set_bitmask(self.qc_bit_definition)
         conversion_bitmask.set_active_tests(self.active_tests)
         df = conversion_bitmask.convert_boolean_to_bitmasks(df)
-        df = conversion_bitmask.convert_boolean_to_bitmasks(df, '_detided')
+        df = conversion_bitmask.convert_boolean_to_bitmasks(df,suffix)
         df = conversion_bitmask.merge_bitmasks(df, self.detide_mode, self.information, suffix)
         df = conversion_bitmask.convert_bitmask_to_flags(df)
         conversion_bitmask.save_flagged_series(df, self.measurement_column, self.time_column, self.df_meas)
@@ -301,7 +302,8 @@ class QualityFlagger():
         df = fill_data_qc.segmentation_ts(df, relevant_measurements, self.segment_column, self.information, suffix)
 
         #Set short measurement periods between missing data periods as not trustworthy periods
-        df = self.short_bad_measurement_periods(df, relevant_measurements, self.segment_column, suffix)
+        if suffix == '':
+            df = self.short_bad_measurement_periods(df, relevant_measurements, self.segment_column, suffix)
 
         #Add continuous helper columns
         df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
@@ -332,9 +334,9 @@ class QualityFlagger():
         if self.active_tests['selene_improved_spikes']:
             df = spike_detection.selene_spike_detection(df, relevant_measurements, self.time_column, f'spline_fitted_data{suffix}', self.information, self.original_length, suffix)
         if self.active_tests['harmonic_detected_spikes']:
-            df = spike_detection.remove_spikes_harmonic(df, f'poly_fitted_data{suffix}', self.adapted_meas_col_name, self.time_column, self.information, self.original_length, suffix)
+            df = spike_detection.remove_spikes_harmonic(df, f'poly_fitted_data{suffix}', relevant_measurements, self.time_column, self.information, self.original_length, suffix)
         if self.active_tests['ml_detected_spikes']:
-            df = spike_detection.remove_spikes_ml(df, f'poly_fitted_data{suffix}', self.adapted_meas_col_name, self.time_column, self.information, self.original_length, suffix)
+            df = spike_detection.remove_spikes_ml(df, f'poly_fitted_data{suffix}', relevant_measurements, self.time_column, self.information, self.original_length, suffix)
         
         #Detect shifts & deshift values
         shift_detection = qc_shifts.ShiftDetector()
@@ -345,8 +347,8 @@ class QualityFlagger():
         if self.active_tests['shifted_value']:
             df = shift_detection.detect_shifts_statistical(df, f'poly_interpolated_data{suffix}', self.time_column, relevant_measurements, self.segment_column, self.information, self.original_length, suffix)
 
-        if self.active_tests['ml_anomalies']:
-            #Detect small-scale anomalies with ML
+        #Detect small-scale anomalies with ML with combined training approach
+        if self.active_tests['ml_anomalies'] and suffix == '':
             training_strategy = 'combined'
             #select output folder
             output_path = os.path.join(self.folder_path,'ML Anomaly Detection')
@@ -354,16 +356,12 @@ class QualityFlagger():
             data_flagging_ml.set_output_folder(output_path)
             data_flagging_ml.set_column_names('Timestamp', 'value', 'label')
             data_flagging_ml.set_station(training_strategy)
-            data_flagging_ml.set_tidal_components_file(self.datadir_tides)
-            dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir)
-            #Training data equals to X% of manual labelled data from all the files for ALL the stations combined (f.e: 50% of labelled data from each station is used for training)
-            dfs_testing_new = data_flagging_ml.run_combined_training(dfs_training)
-            outcomes = data_flagging_ml.run_testing(dfs_testing_new)
-            if self.station.strip("0123456789") in outcomes.keys():
-                ml_outcomes = outcomes[self.station.strip("0123456789")]
-                ml_outcomes['ml_anomaly_predicted'] = ml_outcomes['ml_anomaly_predicted'].astype(bool)
-                ml_outcomes['Timestamp'] = ml_outcomes['Timestamp'].dt.tz_convert(None)
-                df = df.merge(ml_outcomes[['Timestamp', 'ml_anomaly_predicted']], on='Timestamp', how='left')
+            tidal_info = data_flagging_ml.set_tidal_components_file(self.tidal_path)
+            dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir, tidal_info)
+            data_flagging_ml.run_combined_training(dfs_training, tidal_info)
+            df = data_flagging_ml.add_features(df, df['tidal_signal'], relevant_measurements)
+            prediction = data_flagging_ml.run_test_data(df)
+            df[f'ml_anomalies{suffix}'] = prediction.astype(bool)
 
         return df
 

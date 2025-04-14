@@ -45,6 +45,7 @@ class Test_QC_Station(unittest.TestCase):
         self.json_path = os.path.join(os.getcwd(), 'config.json')
         self.gauge_details_path = os.path.join(os.getcwd(), 'tides.local')
         self.datadir_labels = '/home/frb/Documents/Franca_Project/double_checked_labelled'
+        self.datadir_tides = os.path.join(os.getcwd(), 'tests', 'tidal_information')
 
     def test_quality_check_qaqortoq(self):
 
@@ -66,7 +67,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_training_data(self.datadir_labels)
+        data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -90,7 +91,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_training_data(self.datadir_labels)
+        data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
     
@@ -114,7 +115,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_training_data(self.datadir_labels)
+        data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -138,7 +139,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_training_data(self.datadir_labels)
+        data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -162,7 +163,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_training_data(self.datadir_labels)
+        data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -186,7 +187,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_training_data(self.datadir_labels)
+        data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
 
@@ -210,7 +211,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
-        data_flagging.set_training_data(self.datadir_labels)
+        data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
     
@@ -258,6 +259,63 @@ class Test_QC_Station(unittest.TestCase):
         if not os.path.exists(output_path):
             os.makedirs(output_path)
         create_map(self.coord, output_path)
+
+    def test_duration_measurements(self):
+        import matplotlib.pyplot as plt
+        import matplotlib.dates as mdates
+        from datetime import datetime
+        import pandas as pd
+
+        # Data for the timeline plot
+        station_data = {
+            "Pituffik": [("2005-09", "2024-10")],
+            "Upernavik": [("2023-10", "2023-10"), ("2024-08", "2024-10")],
+            "Nuuk": [("2014-07", "2023-08"), ("2022-11", "2024-10")],
+            "Qaqortoq": [("2005-10", "2024-10")],
+            "Ittoqqortoormiit": [("2007-10", "2024-10")],
+        }
+
+        # Convert string dates to datetime
+        def parse_date(date_str):
+            return datetime.strptime(date_str, "%Y-%m")
+
+        # Prepare plotting data
+        records = []
+        for station, periods in station_data.items():
+            for start, end in periods:
+                records.append({
+                    "Station": station,
+                    "Start": parse_date(start),
+                    "End": parse_date(end)
+                })
+
+        df = pd.DataFrame(records)
+
+        station_order = list(station_data.keys())[::-1]
+        y_pos = {name: idx for idx, name in enumerate(station_order)}
+        df["y"] = df["Station"].map(y_pos)
+
+        # Plot timeline
+        fig, ax = plt.subplots(figsize=(14, 6))
+
+        # Plot each bar
+        for _, row in df.iterrows():
+            ax.plot([row["Start"], row["End"]], [row["y"], row["y"]], color="#4682B4", linewidth=6, solid_capstyle="round")
+            ax.plot(row["Start"], row["y"], 'o', color='firebrick')
+            ax.plot(row["End"], row["y"], 'o', color='steelblue')
+
+        # Formatting
+        ax.set_yticks(range(len(station_order)))
+        ax.set_yticklabels(station_order, fontsize=16)
+        ax.xaxis.set_major_locator(mdates.YearLocator(2))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+        ax.set_xlim([datetime(2005, 1, 1), datetime(2025, 1, 1)])
+        #ax.set_title("Tide gauge station timelines in Greenland", fontsize=13)
+        ax.grid(True, axis='x', linestyle='--', alpha=0.5)
+        plt.tight_layout()
+
+        # Save the figure
+        plt.savefig(os.path.join(os.getcwd(),'output','greenland_station_timeline.png'), dpi=300,bbox_inches="tight")
 
 
 

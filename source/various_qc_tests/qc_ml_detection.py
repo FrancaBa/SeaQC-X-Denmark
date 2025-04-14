@@ -57,13 +57,15 @@ class MLOutlierDetection():
         #Initialize encoder
         self.le = LabelEncoder()
 
-
         #Empty element to store different texts about QC tests and save as a summary document
         self.information = []
         self.scores = []
         self.scores.append("PR-AUC")
         self.scores.append("Precision")
         self.scores.append("Recall")
+
+        #Add multivariate analysis to ML training
+        self.multivariate_analysis = False
 
     def set_station(self, station):
         self.station = station
@@ -74,6 +76,8 @@ class MLOutlierDetection():
         #Open .csv file and fix the column names
         for file in os.listdir(folder_path):
             self.tidal_infos.append(os.path.join(folder_path, file))
+
+        return self.tidal_infos
 
     #Create output folder to save results
     def set_output_folder(self, folder_path):
@@ -91,7 +95,28 @@ class MLOutlierDetection():
         self.measurement_column = measurement_column
         self.qc_column = qc_column
 
-    def import_data(self, folder_path):
+    def load_multivariate_analysis(self, file_path, feature1, feature2, feature3):
+        self.multivariate_analysis = True
+        self.dfs_multivariate_analysis = {}
+
+        self.feature1 = feature1
+        self.feature2 = feature2
+        #self.feature3 = feature3
+
+        for filename in os.listdir(file_path):
+            file_path_long = os.path.join(file_path, filename)
+            print(file_path_long)
+            if os.path.isfile(file_path_long):      
+                #Open .csv file and fix the column names
+                df = pd.read_csv(file_path_long, sep=",", header=0)
+                #df = df[[self.time_column feature1, feature2, feature3]]
+                df = df[[self.time_column, feature1, feature2]]
+                df[self.time_column] = pd.to_datetime(df[self.time_column], format='%Y%m%d%H%M%S').dt.round('min').dt.tz_localize('UTC')
+                self.dfs_multivariate_analysis[f"{filename.split("_")[0]}"] = df.copy()
+
+        return self.multivariate_analysis
+    
+    def import_data(self, folder_path, tidal_infos, multivariate_analysis):
 
         self.dfs_training = {}
         self.dfs_station_subsets = {}
@@ -107,8 +132,12 @@ class MLOutlierDetection():
             df[self.qc_column] = df[self.qc_column].replace(4, 3)
             df[self.time_column] = pd.to_datetime(df[self.time_column]).dt.round('min')
             #Add features
-            tidal_signal= [path for path in self.tidal_infos if df_name in path]
-            df = self.add_features(df, tidal_signal[0], df_name)
+            tidal_signal_path = [path for path in tidal_infos if df_name in path]
+            tidal_signal, df = self.reinitialize_utide_from_txt(df, tidal_signal_path[0], self.station)
+            #Add relevant multivariate variables
+            relev_mv_df = self.dfs_multivariate_analysis[df_name]
+            df = df.merge(relev_mv_df, on=self.time_column, how='left')
+            df = self.add_features(df, tidal_signal, self.measurement_column, multivariate_analysis)
             #Analyse imported data
             anomaly = np.isin(df[self.qc_column], [3,4])
             self.basic_plotter_no_xaxis(df, f'Manual QC for {df_name} station',anomaly)
@@ -133,7 +162,7 @@ class MLOutlierDetection():
 
         return self.dfs_station_subsets, self.dfs_training
 
-    def run(self, df_dict):
+    def run(self, df_dict, tidal_infos, multivariate_analysis):
 
         print(df_dict.keys())
         print(df_dict.keys())
@@ -142,16 +171,18 @@ class MLOutlierDetection():
             if self.station in elem:
                 ##Use subset of one station for training and test on other stations and leftover data from this station. 
                 df_train, df_test = train_test_split(df_dict[elem], test_size=0.15, shuffle=False)
+                df_train = df_train[[self.time_column, self.measurement_column, self.qc_column]]
                 unique_values, counts = np.unique(df_train[self.qc_column], return_counts=True)
                 for value, count in zip(unique_values, counts):
                     self.information.append(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
                     print(f"Class {value} exists {count} times in training dataset. This is {count/len(df_train)}.")
                     self.information.append('\n')
                 #Preprocess the training data if needed
-                df_train = self.preprocessing_data(df_train)
+                df_train = self.preprocessing_data(df_train, multivariate_analysis)
                 #Add features to the original data series and the training data
-                tidal_signal = [path for path in self.tidal_infos if elem.strip("0123456789") in path]
-                df_train = self.add_features(df_train, tidal_signal[0], elem)
+                tidal_signal_path = [path for path in tidal_infos if elem in path]
+                tidal_signal, df_train = self.reinitialize_utide_from_txt(df_train, tidal_signal_path[0], self.station)
+                df_train = self.add_features(df_train, tidal_signal, self.measurement_column, multivariate_analysis)
 
         #Visualize training data
         anomalies = np.isin(df_train[self.qc_column], [3])
@@ -166,7 +197,7 @@ class MLOutlierDetection():
 
         return df_dict, df_test
 
-    def run_combined_training(self, df_dict):
+    def run_combined_training(self, df_dict, tidal_infos, multivariate_analysis):
         
         print(df_dict.keys())
         print(df_dict.keys())
@@ -175,13 +206,15 @@ class MLOutlierDetection():
         for elem in df_dict:
             #Decied if whole station df is used for training or only subset. If subset, split here
             df_train, df_test = train_test_split(df_dict[elem], test_size=0.15, shuffle=False)
+            df_train = df_train[[self.time_column, self.measurement_column, self.qc_column]]
             anomalies = np.isin(df_train[self.qc_column], [3])
             self.basic_plotter_no_xaxis(df_train, f'QC classes (for training data) - Subset {elem}', anomalies)
             #Preprocess the training data if needed
-            df_train = self.preprocessing_data(df_train)
+            df_train = self.preprocessing_data(df_train, multivariate_analysis)
             #Add features to the original data series and the training data
-            tidal_signal = [path for path in self.tidal_infos if elem in path]
-            df_train = self.add_features(df_train, tidal_signal[0], elem)
+            tidal_signal_path = [path for path in tidal_infos if elem in path]
+            tidal_signal, df_train = self.reinitialize_utide_from_txt(df_train, tidal_signal_path[0], self.station)
+            df_train = self.add_features(df_train, tidal_signal, self.measurement_column, multivariate_analysis)
             dfs_train[f"{elem}"] = df_train
             dfs_testing_new[f"{elem}"] = df_test
 
@@ -214,11 +247,11 @@ class MLOutlierDetection():
         for elem in df_dict:
             if not df_test.empty:
                 if self.station in elem:
-                    df_outcome = self.run_testing_model(df_test, elem)
+                    df_outcome = self.run_testing_model_analysis(df_test, elem)
                 else:
-                    df_outcome = self.run_testing_model(df_dict[elem], elem)
+                    df_outcome = self.run_testing_model_analysis(df_dict[elem], elem)
             else:
-                df_outcome = self.run_testing_model(df_dict[elem], elem)
+                df_outcome = self.run_testing_model_analysis(df_dict[elem], elem)
             outcomes[elem]= df_outcome
 
         self.save_to_txt()
@@ -226,7 +259,7 @@ class MLOutlierDetection():
 
         return outcomes
 
-    def preprocessing_data(self, df):
+    def preprocessing_data(self, df, multivariate_analysis):
         #Undersampling: Mark 10% of random good rows to be deleted
         #rows_to_drop = df[df[self.qc_column]==1].sample(frac=0.1, random_state=42).index
         #Drop selected rows
@@ -244,6 +277,10 @@ class MLOutlierDetection():
         rows_shift_pos[self.qc_column] = 3
         df = pd.concat([df, rows_shift_pos]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='last').reset_index(drop=True)
 
+        if multivariate_analysis:
+            #Fix mask for multivariate data before augmentation
+            self.mask = 'hey'
+        
         #Visualization resampled data
         anomalies = np.isin(df[self.qc_column], [3])
         self.basic_plotter_no_xaxis(df, 'Resampled QC classes (small distribution)', anomalies)
@@ -275,22 +312,19 @@ class MLOutlierDetection():
 
         return df
 
-    def add_features(self, df, tidal_signal, station):
-
-        # Set it as index
-        df.set_index(self.time_column, inplace=True)  
+    def add_features(self, df, tidal_signal, measurement_column, multivariate_analysis):
         
         #simple features like lag time and gradient
-        df['lag_1'] = df[self.measurement_column].shift(1)
-        df['lag_2'] = df[self.measurement_column].shift(2)
-        df['lag_-1'] = df[self.measurement_column].shift(-1)
-        df['lag_-2'] = df[self.measurement_column].shift(-2)
-        df['gradient_1'] = df[self.measurement_column] - df[self.measurement_column].shift(1)
-        df['gradient_-1'] = df[self.measurement_column].shift(-1) - df[self.measurement_column]
-        df['gradient_2'] = df[self.measurement_column] - df[self.measurement_column].shift(2)
-        df['gradient_-2'] = df[self.measurement_column].shift(-2) - df[self.measurement_column]
-        df['gradient_3'] = df[self.measurement_column] - df[self.measurement_column].shift(3)
-        df['gradient_-3'] = df[self.measurement_column].shift(-3) - df[self.measurement_column]
+        df['lag_1'] = df[measurement_column].shift(1)
+        df['lag_2'] = df[measurement_column].shift(2)
+        df['lag_-1'] = df[measurement_column].shift(-1)
+        df['lag_-2'] = df[measurement_column].shift(-2)
+        df['gradient_1'] = df[measurement_column] - df[measurement_column].shift(1)
+        df['gradient_-1'] = df[measurement_column].shift(-1) - df[measurement_column]
+        df['gradient_2'] = df[measurement_column] - df[measurement_column].shift(2)
+        df['gradient_-2'] = df[measurement_column].shift(-2) - df[measurement_column]
+        df['gradient_3'] = df[measurement_column] - df[measurement_column].shift(3)
+        df['gradient_-3'] = df[measurement_column].shift(-3) - df[measurement_column]
 
         #Advanced features:
         #Generate wavelets
@@ -307,20 +341,33 @@ class MLOutlierDetection():
         #df['wavelet'] = merged_df['wavelet_coef'].values
 
         #Add tidal signal
-        tidal_signal_series = self.reinitialize_utide_from_txt(df, tidal_signal, station)
-        df['tidal_signal'] = tidal_signal_series
-        rolling_corr = df[self.measurement_column].rolling(window=10).corr(df['tidal_signal'])
+        df['tidal_signal'] = tidal_signal
+        rolling_corr = df[measurement_column].rolling(window=10).corr(df['tidal_signal'])
         df['tidal_corr'] = rolling_corr
 
         #Define relevant features
-        self.features = [self.measurement_column, 'tidal_signal', 'gradient_1', 'gradient_-1', 'gradient_2', 'gradient_-2']
+        self.features = [measurement_column, 'tidal_signal', 'gradient_1', 'gradient_-1', 'gradient_2', 'gradient_-2']
 
-        #reset index and timestep back to column
-        df = df.reset_index().rename(columns={'index': self.time_column})
-        
+        if multivariate_analysis:
+            self.add_multivariate_features(df, self.feature1, self.feature2, self.feature3)
+                    
         return df
+    
+    def add_multivariate_features(self, df, feature1, feature2, feature3):
+        #Add other measurements for training as multivariate analysis
+        # Add mask to data
+        df['temp_mask'] = self.mask
+        df['pressure_mask'] = self.mask
+        df['humidity_mask'] = self.mask
+
+        # Input features: original vars + masks
+        self.features = self.features + [feature1, feature2, feature3, f'{feature1}_mask', f'{feature2}_mask', f'{feature3}_mask']
         
-    def reinitialize_utide_from_txt(self,df, filename, station):
+    def reinitialize_utide_from_txt(self, df, filename, station):
+
+        # Set it as index
+        df.set_index(self.time_column, inplace=True)  
+
         # Load coef from utide
         with open(filename, "rb") as f:
             coef_loaded = pickle.load(f)
@@ -345,8 +392,11 @@ class MLOutlierDetection():
         fig.savefig(os.path.join(self.folder_path,f"{station}-tidal_signal.png"),  bbox_inches="tight")
         plt.close()  # Close the figure to release memory
 
+        #reset index and timestep back to column
+        df = df.reset_index().rename(columns={'index': self.time_column})
+
         # Return the reinitialized tide results
-        return new_tide_results['h']
+        return new_tide_results['h'], df
     
     def run_model(self, X_train, y_train):
 
@@ -363,7 +413,7 @@ class MLOutlierDetection():
         }
 
         # Initialize the model
-        xgb = XGBClassifier(objective='binary:logistic', random_state=42, use_label_encoder=False, eval_metric='aucpr')
+        #xgb = XGBClassifier(objective='binary:logistic', random_state=42, use_label_encoder=False, eval_metric='aucpr')
 
         # Initialize RandomizedSearchCV
         #random_search = RandomizedSearchCV(
@@ -443,7 +493,7 @@ class MLOutlierDetection():
         #model.fit(self.X_train_res, self.y_train_res, eval_set=[(self.X_train_res, self.y_train_res), (self.X_val, self.y_val_transformed)], verbose=True)
         #model.fit(self.X_train, self.y_train_transformed, eval_set=[(X_train, y_train_transformed), (X_val, y_val_transformed)], verbose=True)
 
-    def run_testing_model(self, df_test, station):
+    def run_testing_model_analysis(self, df_test, station):
         #Print details on how testing dataset is expected to look like  
         unique_values, counts = np.unique(df_test[self.qc_column], return_counts=True)
         for value, count in zip(unique_values, counts):
@@ -455,22 +505,11 @@ class MLOutlierDetection():
         self.basic_plotter_no_xaxis(df_test, title, anomalies)
 
         #Extract test data
-        X_test = df_test[self.features].values
-        #X_test = df_test[[self.measurement_column, 'lag_1', 'lag_2', 'lag_-1', 'lag_-2', 'gradient_1', 'gradient_-1']].values
-        #X_test = df_test.drop(columns=["Timestamp", "label"]).values
         y_test = self.le.fit_transform(df_test[self.qc_column].values)
+        y_test = (y_test == 1).astype(int)
 
-        # Predictions
-        #y_pred = self.model.predict(X_test)
-        y_probs = self.model.predict_proba(X_test)[:, 1] 
-        # Find the best threshold for F1-score
-        thresholds = np.linspace(0.2, 0.8, 20)
-        y_test_binary = (y_test == 1).astype(int)
-        f1_scores = [f1_score(y_test_binary, (y_probs >= t).astype(int)) for t in thresholds]
-        best_threshold = thresholds[np.argmax(f1_scores)]
-        print(f"Best Threshold for F1-score: {best_threshold:.2f}")
-        y_pred = (y_probs >= best_threshold).astype(int)
-        y_test = y_test_binary
+        #Run model on testing data
+        y_pred = self.run_test_data(df_test)
 
         # Visualization predictions vs testing label   
         # Create confusion matix
@@ -562,6 +601,32 @@ class MLOutlierDetection():
         df_test['ml_anomaly_predicted'] = y_pred
         
         return df_test
+    
+    def run_test_data(self, df):
+
+        X_test = df[self.features].values
+
+        #Extract test data
+        if self.qc_column in df.columns:
+            y_test = self.le.fit_transform(df[self.qc_column].values)
+            y_test_binary = (y_test == 1).astype(int)
+
+            # Predictions
+            y_probs = self.model.predict_proba(X_test)[:, 1] 
+
+            # Find the best threshold for F1-score
+            thresholds = np.linspace(0.2, 0.8, 20)
+            f1_scores = [f1_score(y_test_binary, (y_probs >= t).astype(int)) for t in thresholds]
+            best_threshold = thresholds[np.argmax(f1_scores)]
+            print(f"Best Threshold for F1-score: {best_threshold:.2f}")
+            y_pred = (y_probs >= best_threshold).astype(int)
+        else:
+            # Predictions
+            y_probs = self.model.predict_proba(X_test)[:, 1] 
+            y_pred = (y_probs >= 0.5).astype(int)
+
+        return y_pred
+
 
     def basic_plotter_no_xaxis(self, df, title, anomalies, anomalies2=np.array([])):
         #Visualization of station data

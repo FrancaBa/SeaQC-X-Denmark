@@ -65,10 +65,10 @@ Based on the bitmask, IOC flags are assigned to the measurement point. F.e. miss
 
 0. no quality check carried out
 1. good_data (no bit)
-2. probably good data (Bit 2, Bit 12)
-3. bad data, but correctable through other parameters or knowledge (Bit 1, Bit 11)
+2. probably good data (Bit 2)
+3. bad data, but correctable through other parameters or knowledge (Bit 1, Bit 12)
 4. bad data (Bit 3, Bit 4, Bit 6, Bit 7, Bit 13 and Bit 14)
-5. shifted value (= period of series is offset towards to mean) (Bit 0, Bot 11)
+5. shifted value (= period of series is offset towards to mean) (Bit 0, Bit 11)
 6. spikes (= smaller local outlier) (Bit 5, Bit 15)
 7. ML-detected anomalies (= small scale anomalies detected by ML algorithm) (Bit 10 and Bit 17)
 8. linear interpolated value (Bit 8, Bit 16)
@@ -100,7 +100,7 @@ The following steps are part of the quality control:
 10. Shift detection:
 * 10.1 Ruptures (VERY SLOW!)
 * 10.2 Statistical change detection via gradient (strong change, but no change back)
-11. ML-Algorithm to detect small-scale uncertainties (supervised ML - Random Forest)
+11. ML-Algorithm to detect small-scale uncertainties (supervised ML - Random Forest) (ONLY WORKS ON TIDAL SIGNAL AT THE MOMENT)
 12. Probably good data (=short periods of good data between long periods of bad data)
 
 In order to perform some of the quality check steps, filled timeseries without NaNs are needed. Thus, the following three filling appraoches are used:

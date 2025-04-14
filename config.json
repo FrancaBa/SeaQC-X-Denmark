@@ -1,6 +1,7 @@
 {
   "date_alteration": "01.04.2025",
-  "detide_mode": false,
+  "detide_mode": true,
+  "multivariate_analysis": true,
   "qc_flag_classification": {
     "no_qc": 0,
     "good_data": 1,
@@ -44,7 +45,7 @@
     "spike_value_statistical": true,
     "cotede_spikes": true,
     "cotede_improved_spikes": true,
-    "selene_spikes": false,
+    "selene_spikes": true,
     "selene_improved_spikes": true,
     "harmonic_detected_spikes": true,
     "ml_detected_spikes": true,
@@ -83,10 +84,6 @@
         "improved_cotede_threshold": 0.1,
         "max_window_neighbours":60,
         "test_size": 0.15,
-        "lag_05tide": 375,
-        "lag_1tide": 750,
-        "lag_2tide": 1500,
-        "seven_days": 10430,
         "nsigma": 4,
         "splinelength": 420,
         "splinedegree": 2
