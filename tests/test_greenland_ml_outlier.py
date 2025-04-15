@@ -21,7 +21,7 @@ class Test_QC_ML_Station(unittest.TestCase):
 
         #Set path to labelled measurements
         #self.datadir = '/dmidata/users/frb/greenland_data_raw/manual_labelled_GL_data/double_checked_labelled'
-        self.datadir = '/home/frb/Documents/Franca_Project/double_checked_labelled'
+        self.datadir = '/home/frb/Documents/Franca_Project/double_checked_labelled/correct_date'
         self.datadir_tides = os.path.join(os.getcwd(), 'tests', 'tidal_information')
         
         #Set path to original measurements

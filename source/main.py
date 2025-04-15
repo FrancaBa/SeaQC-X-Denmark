@@ -64,6 +64,8 @@ class QualityFlagger():
         self.active_tests = config_data['qc_active_tests']
         #Defines if certain tests should be carried out on detided data as well
         self.detide_mode = config_data['detide_mode']
+        #Defines if multivariate abalysis should be carried out
+        self.multivariate_analysis_mode = config_data['multivariate_analysis']
 
     #Create output folder to save results
     def set_output_folder(self, folder_path):

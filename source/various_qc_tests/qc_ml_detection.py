@@ -105,7 +105,6 @@ class MLOutlierDetection():
 
         for filename in os.listdir(file_path):
             file_path_long = os.path.join(file_path, filename)
-            print(file_path_long)
             if os.path.isfile(file_path_long):      
                 #Open .csv file and fix the column names
                 df = pd.read_csv(file_path_long, sep=",", header=0)
@@ -130,13 +129,19 @@ class MLOutlierDetection():
             df[self.qc_column] = df[self.qc_column].fillna(1).astype(int)
             #FOR NOW: Only a binary issue of spikes/non-spikes
             df[self.qc_column] = df[self.qc_column].replace(4, 3)
-            df[self.time_column] = pd.to_datetime(df[self.time_column]).dt.round('min')
+            df[self.time_column] = pd.to_datetime(df[self.time_column], utc=True).dt.round('min')
             #Add features
             tidal_signal_path = [path for path in tidal_infos if df_name in path]
-            tidal_signal, df = self.reinitialize_utide_from_txt(df, tidal_signal_path[0], self.station)
+            tidal_signal, df = self.reinitialize_utide_from_txt(df, tidal_signal_path[0], file.split("-")[0])
             #Add relevant multivariate variables
-            relev_mv_df = self.dfs_multivariate_analysis[df_name]
-            df = df.merge(relev_mv_df, on=self.time_column, how='left')
+            if multivariate_analysis:
+                if file.split("-")[0] not in self.dfs_multivariate_analysis.keys():
+                    relev_mv_df = self.dfs_multivariate_analysis[df_name]
+                else:
+                    relev_mv_df = self.dfs_multivariate_analysis[file.split("-")[0]]
+                df = df.merge(relev_mv_df, on=self.time_column, how='left')
+                #Zoom in to plot for assessment
+                self.zoomed_plot(df, self.measurement_column, file.split("-")[0], relev_mv_df.columns)
             df = self.add_features(df, tidal_signal, self.measurement_column, multivariate_analysis)
             #Analyse imported data
             anomaly = np.isin(df[self.qc_column], [3,4])
@@ -349,40 +354,32 @@ class MLOutlierDetection():
         self.features = [measurement_column, 'tidal_signal', 'gradient_1', 'gradient_-1', 'gradient_2', 'gradient_-2']
 
         if multivariate_analysis:
-            self.add_multivariate_features(df, self.feature1, self.feature2, self.feature3)
+            self.add_multivariate_features(df, self.feature1, self.feature2)
                     
         return df
     
-    def add_multivariate_features(self, df, feature1, feature2, feature3):
-        #Add other measurements for training as multivariate analysis
-        # Add mask to data
-        df['temp_mask'] = self.mask
-        df['pressure_mask'] = self.mask
-        df['humidity_mask'] = self.mask
+    def add_multivariate_features(self, df, feature1, feature2):
+        #Add mask to dmultivariate analysis
+        df[f'{feature1}_mask'] = True
+        df[f'{feature2}_mask'] = True
 
         # Input features: original vars + masks
-        self.features = self.features + [feature1, feature2, feature3, f'{feature1}_mask', f'{feature2}_mask', f'{feature3}_mask']
+        self.features = self.features + [feature1, feature2, f'{feature1}_mask', f'{feature2}_mask']
         
     def reinitialize_utide_from_txt(self, df, filename, station):
-
-        # Set it as index
-        df.set_index(self.time_column, inplace=True)  
 
         # Load coef from utide
         with open(filename, "rb") as f:
             coef_loaded = pickle.load(f)
-        
-        # Load the new timeseries data
-        new_time = pd.to_datetime(df.index)
 
         # Perform U-tide reconstruction with the new timeseries and parameters
-        new_tide_results = utide.reconstruct(new_time, coef_loaded, verbose=False)
+        new_tide_results = utide.reconstruct(df[self.time_column].values, coef_loaded, verbose=False)
 
         fig, ax1 = plt.subplots(figsize=(18, 10))
         ax1.set_xlabel('Time')
         ax1.set_ylabel('WaterLevel')
-        ax1.plot(new_time, df[self.measurement_column], marker='o', markersize=3, color='black', linestyle='None', label = 'WaterLevel')
-        ax1.plot(new_time, new_tide_results['h'], marker='o', markersize=3, color='blue', linestyle='None', alpha=0.6, label = 'TidalSignal')
+        ax1.plot(df[self.time_column].values, df[self.measurement_column], marker='o', markersize=3, color='black', linestyle='None', label = 'WaterLevel')
+        ax1.plot(df[self.time_column].values, new_tide_results['h'], marker='o', markersize=3, color='blue', linestyle='None', alpha=0.6, label = 'TidalSignal')
         ax1.legend(loc='upper right')
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%m-%d %H:%M'))
         # Ensure all spines (box edges) are visible
@@ -392,8 +389,8 @@ class MLOutlierDetection():
         fig.savefig(os.path.join(self.folder_path,f"{station}-tidal_signal.png"),  bbox_inches="tight")
         plt.close()  # Close the figure to release memory
 
-        #reset index and timestep back to column
-        df = df.reset_index().rename(columns={'index': self.time_column})
+        #Zoom in to plot for assessment
+        self.zoomed_plot(df, self.measurement_column, station, new_tide_results['h'])
 
         # Return the reinitialized tide results
         return new_tide_results['h'], df
@@ -728,5 +725,49 @@ class MLOutlierDetection():
                 file.write("".join(list) + "\n")
 
         print("CSV file 'scores.csv' created successfully.")
+    
+    def zoomed_plot(self, df, value_column, station, extra_info):
+        df["time_diff"] = df[self.time_column].diff()
 
-        
+        # Mark where the gap exceeds 10 days
+        max_gap = pd.Timedelta("10D")
+        df["gap_flag"] = (df["time_diff"] > max_gap).astype(int)
+        # Assign segment IDs for continuous periods
+        df["segment_id"] = df["gap_flag"].cumsum()
+
+        for seg_id, group in df.groupby("segment_id"):
+            if isinstance(extra_info, np.ndarray):
+                fig, ax1 = plt.subplots(figsize=(18, 10))
+                ax1.set_xlabel('Time')
+                ax1.set_ylabel('WaterLevel')
+                ax1.plot(group[self.time_column].values, group[value_column], marker='o', markersize=2, color='black', linestyle='None', label = 'WaterLevel')
+                ax1.plot(group[self.time_column].values, extra_info[group.index], marker='o', markersize=2, color='blue', linestyle='None', alpha=0.6, label = 'TidalSignal')
+                ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%m-%d %H:%M'))
+                # Ensure all spines (box edges) are visible
+                for spine in ax1.spines.values():
+                    spine.set_visible(True)
+                fig.legend(loc='upper right')
+                fig.tight_layout() 
+                fig.savefig(os.path.join(self.folder_path,f"{seg_id, station}-zoomed_tidal_signal.png"),  bbox_inches="tight")
+                plt.close()  # Close the figure to release memory
+            else:
+                for elem in range(1, len(extra_info)):
+                    fig, ax1 = plt.subplots(figsize=(18, 10))
+                    ax1.set_xlabel('Time')
+                    ax1.set_ylabel('WaterLevel')
+                    ax1.plot(group[self.time_column].values, group[value_column], marker='o', markersize=2, color='black', linestyle='None', label = 'WaterLevel')
+                    ax2 = ax1.twinx()
+                    ax2.set_ylabel(extra_info[elem], color='blue')
+                    ax2.plot(group[self.time_column].values, group[extra_info[elem]], marker='o', markersize=2, color='blue', linestyle='None', alpha=0.6, label = extra_info[elem])
+                    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%m-%d %H:%M'))
+                    # Ensure all spines (box edges) are visible
+                    for spine in ax1.spines.values():
+                        spine.set_visible(True)
+                    fig.legend(loc='upper right')
+                    fig.tight_layout() 
+                    fig.savefig(os.path.join(self.folder_path,f"{seg_id, station, extra_info[elem]}-zoomed_signal.png"),  bbox_inches="tight")
+                plt.close()  # Close the figure to release memory
+
+        del df["gap_flag"]
+        del df["time_diff"]
+        del df["segment_id"]
