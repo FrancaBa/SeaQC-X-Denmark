@@ -1,5 +1,5 @@
 ###############################################################################################################################
-## Written by jola@dmi.dk                                                                                                    ##
+## Written by jola                                                                                                           ##
 ## This script carries out a wavelet analysis for given sea level measurements. Maybe useful for later, but not applied now. ##
 ###############################################################################################################################
 

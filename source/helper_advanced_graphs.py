@@ -20,7 +20,7 @@ else: #else Linux(Ubuntu)
 prop = fm.FontProperties(fname=font_path)
 #plt.rcParams["font.family"] = prop.get_name()
 plt.rcParams["font.family"] = "DejaVu Serif"
-plt.rcParams["font.size"] = 13  # Set global font size (adjust as needed)
+plt.rcParams["font.size"] = 16  # Set global font size (adjust as needed)
 pio.renderers.default = "browser"
 
 class GraphMaker():
@@ -228,11 +228,11 @@ class GraphMaker():
         #color_map = plt.cm.plasma  # Choose a colormap (other good ones: Viridis, Cividis, Plasma)
         #colors = [color_map(i /len(lable_title)) for i in range(len(lable_title))]
         colors = ['black','black','black','black','black', 'black', 'red'] 
-        grid_heights = [0.2 - 0.097 * i for i in range(6)]    
-        offset_value = np.zeros(len(self.relev_df))+0.26
+        grid_heights = [0.28 - 0.16 * i for i in range(6)] 
+        offset_value = np.zeros(len(self.relev_df))+0.35
         title = 'Comparison of Spike Detection Methods'
         # Create the figure and axes with shared x-axis
-        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(12, 8), gridspec_kw={'height_ratios': [5, 4]}, dpi=300)
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(12, 8), gridspec_kw={'height_ratios': [5, 5]}, dpi=300)
 
         # Plot the first graph (Sea Level Measurements)
         ax1.plot(self.relev_df[time_column], self.relev_df[data_column], color='black', label='Measurement', marker='o',  markersize=1.2, linestyle='None')
@@ -246,7 +246,7 @@ class GraphMaker():
         ax1.legend(loc='upper right', frameon=False)
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))  # Format: YYY-MM-DD HH:MM
         ax1.xaxis.set_major_locator(mdates.AutoDateLocator())
-        ax1.set_xticks(ax1.get_xticks()[::2]) 
+        ax1.set_xticks(ax1.get_xticks()[::3]) 
 
         # Plot the second graph (Icons)
         # Stack markers using offsets
@@ -257,7 +257,7 @@ class GraphMaker():
             #ax2.scatter(self.relev_df[time_column][mask], offset_value[mask], color=scatter_colors, marker=scatter_marker, s=25, alpha=0.5, edgecolors='black', linewidth=0.5, label=lable_title[i])
             ax2.scatter(self.relev_df[time_column][mask], offset_value[mask], color=scatter_colors, marker=scatter_marker, s=30, alpha=0.6, edgecolors=scatter_colors, linewidth=0.5, label=lable_title[i])
             count[i] = len(offset_value[mask])
-            offset_value -= 0.1
+            offset_value -= 0.16
 
         # Add gridlines at specific heights
         for height in grid_heights:
@@ -267,9 +267,9 @@ class GraphMaker():
         #ax2.legend(loc='lower right', frameon=False)
         #Add multi-line text
         text_box = f"""{lable_title[0]}\n\n{lable_title[1]}\n\n{lable_title[2]}\n\n{lable_title[3]}\n\n{lable_title[4]}\n\n{lable_title[5]}\n\n{lable_title[6]}"""
-        ax2.figure.text(-0.24, 0.035, text_box, transform=ax2.figure.transFigure, fontsize=14, verticalalignment='bottom', horizontalalignment='left')
+        ax2.figure.text(-0.24, 0.035, text_box, transform=ax2.figure.transFigure, fontsize=16, verticalalignment='bottom', horizontalalignment='left')
         text_box = f"""= {count[0]}\n\n= {count[1]}\n\n= {count[2]}\n\n= {count[3]}\n\n= {count[4]}\n\n= {count[5]}\n\n= {count[6]}"""
-        ax2.figure.text(1, 0.035, text_box, transform=ax2.figure.transFigure, fontsize=14, verticalalignment='bottom', horizontalalignment='left')
+        ax2.figure.text(1, 0.035, text_box, transform=ax2.figure.transFigure, fontsize=16, verticalalignment='bottom', horizontalalignment='left')
 
         # Display the plot
         plt.subplots_adjust(hspace=0.01)

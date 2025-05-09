@@ -152,7 +152,7 @@ class QualityMasking():
                 else:
                     df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == f'ml_anomaly_predicted{suffix}' and self.active_tests['ml_anomalies']:
+            elif col_name == f'ml_anomalies{suffix}' and self.active_tests['ml_anomalies']:
                 bitmask_elem = self.bitmask_def[f'ml_anomalies{suffix}']
                 df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
             elif col_name == f'probably_good_mask{suffix}' and self.active_tests['probably_good_data']:
@@ -193,11 +193,11 @@ class QualityMasking():
                     if elem == 'spike' and any(value for key, value in self.active_tests.items() if "spike" in key and value):
                         self.merge_columns_qc(elem, df, information, suffix)
         
-            #Make a new column 'combined_int_flag' consisting of an intergar number representing merged columns for the same test based on detided and tided data (needed for defining QC flags)
+            #Make a new column 'combined_int' consisting of an intergar number representing merged columns for the same test based on detided and tided data (needed for defining QC flags)
             bit_dfs = df.filter(regex='^bit_')
             cols_to_drop = bit_dfs.filter(regex=f'^bit_.*{suffix}$').columns
             bit_dfs = bit_dfs.drop(columns=cols_to_drop)
-            df['combined_int_flag'] = np.bitwise_or.reduce(bit_dfs, axis=1)
+            df['combined_int'] = np.bitwise_or.reduce(bit_dfs, axis=1)
 
         return df
     
@@ -223,22 +223,22 @@ class QualityMasking():
         """
 
         #Order is important
-        df['quality_flag'] = df['combined_int_flag'].apply(lambda x: self.flag_def["good_data"] if x == 0 else 0) #flag good data
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["probably_good_data"] if (row['combined_int_flag'] & self.bitmask_def[f'probably_good_data']) == self.bitmask_def[f'probably_good_data'] else row['quality_flag'], axis=1) #flag probably good data
+        df['quality_flag'] = df['combined_int'].apply(lambda x: self.flag_def["good_data"] if x == 0 else 0) #flag good data
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["probably_good_data"] if (row['combined_int'] & self.bitmask_def[f'probably_good_data']) == self.bitmask_def[f'probably_good_data'] else row['quality_flag'], axis=1) #flag probably good data
 
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data_correctable"] if (row['combined_int_flag'] & self.bitmask_def[f'noisy_period']) == self.bitmask_def[f'noisy_period'] else row['quality_flag'], axis=1) #flag bad correctable data (noisy period)
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data_correctable"] if (row['combined_int'] & self.bitmask_def[f'noisy_period']) == self.bitmask_def[f'noisy_period'] else row['quality_flag'], axis=1) #flag bad correctable data (noisy period)
         
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int_flag'] & self.bitmask_def[f'bad_segment']) == self.bitmask_def[f'bad_segment'] else row['quality_flag'], axis=1) #flag bad correctable data (bad segment)
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int_flag'] & self.bitmask_def[f'global_outliers']) == self.bitmask_def[f'global_outliers'] else row['quality_flag'], axis=1)  #flag bad not correctable data (global outliers)
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int_flag'] & self.bitmask_def[f'incorrect_format']) == self.bitmask_def[f'incorrect_format'] else row['quality_flag'], axis=1) #flag bad not correctable data (incorrect format)
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int_flag'] & self.bitmask_def[f'stuck_value']) == self.bitmask_def[f'stuck_value'] else row['quality_flag'], axis=1) #flag stuck value
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int'] & self.bitmask_def[f'bad_segment']) == self.bitmask_def[f'bad_segment'] else row['quality_flag'], axis=1) #flag bad correctable data (bad segment)
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int'] & self.bitmask_def[f'global_outliers']) == self.bitmask_def[f'global_outliers'] else row['quality_flag'], axis=1)  #flag bad not correctable data (global outliers)
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int'] & self.bitmask_def[f'incorrect_format']) == self.bitmask_def[f'incorrect_format'] else row['quality_flag'], axis=1) #flag bad not correctable data (incorrect format)
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["bad_data"] if (row['combined_int'] & self.bitmask_def[f'stuck_value']) == self.bitmask_def[f'stuck_value'] else row['quality_flag'], axis=1) #flag stuck value
 
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["spikes"] if (row['combined_int_flag'] & self.bitmask_def[f'spikes']) == self.bitmask_def[f'spikes'] else row['quality_flag'], axis=1) #flag spikes
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["shifted_value"] if (row['combined_int_flag'] & self.bitmask_def[f'shifted_value']) == self.bitmask_def[f'shifted_value'] else row['quality_flag'], axis=1) #flag shifted value     
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["spikes"] if (row['combined_int'] & self.bitmask_def[f'spikes']) == self.bitmask_def[f'spikes'] else row['quality_flag'], axis=1) #flag spikes
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["shifted_value"] if (row['combined_int'] & self.bitmask_def[f'shifted_value']) == self.bitmask_def[f'shifted_value'] else row['quality_flag'], axis=1) #flag shifted value     
         
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["ml_anomalies"] if (row['combined_int_flag'] & self.bitmask_def[f'ml_anomalies']) == self.bitmask_def[f'ml_anomalies'] else row['quality_flag'], axis=1) #flag stuck value
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["interpolated_value"] if (row['combined_int_flag'] & self.bitmask_def[f'interpolated_value']) == self.bitmask_def[f'interpolated_value'] else row['quality_flag'], axis=1) #flag interpolated value
-        df['quality_flag'] = df.apply(lambda row: self.flag_def["missing_data"] if (row['combined_int_flag'] & self.bitmask_def[f'missing_data']) == self.bitmask_def[f'missing_data'] else row['quality_flag'], axis=1) #flag missing data
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["ml_anomalies"] if (row['combined_int'] & self.bitmask_def[f'ml_anomalies']) == self.bitmask_def[f'ml_anomalies'] else row['quality_flag'], axis=1) #flag stuck value
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["interpolated_value"] if (row['combined_int'] & self.bitmask_def[f'interpolated_value']) == self.bitmask_def[f'interpolated_value'] else row['quality_flag'], axis=1) #flag interpolated value
+        df['quality_flag'] = df.apply(lambda row: self.flag_def["missing_data"] if (row['combined_int'] & self.bitmask_def[f'missing_data']) == self.bitmask_def[f'missing_data'] else row['quality_flag'], axis=1) #flag missing data
  
         #Raise error if any 0 in 'quality check' column (this cannot ne happening as all points are tested)
         #0 = no QC

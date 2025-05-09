@@ -242,8 +242,8 @@ class HelperMethods():
         ax1.plot(x_axis, data_2, marker='o', markersize=3, color=color, linestyle='None', alpha=0.6, label= legend_2)
         
         color = 'tab:red'
-        ax1.set_xlabel(x_title, fontsize=14)
-        ax1.set_ylabel(y_title, fontsize=14)
+        ax1.set_xlabel(x_title, fontsize=15)
+        ax1.set_ylabel(y_title, fontsize=15)
         #ax1.set_xlabel(x_title, fontsize=14, fontproperties=prop)
         #ax1.set_ylabel(y_title, fontsize=14, fontproperties=prop)
         #ax1.set_xlabel(x_title)
@@ -256,7 +256,7 @@ class HelperMethods():
         #Format x-axis to show only numbers
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))  # Format: YYY-MM-DD HH:MM
         ax1.xaxis.set_major_locator(mdates.AutoDateLocator())
-        ax1.set_xticks(ax1.get_xticks()[::2]) 
+        ax1.set_xticks(ax1.get_xticks()[::3]) 
         #ax1.xaxis.set_major_locator(mdates.HourLocator(interval=6))  # Tick every 6 hours
         #plt.xticks(rotation=45) 
 

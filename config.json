@@ -1,5 +1,5 @@
 {
-  "date_alteration": "01.04.2025",
+  "date_alteration": "09.05.2025",
   "detide_mode": true,
   "multivariate_analysis": true,
   "qc_flag_classification": {
@@ -45,7 +45,7 @@
     "spike_value_statistical": true,
     "cotede_spikes": true,
     "cotede_improved_spikes": true,
-    "selene_spikes": true,
+    "selene_spikes": false,
     "selene_improved_spikes": true,
     "harmonic_detected_spikes": true,
     "ml_detected_spikes": true,

@@ -108,6 +108,8 @@ class QualityFlagger():
         - path to file [str]
         - filename including ending [str]
         """
+        self.multivariety_data = path
+
         if file.endswith(".csv"):
             #Open .csv file and fix the column names
             self.df_meas = pd.read_csv(os.path.join(path,file), sep=",", header=0)
@@ -358,12 +360,20 @@ class QualityFlagger():
             data_flagging_ml.set_output_folder(output_path)
             data_flagging_ml.set_column_names('Timestamp', 'value', 'label')
             data_flagging_ml.set_station(training_strategy)
-            tidal_info = data_flagging_ml.set_tidal_components_file(self.tidal_path)
-            dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir, tidal_info)
-            data_flagging_ml.run_combined_training(dfs_training, tidal_info)
-            df = data_flagging_ml.add_features(df, df['tidal_signal'], relevant_measurements)
+            tidal_infos = data_flagging_ml.set_tidal_series_file(self.tidal_path)
+            if self.multivariate_analysis_mode:
+                self.dfs_multivariate_analysis = data_flagging_ml.load_multivariate_analysis(self.multivariety_data, 'Conductivity', 'Pressure', 'Temperature')
+                multi_variety_df = self.dfs_multivariate_analysis[self.station].copy()
+                multi_variety_df[self.time_column] = multi_variety_df[self.time_column].dt.tz_localize(None)
+                df = df.merge(multi_variety_df, on=self.time_column, how='left')
+            dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir, tidal_infos)
+            df_dict, dfs_testing = data_flagging_ml.run_training(dfs_training, combined_training = True)
+            outcomes = data_flagging_ml.run_testing(df_dict, dfs_testing)
+            df['meas_anomaly'] = df[relevant_measurements]-df[relevant_measurements].mean()
+            df = data_flagging_ml.add_features(df, df['tidal_signal'], 'meas_anomaly')       
             prediction = data_flagging_ml.run_test_data(df)
             df[f'ml_anomalies{suffix}'] = prediction.astype(bool)
+            del df['meas_anomaly']
 
         return df
 

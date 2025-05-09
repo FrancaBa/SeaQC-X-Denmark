@@ -1,7 +1,7 @@
-########################################################################################
-## Test quality check script for sea level tide gauge data by frb for GronSL (2024/25)##
-## This script runs the QC for all 4/5 stations (1 method for each station)           ##
-########################################################################################
+##########################################################################################
+## Test quality check script for sea level tide gauge data by frb for GronSL (2024/25)  ##
+## This script runs the QC for all 4/5 stations in Greenland (1 method for each station)##
+##########################################################################################
 
 import os
 from pathlib import Path
@@ -44,8 +44,8 @@ class Test_QC_Station(unittest.TestCase):
         #Set path to config json and and labelled data
         self.json_path = os.path.join(os.getcwd(), 'config.json')
         self.gauge_details_path = os.path.join(os.getcwd(), 'tides.local')
-        self.datadir_labels = '/home/frb/Documents/Franca_Project/double_checked_labelled'
-        self.datadir_tides = os.path.join(os.getcwd(), 'tests', 'tidal_information')
+        self.datadir_labels = '/home/frb/Documents/Franca_Project/double_checked_labelled/correct_date'
+        self.datadir_tides = '/home/frb/Documents/Franca_Project/double_checked_labelled/tidal_information'
 
     def test_quality_check_qaqortoq(self):
 
@@ -238,11 +238,11 @@ class Test_QC_Station(unittest.TestCase):
             for index, (key, value) in enumerate(stations.items()):
                 x, y = gdf.geometry[index].x, gdf.geometry[index].y
                 ax.scatter(y, x, marker="o", s=45, label=key, color='black')
-                ax.text(y - 0.5, x + 0.1, key, fontsize=16, ha='right', color='black')
+                ax.text(y - 0.5, x + 0.1, key, fontsize=18, ha='right', color='black')
             
-            ax.set_ylabel("Longitude", fontsize=16)
-            ax.set_xlabel("Latitude", fontsize=16)
-            ax.tick_params(axis='both', which='major', labelsize=16) 
+            ax.set_ylabel("Longitude", fontsize=18)
+            ax.set_xlabel("Latitude", fontsize=18)
+            ax.tick_params(axis='both', which='major', labelsize=18) 
             ax.set_rasterization_zorder(0)
             
             # Add background map
@@ -250,7 +250,7 @@ class Test_QC_Station(unittest.TestCase):
             #ctx.add_basemap(ax, crs="EPSG:4326", source=ctx.providers.OpenStreetMap.HOT, zoom=8)
 
             # Save the map as an image file
-            plt.savefig(os.path.join(output_path,'greenland_stations.png'), dpi=100, bbox_inches="tight")
+            plt.savefig(os.path.join(output_path,'greenland_stations.png'), dpi=200, bbox_inches="tight")
             plt.close()
             print(f"Map saved as image")
 
@@ -296,7 +296,7 @@ class Test_QC_Station(unittest.TestCase):
         df["y"] = df["Station"].map(y_pos)
 
         # Plot timeline
-        fig, ax = plt.subplots(figsize=(14, 6))
+        fig, ax = plt.subplots(figsize=(9, 6))
 
         # Plot each bar
         for _, row in df.iterrows():
@@ -306,12 +306,13 @@ class Test_QC_Station(unittest.TestCase):
 
         # Formatting
         ax.set_yticks(range(len(station_order)))
-        ax.set_yticklabels(station_order, fontsize=16)
-        ax.xaxis.set_major_locator(mdates.YearLocator(2))
+        ax.set_yticklabels(station_order, fontsize=18)
+        ax.xaxis.set_major_locator(mdates.YearLocator(3))
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
         ax.set_xlim([datetime(2005, 1, 1), datetime(2025, 1, 1)])
         #ax.set_title("Tide gauge station timelines in Greenland", fontsize=13)
         ax.grid(True, axis='x', linestyle='--', alpha=0.5)
+        ax.tick_params(axis='x', labelsize=18)  # Set x-axis label font size to 18
         plt.tight_layout()
 
         # Save the figure
