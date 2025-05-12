@@ -73,7 +73,7 @@ class DataConverter():
     
     def run(self):
         """
-        Main Method: Open, Convert and save measurements combined to a big csv file.
+        Main Method: Open, Convert and save measurements combined to a long csv file.
         """
          
         self.load_data()

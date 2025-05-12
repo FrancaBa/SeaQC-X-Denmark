@@ -3,10 +3,9 @@
 ## This script generates a tidal signal for measurement series using UTide and creates a detided sea level series for the measurements. ##
 ##########################################################################################################################################
 
-import os, sys
+import os
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import utide
 import builtins
 import random
@@ -74,6 +73,7 @@ class TidalSignalGenerator():
         calibration_df_resampled = calibration_df.resample('5min').mean().interpolate()
         time_array_good = calibration_df_resampled.index.values
         anomaly_good = calibration_df_resampled['anomaly']
+        #Or run on original 1-min resolution if memory is big enough
         #time_array_good = calibration_df.index.values
         #anomaly_good = calibration_df['anomaly']
 

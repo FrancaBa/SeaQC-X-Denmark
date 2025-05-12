@@ -10,9 +10,7 @@
 ################################################################################
 
 import os
-import pandas as pd
 import numpy as np
-import numpy.ma as ma
 import random
 import builtins
 
@@ -33,12 +31,6 @@ class SpikeDetector():
         self.cotede_threshold = None
         self.improved_cotede_threshold = None
         self.max_window_neighbours = None #under the assumption that timestamp is in 1 min
-        # Parameters for ml (to split into training and testing set)
-        self.test_size = 0.85 # Size of the test set in percentage
-        self.lag_05tide = None #min max amplitude
-        self.lag_1tide = None #min min cycle development
-        self.lag_2tide = None # 2 * min min cycle development
-        #self.seven_days = None
         #Selene spline approach needed constants
         self.nsigma = 3
         self.splinelength = None #min
@@ -63,10 +55,6 @@ class SpikeDetector():
 
         # Parameters for ml (to split into training and testing set)
         self.test_size = params['spike_detection']['test_size'] # Size of the test set in percentage
-        self.lag_05tide = params['spike_detection']['lag_05tide'] #min max amplitude
-        self.lag_1tide = params['spike_detection']['lag_1tide'] #min min cycle development
-        self.lag_2tide = params['spike_detection']['lag_2tide'] # 2 * min min cycle development
-        self.seven_days = params['spike_detection']['seven_days']
 
         #Selene spline approach needed constants
         self.nsigma = params['spike_detection']['nsigma']
@@ -531,19 +519,21 @@ class SpikeDetector():
                 end_index = data['segments'][shift_points].index[i+1]
             if data['segments'][start_index] == 0:
                 relev_df = data[start_index:end_index].copy()
-                if len(relev_df) >= self.lag_2tide:
+                #if len(relev_df) >= self.lag_2tide:
                     #Add relevant features
-                    relev_df.loc[:,'lag_05tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_05tide).bfill()  #min max amplitude
-                    relev_df.loc[:,'lag_1tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_1tide).bfill()   #min min cycle development
-                    relev_df.loc[:,'lag_2tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_2tide).bfill()   # 2 * min min cycle development
-
-                    #Extract relevant output and input features
-                    X = relev_df[[filled_data_column, 'lag_1tide', 'lag_05tide', 'lag_2tide']]
-
-                else:
-                    relev_df.loc[:,'lag_05tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_05tide).bfill()  #min max amplitude
-                    #Extract relevant output and input features
-                    X = relev_df[[filled_data_column, 'lag_05tide']]
+                #    relev_df.loc[:,'lag_05tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_05tide).bfill()  #min max amplitude
+                #    relev_df.loc[:,'lag_1tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_1tide).bfill()   #min min cycle development
+                #    relev_df.loc[:,'lag_2tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_2tide).bfill()   # 2 * min min cycle development
+                #
+                #    #Extract relevant output and input features
+                #    X = relev_df[[filled_data_column, 'lag_1tide', 'lag_05tide', 'lag_2tide']]
+                #else:
+                #    relev_df.loc[:,'lag_05tide'] = relev_df.loc[:,filled_data_column].shift(self.lag_05tide).bfill()  #min max amplitude
+                #    #Extract relevant output and input features
+                #    X = relev_df[[filled_data_column, 'lag_05tide']]
+                relev_df.loc[:,'lag_1'] = relev_df.loc[:,filled_data_column].shift(1).bfill()  #min max amplitude
+                relev_df.loc[:,'lag_-1'] = relev_df.loc[:,filled_data_column].shift(-1).bfill()
+                X = relev_df[[filled_data_column, 'lag_1', 'lag_-1']]
                 y = relev_df[filled_data_column].values
 
                 # Split into train and test
@@ -592,5 +582,7 @@ class SpikeDetector():
         information.append([f"This algorithm needed {elapsed_time.total_seconds():.6f} seconds to complete."])
 
         del data['test']
+        del relev_df['lag_1']
+        del relev_df['lag_-1']
 
         return data

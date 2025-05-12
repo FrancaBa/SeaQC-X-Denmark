@@ -3,8 +3,7 @@
 ## This script is used to generate csv files which are the baseline for manual labelling in Trainset (https://trainset.geocene.com/)##
 ######################################################################################################################################
 
-import os, sys
-import numpy as np
+import os
 import pandas as pd
 
 from datetime import datetime, timedelta

@@ -10,11 +10,7 @@ Contains different simple approaches to fill NaNs in a timeseries:
 """
 
 import numpy as np
-import pandas as pandas
-import matplotlib.pyplot as plt
-import datetime
 import os
-import random 
 
 from scipy.interpolate import UnivariateSpline
 

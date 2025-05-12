@@ -11,7 +11,7 @@ import random
 from datetime import datetime
 
 import source.helper_methods as helper
-import source.qc_spike as qc_spike
+import source.various_qc_tests.qc_spike as qc_spike
 
 class ImplausibleChangeDetector(): 
 
@@ -88,6 +88,7 @@ class ImplausibleChangeDetector():
                         df.loc[result, f'spike_value_statistical{suffix}'] = True
                         df.loc[result, 'test'] = np.nan
 
+        df['test'] = np.where(df[f'spike_value_statistical{suffix}'], df[data_column], np.nan)
         true_indices = df[f'spike_value_statistical{suffix}'][df[f'spike_value_statistical{suffix}']].index
         if true_indices.any():
             max_range = builtins.min(31, len(true_indices))
@@ -95,7 +96,7 @@ class ImplausibleChangeDetector():
                 x = random.choice(range(0,len(true_indices)))
                 min = builtins.max(0,(true_indices[x]-1000))
                 max = builtins.min(min + 2000, len(df))
-                self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level [m]', 'Water Level (corrected)', df[data_column][min:max], 'Timestamp', 'Water Level (measured)',f'Statistical spike Graph-local spike detected via statistics {min} -{suffix}')
+                self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level [m]', 'Detected Spike', df[data_column][min:max], 'Timestamp', 'Measured Water Level',f'Statistical spike Graph-local spike detected via statistics {min} -{suffix}')
 
         #print details on the statistical spike check
         ratio = (df[f'spike_value_statistical{suffix}'].sum()/original_length)*100
@@ -139,7 +140,6 @@ class ImplausibleChangeDetector():
         # When shifting back from outliers, there is a large jump again. Make sure that those jumps are not marked as outlier! This is not working 100%
         outlier_change_rate = self.extract_outlier(outlier_change_rate)
         distributed_periods = outlier_change_rate.copy()
-
 
         self.run_single_spikes(df, outlier_change_rate, adapted_meas_col_name, time_column, information, suffix)
         self.run_noisy_periods(df, distributed_periods, adapted_meas_col_name, time_column, information, suffix)
@@ -197,22 +197,20 @@ class ImplausibleChangeDetector():
                 outlier_change_rate[window_indices] = False
 
         df[f'outlier_change_rate{suffix}'] = outlier_change_rate
-        df['test'] = np.where(df[f'outlier_change_rate{suffix}'], np.nan, df['test'])
+        df['test'] = np.where(df[f'outlier_change_rate{suffix}'], df['test'], np.nan)
 
          # Get indices where the mask is True (as check that approach works)
         if df[f'outlier_change_rate{suffix}'].any():
             true_indices = df[f'outlier_change_rate{suffix}'][df[f'outlier_change_rate{suffix}']].index
             self.helper.plot_df(df[time_column][true_indices[0]-100:true_indices[0]+100], df[adapted_meas_col_name][true_indices[0]-100:true_indices[0]+100],'Water Level [m]', 'Timestamp ', f'Max plausible change period in TS -{suffix}')
-            self.helper.plot_df(df[time_column][true_indices[0]-100:true_indices[0]+100], df['test'][true_indices[0]-100:true_indices[0]+100],'Water Level [m]','Timestamp ',f'Max plausible change period in TS (corrected) -{suffix}')
             self.helper.plot_df(df[time_column][true_indices[-1]-100:true_indices[-1]+100], df[adapted_meas_col_name][true_indices[-1]-100:true_indices[-1]+100],'Water Level [m]','Timestamp ',f'Max plausible change period in TS (2) -{suffix}')
-            self.helper.plot_df(df[time_column][true_indices[-1]-100:true_indices[-1]+100], df['test'][true_indices[-1]-100:true_indices[-1]+100],'Water Level [m]','Timestamp ',f'Max plausible change period in TS (corrected) (2) -{suffix}')
             #More plots
             max_range = builtins.min(31, len(true_indices))
             for i in range(1, max_range):
                 x = random.choice(range(0,len(true_indices)))
                 min = builtins.max(0,(true_indices[x]-500))
                 max = builtins.min(len(df), min+1000)
-                self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level [m]', 'Water Level (corrected)', df[adapted_meas_col_name][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-Implausible change rate detected {i}-{suffix}')
+                self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level [m]', 'Detected Spike', df[adapted_meas_col_name][min:max], 'Timestamp', 'Measured Water Level',f'Graph-Implausible change rate detected {i}-{suffix}')
 
         ratio = (df[f'outlier_change_rate{suffix}'].sum()/self.original_length)*100
         print(f"There are {df[f'outlier_change_rate{suffix}'].sum()} outliers in this time series which change their level too much. This is {ratio}% of the overall dataset.")
@@ -239,7 +237,7 @@ class ImplausibleChangeDetector():
                 df.loc[idx,f'noisy_period{suffix}'] = True
 
         #Check if selection is a noisy period and yes, remove value
-        df['test'] = np.where(df[f'noisy_period{suffix}'], np.nan, df['test'])
+        df['test'] = np.where(df[f'noisy_period{suffix}'], df['test'], np.nan)
 
         ratio = (df[f'noisy_period{suffix}'].sum()/self.original_length)*100
         print(f"There are {df[f'noisy_period{suffix}'].sum()} elements in noisy periods in this time series which change their level within a short timeframe a lot. This is {ratio}% of the overall dataset.")
@@ -253,6 +251,6 @@ class ImplausibleChangeDetector():
                 x = random.choice(range(0,len(true_indices)))
                 min = builtins.max(0,(true_indices[x]-500))
                 max = builtins.min(len(df), min+1000)
-                self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level [m]', 'Water Level (corrected)', df[adapted_meas_col_name][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-noisy period detected {i} -{suffix}')
+                self.helper.plot_two_df_same_axis(df[time_column][min:max], df['test'][min:max],'Water Level [m]', 'Detected Spike', df[adapted_meas_col_name][min:max], 'Timestamp', 'Measured Water Level',f'Graph-noisy period detected {i} -{suffix}')
         
         del df['test']

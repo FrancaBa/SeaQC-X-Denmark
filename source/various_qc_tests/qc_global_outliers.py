@@ -6,7 +6,6 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import random
 import builtins
 
 import source.helper_methods as helper

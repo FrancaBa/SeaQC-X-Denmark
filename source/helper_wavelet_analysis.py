@@ -1,3 +1,8 @@
+###############################################################################################################################
+## Written by jola                                                                                                           ##
+## This script carries out a wavelet analysis for given sea level measurements. Maybe useful for later, but not applied now. ##
+###############################################################################################################################
+
 import numpy as np
 import pywt
 import pandas as pd
