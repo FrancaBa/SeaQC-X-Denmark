@@ -10,6 +10,7 @@ import json
 import matplotlib.pyplot as plt
 import builtins
 import math
+import random
 
 from functools import reduce
 
@@ -88,10 +89,13 @@ class QualityFlagger():
     def set_missing_value_filler(self, missing_meas_value):
         self.missing_meas_value = missing_meas_value 
 
+    def set_tide_series(self, path):
+        self.tidal_path = path
+
     #Set path to training dataset used for ML test for small-scale anomalies
-    def set_ml_training_data(self, path1, path2):
-        self.datadir = path1
-        self.tidal_path = path2
+    def set_ml_training_data(self, path, path2):
+        self.datadir = path
+        self.tidal_path_ml = path2
 
     def import_data(self, path, file):
         """
@@ -125,6 +129,13 @@ class QualityFlagger():
             self.df_meas = pd.read_csv(os.path.join(path,file), sep="\\s+", header=None, names=[self.time_column, self.measurement_column])
             self.df_meas[self.measurement_column] = self.df_meas[self.measurement_column]/100 #conversion from cm to m
             self.df_meas[self.time_column] = pd.to_datetime(self.df_meas[self.time_column], format='%Y%m%d%H%M')
+        elif file.endswith(".seadb_0"):
+            #Open .seadb_0 file and fix the column names
+            self.df_meas_complete = pd.read_csv(os.path.join(path,file), sep=";", header=None)
+            self.df_meas = pd.DataFrame(columns=[self.time_column, self.measurement_column])
+            self.df_meas[self.time_column] = self.df_meas_complete[1]
+            self.df_meas[self.measurement_column] = self.df_meas_complete[2]/100
+            self.df_meas[self.time_column] = pd.to_datetime(self.df_meas[self.time_column], format='%Y-%m-%d %H:%M:%S')
         else:
             raise Exception('Format of the input measurement series is unkown to this script.')
         
@@ -152,7 +163,7 @@ class QualityFlagger():
         # Here, we extract the time difference in minutes
         self.df_meas['time_diff'] = self.df_meas[self.time_column].diff()
         self.df_meas['resolution'] = self.df_meas['time_diff'].dt.total_seconds()/60
-        frequent_timestep = self.df_meas['resolution'].value_counts().head(4)
+        frequent_timestep = self.df_meas['resolution'].value_counts().head(3)
         frequent_timestep_int =[int(res) for res in frequent_timestep.index]
         self.information.append(['The three most frequent time steps in dataset are:', frequent_timestep])
         print('The three most frequent time steps in dataset are:', frequent_timestep)
@@ -216,15 +227,25 @@ class QualityFlagger():
 
         #Padding of ts to a homogenous timestep
         df = self.set_global_timestamp(self.df_meas)
-        df[self.adapted_meas_col_name] = df[self.measurement_column]
+        df[self.adapted_meas_col_name] = df[self.measurement_column].copy()
 
-        #Generate tide signal as needed for further assessment
-        tidal_signal_construction = helper_tidal_signal_generation.TidalSignalGenerator()
-        tidal_signal_construction.set_station(self.station)
-        tidal_signal_construction.set_gauge_details_path(self.gauge_details_path)
-        tidal_signal_construction.set_output_folder(self.folder_path)
-        df = tidal_signal_construction.run(df, self.adapted_meas_col_name, self.time_column, self.information)
+        #Code to generate own tide signal based on measurements needed for further assessment
+        #tidal_signal_construction = helper_tidal_signal_generation.TidalSignalGenerator()
+        #tidal_signal_construction.set_station(self.station)
+        #tidal_signal_construction.set_gauge_details_path(self.gauge_details_path)
+        #tidal_signal_construction.set_output_folder(self.folder_path)
+        #df = tidal_signal_construction.run(df, self.adapted_meas_col_name, self.time_column, self.information)
         
+        #Load tidal signal from Mads for respectiv station (MORE ACCURATE)
+        data_flagging_ml = qc_ml_detector.MLOutlierDetection()
+        data_flagging_ml.set_output_folder(self.folder_path)
+        data_flagging_ml.set_column_names(self.time_column, self.adapted_meas_col_name, 'label') #last elem is dummy and not needed
+        df[self.time_column] = df[self.time_column].dt.tz_localize('UTC')
+        tidal_signal = data_flagging_ml.add_tidal_signal(df, self.tidal_path, self.station)
+        df['tidal_signal'] = tidal_signal
+        df['detided_series'] = df[self.adapted_meas_col_name] - tidal_signal
+        df[self.time_column] = df[self.time_column].dt.tz_localize(None)
+               
         #Runs the different steps in the QC algorithm
         df = self.run_qc(df, self.adapted_meas_col_name)
 
@@ -255,10 +276,11 @@ class QualityFlagger():
         conversion_bitmask.set_bitmask(self.qc_bit_definition)
         conversion_bitmask.set_active_tests(self.active_tests)
         df = conversion_bitmask.convert_boolean_to_bitmasks(df)
-        df = conversion_bitmask.convert_boolean_to_bitmasks(df,suffix)
+        if self.detide_mode == True:
+            df = conversion_bitmask.convert_boolean_to_bitmasks(df,suffix)
         df = conversion_bitmask.merge_bitmasks(df, self.detide_mode, self.information, suffix)
         df = conversion_bitmask.convert_bitmask_to_flags(df)
-        conversion_bitmask.save_flagged_series(df, self.measurement_column, self.time_column, self.df_meas)
+        conversion_bitmask.save_flagged_series(df, self.measurement_column, self.time_column, 'detided_series', self.df_meas)
 
         #Save information from QC tests to txt file
         self.save_to_txt()
@@ -289,7 +311,7 @@ class QualityFlagger():
         global_outliers.set_output_folder(self.folder_path)
         global_outliers.set_parameters(self.params, suffix)
         df = global_outliers.run(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
-        #df = global_outliers.run_zscore(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
+        #df = global_outliers.interquantile_run(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
 
         #Detect interpolated values
         interpolated_qc = qc_interpolated.Interpolation_Detector()
@@ -299,14 +321,15 @@ class QualityFlagger():
        
         #Segmentation of ts in empty and measurement segments
         #Extract measurement segments and fill them accordingly
-        self.segment_column = f'segments{suffix}'
+        #self.segment_column = f'segments{suffix}'
+        self.segment_column = f'segments'
         fill_data_qc = qc_fill_data.MissingDataFiller()
         fill_data_qc.set_output_folder(self.folder_path)
         fill_data_qc.set_parameters(self.params)
-        df = fill_data_qc.segmentation_ts(df, relevant_measurements, self.segment_column, self.information, suffix)
 
         #Set short measurement periods between missing data periods as not trustworthy periods
         if suffix == '':
+            df = fill_data_qc.segmentation_ts(df, relevant_measurements, self.segment_column, self.information, suffix)
             df = self.short_bad_measurement_periods(df, relevant_measurements, self.segment_column, suffix)
 
         #Add continuous helper columns
@@ -360,7 +383,7 @@ class QualityFlagger():
             data_flagging_ml.set_output_folder(output_path)
             data_flagging_ml.set_column_names('Timestamp', 'value', 'label')
             data_flagging_ml.set_station(training_strategy)
-            tidal_infos = data_flagging_ml.set_tidal_series_file(self.tidal_path)
+            tidal_infos = data_flagging_ml.set_tidal_series_file(self.tidal_path_ml)
             if self.multivariate_analysis_mode:
                 self.dfs_multivariate_analysis = data_flagging_ml.load_multivariate_analysis(self.multivariety_data, 'Conductivity', 'Pressure', 'Temperature')
                 multi_variety_df = self.dfs_multivariate_analysis[self.station].copy()
@@ -373,6 +396,24 @@ class QualityFlagger():
             df = data_flagging_ml.add_features(df, df['tidal_signal'], 'meas_anomaly')       
             prediction = data_flagging_ml.run_test_data(df)
             df[f'ml_anomalies{suffix}'] = prediction.astype(bool)
+            df['test'] = np.where(df[f'ml_anomalies{suffix}'], df[relevant_measurements], np.nan)
+            
+            #print details on detected ml spikes
+            ratio = (df[f'ml_anomalies{suffix}'].sum()/self.original_length)*100
+            print(f"There are {df[f'ml_anomalies{suffix}'].sum()} small scale anomalies in this timeseries based ml test. This is {ratio}% of the overall dataset.")
+            self.information.append([f"There are {df[f'ml_anomalies{suffix}'].sum()} small scale anomalies in this timeseries based ml test. This is {ratio}% of the overall dataset."])
+            
+            #Analyse ML spike detection
+            true_indices = df[f'ml_anomalies{suffix}'][df[f'ml_anomalies{suffix}']].index
+            if true_indices.any():
+                max_range = builtins.min(31, len(true_indices))
+                for i in range(0,max_range):
+                    x = random.choice(range(0,len(true_indices)))
+                    min = builtins.max(0,(true_indices[x]-500))
+                    max = builtins.min(min + 1000, len(df))
+                    self.helper.plot_two_df_same_axis(df[self.time_column][min:max], df['test'][min:max],'Water Level [m]', 'Detected Spike', df[relevant_measurements][min:max], 'Timestamp ', 'Measured Water Level', f'ML algorithm spike detected{i}-{suffix}')
+            
+            del df['test']
             del df['meas_anomaly']
 
         return df
@@ -455,10 +496,13 @@ class QualityFlagger():
                     z += 1
                     self.helper.plot_df(data[self.time_column][min:max], data[self.measurement_column][min:max],'Water Level', 'Timestamp', f'Bad and empty periods (monthly) - Graph {i} -{suffix}')
                     self.helper.plot_df(data[self.time_column][min:max], data[data_column][min:max],'Water Level', 'Timestamp', f'Bad and empty periods (monthly)- Cleaned - Graph{i} -{suffix}')
-        print(f"There are {z} bad segments in this timeseries.")
-        self.information.append([f"There are {z} bad segments in this time series."])
-
-        #for segment
+        
+        #Statement for analysis
+        ratio = (data[f'short_bad_measurement_series{suffix}'].sum()/len(data))*100
+        print(f"There are {data[f'short_bad_measurement_series{suffix}'].sum()} short bad entries in this timeseries which have been flagged by the QC test. This is {ratio}% of the overall dataset.")
+        self.information.append([f"There are {data[f'short_bad_measurement_series{suffix}'].sum()} short bad entries in this timeseries which have been flagged by the QC test. This is {ratio}% of the overall dataset."])
+        print(f"This equals to {z} bad segments in this timeseries.")
+        self.information.append([f"This equals to {z} bad segments in this time series."])
         shift_points = (data[segment_column] != data[segment_column].shift())
         print(f'Now there are still {(data[segment_column][shift_points]==0).sum()} segments with measurements in this measurement series.')
         self.information.append([f'Now there are still {(data[segment_column][shift_points]==0).sum()} segments with measurements in this measurement series.'])

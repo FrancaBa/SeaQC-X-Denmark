@@ -1,6 +1,7 @@
-####################################################
-## Written by frb for GronSL project (2024-2025) ###
-####################################################
+###############################################################################################################################################
+## Written by frb for GronSL project (2024-2025)                                                                                             ##
+## Split measurement series in segments with data and without, then fill NaN or mask relevant series with other values for later processing. ##
+###############################################################################################################################################
 
 """
 Contains different simple approaches to fill NaNs in a timeseries:
@@ -11,6 +12,8 @@ Contains different simple approaches to fill NaNs in a timeseries:
 
 import numpy as np
 import os
+import builtins
+import random
 
 from scipy.interpolate import UnivariateSpline
 
@@ -101,7 +104,6 @@ class MissingDataFiller():
         
         #Get start and end point of each segment
         shift_points = (data[segment_column] != data[segment_column].shift())
-        data[f'poly_interpolated_data{suffix}'] = np.nan
 
         #If measurement segment, interpolate NaNs vis existing measurements and polynomial interpolation
         for i in range(0,len(data[segment_column][shift_points]), 1):  
@@ -114,14 +116,19 @@ class MissingDataFiller():
                 y_interpolated = data.loc[start_index:end_index, data_column].interpolate(method='polynomial', order= self.order_ploynomial_fil) #Polynomial order is defined here (currently: 2)
                 y_interpolated = y_interpolated.ffill()  #Last elem in segment is NaN as not enough neighboring values for interpolation, so forward-fill previous value
                 data.loc[start_index:end_index,f'poly_interpolated_data{suffix}'] = y_interpolated
+                data.loc[start_index:end_index,f'new_poly_interpolated_data{suffix}'] = np.where(data.loc[start_index:end_index, data_column].isna(), y_interpolated, np.nan)
                 
                 #Plotting for visual analysis
-                if end_index - start_index > 1000:
-                    self.helper.plot_two_df_same_axis(data[time_column][start_index:start_index+1000], data[data_column][start_index:start_index+1000],'Water Level', 'Water Level (corrected)', data[f'poly_interpolated_data{suffix}'][start_index:start_index+1000], 'Timestamp ', 'Interpolated Water Level', f'Interpolated data Graph{i}- Measured water level vs Interpolated values (start) -{suffix}')
-                    self.helper.plot_two_df_same_axis(data[time_column][end_index-500:end_index], data[data_column][end_index-500:end_index],'Water Level', 'Water Level (corrected)', data[f'poly_interpolated_data{suffix}'][end_index-500:end_index], 'Timestamp ', 'Interpolated Water Level', f'Interpolated data Graph{i}- Measured water level vs Interpolated values (end) -{suffix}')
+                if data.loc[start_index:end_index,f'new_poly_interpolated_data{suffix}'].any():
+                    max_range = builtins.min(11, data.loc[start_index:end_index, f'new_poly_interpolated_data{suffix}'].count())
+                    for i in range(0,max_range):
+                        x = random.choice(data[data[f'new_poly_interpolated_data{suffix}'].notna()].index.tolist())
+                        min = builtins.max(0,x-500)
+                        max = builtins.min(min + 1000, len(data))
+                        self.helper.plot_two_df_same_axis(data[time_column][min:max], data[f'new_poly_interpolated_data{suffix}'][min:max],'Water Level', 'Interpolated Water Level', data[data_column][min:max], 'Timestamp ', 'Water Level (measured)', f'Interpolated data Graph{i}- Measured water level vs Interpolated values{suffix}')
 
-                self.helper.plot_two_df_same_axis(data[time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Water Level (corrected)', data[f'poly_interpolated_data{suffix}'][start_index:end_index], 'Timestamp ', 'Interpolated Water Level', f'Interpolated data Graph{i}- Measured water level vs Interpolated values -{suffix}')
-        
+        del data[f'new_poly_interpolated_data{suffix}'] 
+
         return data
     
 
@@ -192,8 +199,8 @@ class MissingDataFiller():
                         data.loc[start+begin_buffer:end-end_buffer,f'poly_fitted_data{suffix}'] = y_fit[begin_buffer:-end_buffer]
 
                 #Plot for visual analysis
-                self.helper.plot_two_df_same_axis(data[time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Water Level (corrected)', data[f'poly_fitted_data{suffix}'][start_index:end_index], 'Timestamp ', 'Polynomial fitted data Water Level', f'Polynomial fitted graph{start_index}-{suffix}')
-            
+                self.helper.plot_two_df_same_axis(data[time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Water Level (measured)', data[f'poly_fitted_data{suffix}'][start_index:end_index], 'Timestamp ', 'Polynomial fitted data Water Level', f'Polynomial fitted graph{start_index}-{suffix}')
+
         return data
     
 
@@ -294,7 +301,7 @@ class MissingDataFiller():
                             interp_values[start:end] = fitted_y[buffer_value:-buffer_value]
                     
                 #Plot for visual analysis
-                self.helper.plot_two_df_same_axis(data[time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Water Level (corrected)', interp_values[start_index:end_index], 'Timestamp ', 'Interpolated Water Level', f'Spline fitted Graph{start}- Measured water level vs spline values-{suffix}')
+                self.helper.plot_two_df_same_axis(data[time_column][start_index:end_index], data[data_column][start_index:end_index],'Water Level', 'Water Level (measured)', interp_values[start_index:end_index], 'Timestamp ', 'Interpolated Water Level', f'Spline fitted Graph{start}- Measured water level vs spline values-{suffix}')
                 
         data[f'spline_fitted_data{suffix}'] = interp_values
 

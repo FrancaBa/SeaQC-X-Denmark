@@ -61,11 +61,11 @@ class ProbablyGoodDataFlagger():
         data['probably_good_mask'] = self.mask_fewer_than_x_consecutive_false(data['combined_mask'])
 
         #Check if selection is a probably good period and yes, remove value
-        data['test'] = np.where(data['probably_good_mask'], np.nan, data[adapted_meas_col_name])
+        data['test'] = np.where(data['probably_good_mask'], data[adapted_meas_col_name], np.nan)
 
         ratio = (data['probably_good_mask'].sum()/original_length)*100
-        print(f"There are {data['probably_good_mask'].sum()} elements in this timeseries which have failed subtests around them and split the segements to not by default trustworthy. This is {ratio}% of the overall dataset.")
-        information.append([f"There are {data['probably_good_mask'].sum()} elements in this timeseries which have failed subtests around them and split the segements to not by default trustworthy. This is {ratio}% of the overall dataset."])
+        print(f"There are {data['probably_good_mask'].sum()} elements in this timeseries which have failed subtests around them and split the segments to not by default trustworthy. This is {ratio}% of the overall dataset.")
+        information.append([f"There are {data['probably_good_mask'].sum()} elements in this timeseries which have failed subtests around them and split the segments to not by default trustworthy. This is {ratio}% of the overall dataset."])
         ratio = ((data['probably_good_mask'].sum()+all_combined.sum())/original_length)*100
         print(f"In total, there are {(data['probably_good_mask'].sum()+all_combined.sum())} flagged elements in this timeseries. This is {ratio}% of the overall dataset.")
         information.append([f"In total, there are {(data['probably_good_mask'].sum()+all_combined.sum())} flagged elements in this timeseries. This is {ratio}% of the overall dataset."])
@@ -73,10 +73,10 @@ class ProbablyGoodDataFlagger():
         #Plot marked periods to check
         if data['probably_good_mask'].any():
             true_indices = data['probably_good_mask'][data['probably_good_mask']].index
-            for i in range(1, 41):
-                min = builtins.max(0,(random.choice(true_indices))-4250)
-                max = builtins.min(min + 4250, len(data))
-                self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Water Level (corrected)', data[adapted_meas_col_name][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-probably good period detected {i}')
+            for i in range(1, 31):
+                min = builtins.max(0,(random.choice(true_indices))-250)
+                max = builtins.min(min + 500, len(data))
+                self.helper.plot_two_df_same_axis(data[time_column][min:max], data['test'][min:max],'Water Level', 'Probably good data points', data[adapted_meas_col_name][min:max], 'Timestamp', 'Water Level (measured)',f'Graph-probably good period detected {i}')
         
         del data['test']
 

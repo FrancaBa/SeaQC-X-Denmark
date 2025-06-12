@@ -543,9 +543,6 @@ class SpikeDetector():
                 # Initialize XGBoost model
                 model = XGBRegressor(objective='reg:squarederror', n_estimators=100, learning_rate=0.1)
 
-                print(y_train)
-                print(X_train)
-
                 # Final training on full train set
                 model.fit(X_train, y_train)
 
