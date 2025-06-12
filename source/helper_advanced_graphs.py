@@ -212,21 +212,21 @@ class GraphMaker():
         -time_column: name of column with timestamp [str]
         -data_column: name of column with data [str]
         """
-        print(self.relev_df)
-
         #Visualization of different spike detection methods
         self.relev_df['spike_value_statistical_improved'] = self.relev_df['outlier_change_rate'] | self.relev_df['noisy_period']
         pot_relev_columns = ['spike_value_statistical', 'spike_value_statistical_improved', 'cotede_spikes', 'cotede_improved_spikes', 'selene_spikes', 'selene_improved_spikes', 'ml_anomalies']
-        lable_title = ['Implausible rate of change', 'Implausible rate of change (improved)', 'Neighbour comparison', 'Neighbour comparison (improved)', 'Spline fitting', 'Spline fitting (improved)', 'ML algorithm']
-        #mark ml detected spikes in ts graph
-        highlight = self.relev_df[self.relev_df['ml_anomalies']]
+        lable_title_complete = ['Implausible rate of change', 'Implausible rate of change (improved)', 'Neighbour comparison', 'Neighbour comparison (improved)', 'Spline fitting', 'Spline fitting (improved)', 'ML algorithm']
         markers = ["s" , "d", "o", "v", ">", "*", "P"]
         relev_columns = [col for col in pot_relev_columns if col in self.relev_df.columns]
-        count = [None] * len(lable_title)
+        count = [None] * len(relev_columns)
+        if not list(set(pot_relev_columns) - set(relev_columns)):
+            lable_title = lable_title_complete
+        else:
+            missing_outcome = list(set(pot_relev_columns) - set(relev_columns))
+            for elem in missing_outcome:
+                missing_index = pot_relev_columns.index(elem)
+                lable_title = lable_title_complete[:missing_index] + lable_title_complete[missing_index+1:]
 
-        # Generate colors from a single-hue colormap
-        #color_map = plt.cm.plasma  # Choose a colormap (other good ones: Viridis, Cividis, Plasma)
-        #colors = [color_map(i /len(lable_title)) for i in range(len(lable_title))]
         colors = ['black','black','black','black','black', 'black', 'red'] 
         grid_heights = [0.28 - 0.16 * i for i in range(6)] 
         offset_value = np.zeros(len(self.relev_df))+0.35
@@ -236,8 +236,13 @@ class GraphMaker():
 
         # Plot the first graph (Sea Level Measurements)
         ax1.plot(self.relev_df[time_column], self.relev_df[data_column], color='black', label='Measurement', marker='o',  markersize=1.2, linestyle='None')
-        # Highlight where flag is True
-        ax1.scatter(highlight[time_column], highlight[data_column], marker='o', s=3, color='red', label= 'ML detected spikes', zorder=2)
+        # Highlight where flag is True based on ml detected spikes in ts graph
+        if 'ml_anomalies' in self.relev_df.columns:
+            highlight = self.relev_df[self.relev_df['ml_anomalies']]
+            ax1.scatter(highlight[time_column], highlight[data_column], marker='o', s=3, color='red', label= 'ML detected spikes', zorder=2)
+        else:
+            highlight = self.relev_df[self.relev_df['spike_value_statistical']]
+            ax1.scatter(highlight[time_column], highlight[data_column], marker='o', s=3, color='red', label= 'Implausible rate of change', zorder=2)
         ax1.set_ylabel('Water Level [m]')
         ax1.spines['top'].set_visible(False)
         ax1.spines['right'].set_visible(False)
@@ -254,7 +259,6 @@ class GraphMaker():
             mask = self.relev_df[relev_columns[i]]
             scatter_marker = markers[i]
             scatter_colors = colors[i]
-            #ax2.scatter(self.relev_df[time_column][mask], offset_value[mask], color=scatter_colors, marker=scatter_marker, s=25, alpha=0.5, edgecolors='black', linewidth=0.5, label=lable_title[i])
             ax2.scatter(self.relev_df[time_column][mask], offset_value[mask], color=scatter_colors, marker=scatter_marker, s=30, alpha=0.6, edgecolors=scatter_colors, linewidth=0.5, label=lable_title[i])
             count[i] = len(offset_value[mask])
             offset_value -= 0.16
@@ -266,9 +270,11 @@ class GraphMaker():
         ax2.axis('off')
         #ax2.legend(loc='lower right', frameon=False)
         #Add multi-line text
-        text_box = f"""{lable_title[0]}\n\n{lable_title[1]}\n\n{lable_title[2]}\n\n{lable_title[3]}\n\n{lable_title[4]}\n\n{lable_title[5]}\n\n{lable_title[6]}"""
+        #text_box = f"""{lable_title[0]}\n\n{lable_title[1]}\n\n{lable_title[2]}\n\n{lable_title[3]}\n\n{lable_title[4]}\n\n{lable_title[5]}\n\n{lable_title[6]}"""
+        text_box = '\n\n'.join(f"""= {c}""" for c in lable_title)
         ax2.figure.text(-0.24, 0.035, text_box, transform=ax2.figure.transFigure, fontsize=16, verticalalignment='bottom', horizontalalignment='left')
-        text_box = f"""= {count[0]}\n\n= {count[1]}\n\n= {count[2]}\n\n= {count[3]}\n\n= {count[4]}\n\n= {count[5]}\n\n= {count[6]}"""
+        #text_box = f"""= {count[0]}\n\n= {count[1]}\n\n= {count[2]}\n\n= {count[3]}\n\n= {count[4]}\n\n= {count[5]}\n\n= {count[6]}"""
+        text_box = '\n\n'.join(f"""= {c}""" for c in count)
         ax2.figure.text(1, 0.035, text_box, transform=ax2.figure.transFigure, fontsize=16, verticalalignment='bottom', horizontalalignment='left')
 
         # Display the plot

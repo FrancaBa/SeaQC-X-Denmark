@@ -66,7 +66,6 @@ class ImplausibleChangeDetector():
         #For Qaqortoq: relevant period to test the code
         #test_df = df[(df[time_column].dt.year == 2014) & (df[time_column].dt.month == 1) & (df[time_column].dt.day == 24)]
 
-        #For measurement segment: polynomial fit (6th degree) to the polynomial interpolated measurement series
         for i in range(0,len(df['segments'][shift_points]), 1):
             start_index = df['segments'][shift_points].index[i]
             if i == len(df['segments'][shift_points])-1:

@@ -384,7 +384,7 @@ class MLOutlierDetection():
 
         # Input features: original vars + masks
         self.features = self.features + [feature1, feature2, f'{feature1}_mask', f'{feature2}_mask']
-        
+    
     def add_tidal_signal(self, df, filename, station):
         """
         From DMI Ocean, use the provided tide tables to match with the respective measurement series.
@@ -790,8 +790,8 @@ class MLOutlierDetection():
         plt.plot(df['Timestamp'].values, df[self.measurement_column], label='Measured Water Level', color='black', marker='o',  markersize=1, linestyle='None')
 
         #Add false negatives
-        if not fn.size == 0:
-            plt.scatter(df['Timestamp'][fn].values, df[self.measurement_column][fn], color='lawngreen', label='False Negatives (FN)', zorder=0.15)
+        #if not fn.size == 0:
+        #    plt.scatter(df['Timestamp'][fn].values, df[self.measurement_column][fn], color='lawngreen', label='False Negatives (FN)', zorder=0.15)
         #Add false positives
         if not fp.size == 0:
             plt.scatter(df['Timestamp'][fp].values, df[self.measurement_column][fp], color='blue', label='False Positives (FP)', zorder=0.15)

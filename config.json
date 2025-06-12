@@ -1,7 +1,7 @@
 {
-  "date_alteration": "09.05.2025",
-  "detide_mode": true,
-  "multivariate_analysis": true,
+  "date_alteration": "23.05.2025",
+  "detide_mode": false,
+  "multivariate_analysis": false,
   "qc_flag_classification": {
     "no_qc": 0,
     "good_data": 1,
@@ -33,7 +33,6 @@
     "spikes_detided": 32768,
     "interpolated_value_detided": 65536,
     "ml_anomalies_detided": 131072
-
   },
   "qc_active_tests": {
     "shifted_value": false,
@@ -46,14 +45,14 @@
     "cotede_spikes": true,
     "cotede_improved_spikes": true,
     "selene_spikes": false,
-    "selene_improved_spikes": true,
-    "harmonic_detected_spikes": true,
-    "ml_detected_spikes": true,
+    "selene_improved_spikes": false,
+    "harmonic_detected_spikes": false,
+    "ml_detected_spikes": false,
     "incorrect_format": true,
     "bad_segment": true,
     "interpolated_value": true,
     "missing_data": true,
-    "ml_anomalies": true
+    "ml_anomalies": false
   },
   "parameter_definition":{
     "1.0min":{
@@ -62,6 +61,9 @@
       "threshold_empty_bad_segment": 0.05,
       "bound_interquantile": 6.0,
       "bound_interquantile_detided": 4.0,
+      "threshold_zscore": 4.0,
+      "threshold_zscore_detided": 3.0,
+      "rolling_window_outliers": 2880,
       "window_size_const_gradient": 15,
 	    "stuck_value": 30,
       "segmentation":{
@@ -102,8 +104,11 @@
       "threshold_empty_bad_segment": 0.05,
       "bound_interquantile": 6.0,
       "bound_interquantile_detided": 4.0,
+      "threshold_zscore": 3.0,
+      "threshold_zscore_detided": 2.5,
+      "rolling_window_outliers": 576,
       "window_size_const_gradient": 4,
-	    "stuck_value": 6,
+	    "stuck_value": 30,
       "segmentation":{
         "nan_threshold": 75,
         "splinelength": 84,
@@ -112,8 +117,8 @@
         "poly_fitted_degree": 6
       },
       "implausible_change":{
-        "search_step_neighbours": 3,
-        "change_threshold": 0.25,
+        "search_step_neighbours": 4,
+        "change_threshold": 0.1,
         "threshold_max_change": 0.2,
         "range_spike_pair": 3,
         "shifting_periods": 0.2,
@@ -121,7 +126,7 @@
       },
       "spike_detection":{
         "cotede_threshold": 0.05,
-        "improved_cotede_threshold": 0.3,
+        "improved_cotede_threshold": 0.2,
         "max_window_neighbours":12,
         "test_size": 0.85,
         "lag_05tide": 75,
@@ -146,8 +151,11 @@
       "threshold_empty_bad_segment": 0.10,
       "bound_interquantile": 6.0,
       "bound_interquantile_detided": 4.0,
+      "threshold_zscore": 4.0,
+      "threshold_zscore_detided": 3.0,
+      "rolling_window_outliers": 288,
       "window_size_const_gradient": 3,
-	    "stuck_value": 3,
+	    "stuck_value": 10,
       "segmentation":{
         "nan_threshold": 37.5,
         "splinelength": 42,
@@ -156,9 +164,9 @@
         "poly_fitted_degree": 6
       },
       "implausible_change":{
-        "search_step_neighbours": 2,
-        "change_threshold": 0.5,
-        "threshold_max_change": 0.4,
+        "search_step_neighbours": 3,
+        "change_threshold": 0.15,
+        "threshold_max_change": 0.25,
         "range_spike_pair": 2,
         "shifting_periods": 0.4,
         "outliers_per_hour": 2
@@ -190,6 +198,9 @@
       "threshold_empty_bad_segment": 0.10,
       "bound_interquantile": 6.0,
       "bound_interquantile_detided": 4.0,
+      "threshold_zscore": 4.0,
+      "threshold_zscore_detided": 3.0,
+      "rolling_window_outliers": 192,
       "window_size_const_gradient": 3,
 	    "stuck_value": 2,
       "segmentation":{
@@ -200,9 +211,9 @@
         "poly_fitted_degree": 6
       },
       "implausible_change":{
-        "search_step_neighbours": 2,
-        "change_threshold": 0.75,
-        "threshold_max_change": 0.5,
+        "search_step_neighbours": 3,
+        "change_threshold": 0.2,
+        "threshold_max_change": 0.3,
         "range_spike_pair": 2,
         "shifting_periods": 0.5,
         "outliers_per_hour": 2

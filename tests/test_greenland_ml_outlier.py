@@ -18,8 +18,8 @@ class Test_QC_ML_Station(unittest.TestCase):
         self.stations = ['Qaqortoq', 'Ittoqqortoormiit', 'Nuuk', 'Nuuk1', 'Pituffik', 'Upernavik1', 'Upernavik2'] 
 
         #Set path to labelled measurements
-        #self.datadir = '/dmidata/users/frb/greenland_data_raw/manual_labelled_GL_data/double_checked_labelled'
-        self.datadir = '/home/frb/Documents/Franca_Project/double_checked_labelled/correct_date'
+        self.datadir = '/dmidata/users/frb/greenland_data_raw/manual_labelled_GL_data/double_checked_labelled'
+        #self.datadir = '/home/frb/Documents/Franca_Project/double_checked_labelled/correct_date'
         #self.datadir = '/home/frb/Documents/Franca_Project/double_checked_labelled'
         self.datadir_tides = '/home/frb/Documents/Franca_Project/double_checked_labelled/tidal_information'
         
@@ -113,7 +113,7 @@ class Test_QC_ML_Station(unittest.TestCase):
         data_flagging_ml.set_column_names('Timestamp', self.param, 'label')
         data_flagging_ml.set_station(station)
         tidal_infos = data_flagging_ml.set_tidal_series_file(self.datadir_tides)
-        data_flagging_ml.load_multivariate_analysis(self.datadir_measurements, 'Conductivity', 'Pressure', 'Temperature')
+        #data_flagging_ml.load_multivariate_analysis(self.datadir_measurements, 'Conductivity', 'Pressure', 'Temperature')
         dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir, tidal_infos)
         df_dict, dfs_testing = data_flagging_ml.run_training(dfs_training, combined_training = True)
         outcomes = data_flagging_ml.run_testing(df_dict, dfs_testing)

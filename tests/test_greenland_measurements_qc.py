@@ -28,7 +28,6 @@ class Test_QC_Station(unittest.TestCase):
 
         #Set path to measurements
         self.datadir = '/dmidata/users/frb/greenland_data_raw/Collected_Oct2024'
-        #self.datadir = '/dmidata/users/frb/greenland_data_raw/Collected_raw'
 
         #Set other parameter accordingly
         if self.datadir.endswith('Collected_Oct2024'):
@@ -53,6 +52,7 @@ class Test_QC_Station(unittest.TestCase):
         index_station=0 
         station = self.stations[index_station]
         sta_filename = station + self.ending
+        data_tide = os.path.join(self.datadir_tides, 'Qaqortoq.tmp')
         
         print(os.getcwd())
 
@@ -67,6 +67,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tide_series(data_tide)
         data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
@@ -77,6 +78,7 @@ class Test_QC_Station(unittest.TestCase):
         index_station=1
         station = self.stations[index_station]
         sta_filename = station + self.ending
+        data_tide = os.path.join(self.datadir_tides, 'Ittoqqortoormiit.tmp')
         
         print(os.getcwd())
 
@@ -91,6 +93,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tide_series(data_tide)
         data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
@@ -101,6 +104,7 @@ class Test_QC_Station(unittest.TestCase):
         index_station=2
         station = self.stations[index_station]
         sta_filename = station + self.ending
+        data_tide = os.path.join(self.datadir_tides, 'Nuuk.tmp')
 
         print(os.getcwd())
 
@@ -115,6 +119,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tide_series(data_tide)
         data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
@@ -125,6 +130,7 @@ class Test_QC_Station(unittest.TestCase):
         index_station=3
         station = self.stations[index_station]
         sta_filename = station + self.ending
+        data_tide = os.path.join(self.datadir_tides, 'Nuuk.tmp')
 
         print(os.getcwd())
 
@@ -139,6 +145,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tide_series(data_tide)
         data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
@@ -149,6 +156,7 @@ class Test_QC_Station(unittest.TestCase):
         index_station=4
         station = self.stations[index_station]
         sta_filename = station + self.ending
+        data_tide = os.path.join(self.datadir_tides, 'Pituffik.tmp')
 
         print(os.getcwd())
 
@@ -163,6 +171,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tide_series(data_tide)
         data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
@@ -173,6 +182,7 @@ class Test_QC_Station(unittest.TestCase):
         index_station=5
         station = self.stations[index_station]
         sta_filename = station + self.ending
+        data_tide = os.path.join(self.datadir_tides, 'Upernavik.tmp')
 
         print(os.getcwd())
 
@@ -187,9 +197,12 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tide_series(data_tide)
         data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()
+
+
 
     def test_quality_check_upernavik2(self):
 
@@ -197,6 +210,7 @@ class Test_QC_Station(unittest.TestCase):
         index_station=6
         station = self.stations[index_station]
         sta_filename = station + self.ending
+        data_tide = os.path.join(self.datadir_tides, 'Upernavik.tmp')
 
         print(os.getcwd())
 
@@ -211,6 +225,7 @@ class Test_QC_Station(unittest.TestCase):
         data_flagging.set_station(station)
         data_flagging.set_gauge_details(self.gauge_details_path)
         data_flagging.set_missing_value_filler(self.missing_meas_value)
+        data_flagging.set_tide_series(data_tide)
         data_flagging.set_ml_training_data(self.datadir_labels, self.datadir_tides)
         data_flagging.import_data(self.datadir, sta_filename)
         data_flagging.run()

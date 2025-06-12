@@ -12,7 +12,7 @@ Quality checking of many time series is at the moment only sparsly done and ofte
 This project started off by flagging tide gauge measurements into adequate groups by using basic assessment and common oceanographic packages. However, this only manages to detect faulty values to a certain degree. Therefore, a supervised ML algorithm based on manually labelled data is added to mark the left-over faulty values. The focus is set on Greenlandic data during the whole work.
 
 ## Output
-Tge script returns a report describing the various QC test outcomes and a labelled timeseries in .csv with bitmask as well as QC flag.
+The script returns a report describing the various QC test outcomes and a labelled timeseries in .csv with bitmask as well as QC flag.
 
 ## Overview
 This QC algorithm contains a lot of different (partically overlapping) steps. In the config.json, a user can decide to turn the various steps on and off based on their needs. The various test are listed and described below. The approach of 'better marking too much than too little' is taken. Each test leads to a mask where the respectiv column is set to 1 meaning the condition is present, and the column set to 0 meaning the condition is absent. All masks for each QC step are pooled together, to a so called bitmask. A bitmask is a compact way to store and represent multiple conditions using a single integer value. Here, it is worked with 18 bits:
@@ -74,7 +74,7 @@ Based on the bitmask, IOC flags are assigned to the measurement point. F.e. miss
 8. linear interpolated value (Bit 8, Bit 16)
 9. missing data in timeseries, but timestamp is there (Bit 9)
 
-There is config.json containing the used IOC flags and the bitmask used for each QC test. Users can adapt the wanted flags in the config.json and then in the corresponing source code assign certain bitmasks to a flag. For now, all the spike test outcomes are merged into one spike bitmask. The code could be adapted to have a bitmask per spike detection method
+There is config.json containing the used IOC flags and the bitmask used for each QC test. Users can adapt the wanted flags in the config.json and then in the corresponing source code assign certain bitmasks to a flag. For now, all the spike test outcomes are merged into one spike bitmask. The code could be adapted to have a bitmask per spike detection method.
 
 ## Applied Quality Tests
 The QC algorithm consists of a raw measurement mode and detided series mode. Based on the users input via the config.json, the QC steps are carried out for each time series (raw & detided) once. The removal of the tidal signal is carried out via the UTide package. All thresholds are defined and can be adapted in the config.json.
@@ -108,8 +108,8 @@ In order to perform some of the quality check steps, filled timeseries without N
 2. Polynomial fitting series based on polynomial filled series over 7 hours
 3. Spline fitting over roughly 7 hours based on existing measurements
 
-Different versions of the ML algorithm are tested to find the best set-up for the Greenland case. However, not applied approaches are still part of the code and can be turned on and off as liked via the config.json.
-Potential ML methods are:
+Different versions of the ML algorithm are tested to find the best set-up for the Greenland case. However, not applied approaches are still part of the code and can be commented in or out as wanted. The ML spike detection runs now with best set-up and a RandomForest model. Via the config.json users can turn on/off the multivariety analysis which addes provided measurement series as features to the ML model.
+Tested ML methods with different training approaches and features are:
 1. Unsupervised ML - Isolation Forest
 2. Supervised ML - Random Forest
 3. Supervised ML - XGBoost
