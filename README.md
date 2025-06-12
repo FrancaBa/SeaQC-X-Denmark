@@ -159,7 +159,7 @@ The subsequent lines are describing how to pull and push changes to this reposit
 2. Pull code to local server (you will need to log in to your Gitlab account)
 ```
 cd /dmidata/users/<DMI initials>
-git clone --branch <branch_name> https://gitlab.dmi.dk/frb/qc_sl_greenland greenland_qc
+git clone --branch <branch_name> https://gitlab.dmi.dk/ocean/qc_sl_greenland greenland_qc
 cd greenland_qc
 conda activate qc_env
 code .
