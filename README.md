@@ -157,10 +157,21 @@ The subsequent lines are describing how to pull and push changes to this reposit
 * Naming convension: initials + month abbr. + number edit in this month 
 * f.e: fb_sep1, fb_sep2, ...
 2. Pull code to local server (you will need to log in to your Gitlab account)
+* Pull from gitlab
 ```
 cd /dmidata/users/<DMI initials>
 git clone --branch <branch_name> https://gitlab.dmi.dk/ocean/qc_sl_greenland greenland_qc
 cd greenland_qc
+conda activate qc_env
+code .
+```
+
+* Alternative if the tar file was downloaded
+```
+cd PROJECT_FOLDER
+unzip qc_sl_greenland-main.zip
+cd qc_sl_greenland-main
+conda env create -f environment.yml
 conda activate qc_env
 code .
 ```
