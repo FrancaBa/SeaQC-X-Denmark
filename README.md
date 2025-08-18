@@ -144,7 +144,7 @@ Within the unittests all input data is defined and links to the respective datas
 
 ```
 cd /dmidata/users/<DMI initials>/greenland_qc
-python -m unittest tests.test_greenland_measurements_qc.Test_QA_Station.test_quality_check_qaqortoq
+python -m unittest tests.test_greenland_measurements_qc.Test_QC_Station.test_quality_check_qaqortoq
 python -m unittest tests/test_greenland_measurements_qc.py
 python -m unittest
 ```
