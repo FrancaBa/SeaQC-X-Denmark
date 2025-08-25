@@ -68,8 +68,8 @@ class StuckValuesDetector():
             max_range = builtins.min(31, len(true_indices))
             for i in range(1, max_range):
                 x = random.choice(range(0,len(true_indices)))
-                min = builtins.max(0,(true_indices[x]-1000))
-                max = builtins.min(len(df_meas_long), min+2000)
+                min = builtins.max(0,(true_indices[x]-100))
+                max = builtins.min(len(df_meas_long), min+200)
                 self.helper.plot_two_df_same_axis(df_meas_long[time_column][min:max], df_meas_long['test'][min:max], 'Water Level [m]', 'Stuck values', df_meas_long[adapted_meas_col_name][min:max], 'Timestamp', 'Measured Water Level', f'Constant period in TS{suffix}-{i}')
 
         #print details on the constant value check

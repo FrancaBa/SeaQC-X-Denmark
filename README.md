@@ -1,15 +1,15 @@
-# Quality Check (QC) for Tide Gauge Measurements in Greenland
+# Quality Check (QC) for Tide Gauge Measurements in Greenland and Denmark
 
-In the scope of the GrønSL project, this repository has been developed to have an automated quality check algorithm for sea level data in Greenland including traditional machine learning approaches.
+In the scope of the GrønSL project, this repository has been developed to have an automated quality check algorithm for sea level data in Greenland and Denmark including traditional machine learning approaches as one step of the QC method.
 
 ## Goal
-The goal of this work is to generate an automated QC algorithm which can detect faulty measurements in timeseries with a focus on small-scale anomalies. The first version focuses on classifying sea level measurements in Greenland via a combination of statistical and traditional ML tests.
+The goal of this work is to generate an automated QC algorithm which can detect faulty measurements in timeseries with a focus on small-scale anomalies. The first version focused on classifying sea level measurements in Greenland via a combination of statistical and traditional ML tests. The first traditional ML model was trained and evaluated for small-scale anomalies in Greenland. Afterwards, the script was also evaluated on Danish tide gauge station data. There the training data set has been expended to all type of quality errors and it was evaluated how good the ML-tool performs on it own. The conclusion is that it would make sense to combine the ML tool with statistical test for now.
 
 ## Motivation
-Quality checking of many time series is at the moment only sparsly done and often manually. However, with the increasing amount of data, it is important to have an automated approach to assess the quality of measurements/recieved values - as a model can only be as accurate as the input. Thus, it is important to have cleaned input data especially in regions with little measurements as Greenland. This work will focus on developing an automated quality check algorithm for tidal sea level data. Different methods to detect small-scale anomalies are tested and can be turned on/off by the user based on needs.
+Quality checking of many time series is at the moment only sparsly done and often manually. However, with the increasing amount of data, it is important to have an automated approach to assess the quality of measurements/recieved values - as a model can only be as accurate as the input. Thus, it is important to have cleaned input data especially in regions with little measurements as Greenland. This work will focus on developing an automated quality check algorithm for sea level data. Different methods to detect data issues are tested and can be turned on/off by the user based on needs.
 
 ## Roadmap
-This project started off by flagging tide gauge measurements into adequate groups by using basic assessment and common oceanographic packages. However, this only manages to detect faulty values to a certain degree. Therefore, a supervised ML algorithm based on manually labelled data is added to mark the left-over faulty values. The focus is set on Greenlandic data during the whole work.
+This project started off by flagging tide gauge measurements into adequate groups by using basic assessment and common oceanographic packages. However, this only manages to detect faulty values to a certain degree. Therefore, a supervised ML algorithm based on manually labelled data is added to mark the left-over faulty values. The focus was first set on Greenlandic data and then on Danish data. The ML-tool on its own is good in detecting various erroneous data points, but there is still opportunities in advancing its performance. First steps would be to re-evaluate the feature selection and expand the training data set.
 
 ## Output
 The script returns a report describing the various QC test outcomes and a labelled timeseries in .csv with bitmask as well as QC flag.
@@ -77,7 +77,7 @@ Based on the bitmask, IOC flags are assigned to the measurement point. F.e. miss
 There is config.json containing the used IOC flags and the bitmask used for each QC test. Users can adapt the wanted flags in the config.json and then in the corresponing source code assign certain bitmasks to a flag. For now, all the spike test outcomes are merged into one spike bitmask. The code could be adapted to have a bitmask per spike detection method.
 
 ## Applied Quality Tests
-The QC algorithm consists of a raw measurement mode and detided series mode. Based on the users input via the config.json, the QC steps are carried out for each time series (raw & detided) once. The removal of the tidal signal is carried out via the UTide package. All thresholds are defined and can be adapted in the config.json.
+The QC algorithm consists of a raw measurement mode and detided series mode. Based on the users input via the config.json, the QC steps are carried out for each time series (raw & detided) once. The removal of the tidal signal is carried out via Mad's tidal signal as additional input parameter. In the first version, detiding with the python package 'UTide' was tested, but it diesn't work as accurate and has been therefore discarded. If wanted the relevant lines, can be commented in again. All thresholds for the statistical tests are defined and can be adapted in the config.json. The advantage of the ML-method is that it doesn't need any thresholds. Only one threshold is needed to convert the probability outcome of the ML-model to a true/false. This parameter is also set in the config.json.
 
 The following steps are part of the quality control:
 1. Format & date control 
@@ -85,7 +85,7 @@ The following steps are part of the quality control:
 3. Re-sampling of intervals (to biggest common divisor) (f.e: if measurements in 2 min and 3 min resolution, new timestep is 1 in order to consider all measurements)
 4. Stability test for constant values
 5. Out-of-range (global) values 
-6. Segmentation to active measurement periods - Drop short and bad periods
+6. Segmentation to active measurement periods - Drop short and bad periods (f.e: only 1 measurement within 24 hr)
 7. Check for linear interpolation (=constant slope)
 8. Analysing change rate:
 * 8.1 Extreme change rate between consecutive measurements (more than physical possible)
@@ -94,10 +94,11 @@ The following steps are part of the quality control:
 * 9.2 Cotede
 * 9.3 Improved Cotede
 * 9.4 Selene (VERY SLOW!)
-* 9.5 Adapted Selene - Spline analysis
+* 9.5 Adapted Selene - Spline analysis (much faster and as good as Selene)
 * 9.6 Harmonic spike detection (testing code, but not relevant)
-* 9.7 Semi-Supervised ML on harmonic data (testing code, but not relevant)
-10. Shift detection:
+* 9.7 Semi-Supervised ML on harmonic data (testing code, but not relevant (trains ML on tidal signal as good and should learn when data 
+deviates tot much - baiscally ML-version of Selene))
+10. Shift detection: (None of the methods work sufficiently! It is not recommended to use them.)
 * 10.1 Ruptures (VERY SLOW!)
 * 10.2 Statistical change detection via gradient (strong change, but no change back)
 11. ML-Algorithm to detect small-scale uncertainties (supervised ML - Random Forest) (ONLY WORKS ON TIDAL SIGNAL AT THE MOMENT)
@@ -108,11 +109,14 @@ In order to perform some of the quality check steps, filled timeseries without N
 2. Polynomial fitting series based on polynomial filled series over 7 hours
 3. Spline fitting over roughly 7 hours based on existing measurements
 
-Different versions of the ML algorithm are tested to find the best set-up for the Greenland case. However, not applied approaches are still part of the code and can be commented in or out as wanted. The ML spike detection runs now with best set-up and a RandomForest model. Via the config.json users can turn on/off the multivariety analysis which addes provided measurement series as features to the ML model.
+Different versions of the ML algorithm are tested to find the best set-up for the Greenland case. However, not applied approaches are still part of the code and can be commented in or out as wanted. The ML spike detection runs now with best set-up and a RandomForest model. Via the config.json users can turn on/off the multivariety analysis which adds provided measurement series as features to the ML model.
+
 Tested ML methods with different training approaches and features are:
 1. Unsupervised ML - Isolation Forest
 2. Supervised ML - Random Forest
 3. Supervised ML - XGBoost
+
+The multivariety analysis has been only used shortly and should be evaluated/checked more in depth before plugging into the code again.
 
 ## Structure of QC-Framework
 
@@ -134,19 +138,28 @@ The code contains several print, plot and extraction methods for assessment of t
 # Execute the Python Scripts 
 This repository is structured in unittest (saved under tests) and main scripts in the source folder. All outcomes are saved in the output folder, but never committed to Gitlab. In order to run the code, the unittests needs to be executed.
 Within the unittests all input data is defined and links to the respective datasets defined.
+The source folder contains the main qc method 'main.py' which runs the QC control by calling all other scripts and the respective QC tests in 'various_qc_tests'. 'Plotting_scripts_paper2' and 'data_importer' are not part of the QC workflow, but were used in pre- and postprocessing. 'data_importer' is also called via a unittest, but 'Plotting_scripts_paper2' runs independant.
 
 ## Running unittests in command prompt
 1. In command line, change working directory to point to tests.
 2. Run tests in python. Several options:
-* 2.1. Run a specific test in a phython file (use when actively working on code)
-* 2.2. Run all tests in a specific python file (here: to run code for all stations)
-* 2.3. Run all tests in test folder (recommended for more complex changes when changed methods are used by several tests)
+* 2.1. Run a specific test in a phython file (use when actively working on code) (this might run seconds to minutes)
+* 2.2. Run all tests in a specific python file (here: to run code for all stations) (this might run seconds to minutes)
+* 2.3. Run all tests in test folder (recommended for more complex changes when changed methods are used by several tests or before a commit to Gitlab) (this can take up to several hours depending on which QC tests are active.)
 
 ```
 cd /dmidata/users/<DMI initials>/greenland_qc
 python -m unittest tests.test_greenland_measurements_qc.Test_QA_Station.test_quality_check_qaqortoq
 python -m unittest tests/test_greenland_measurements_qc.py
 python -m unittest
+```
+For example, test_greenland_measurement_converter.py takes 45 min to run.
+
+# Set the correct environment
+The gitlab directory contains a file 'environment.yml' which contains the revent environment set-up needed to run the script. When using this script for the first time, the environment can be generated in the following way:
+```
+conda env create -f environment.yml
+conda activate qc_env
 ```
 
 # Pull and Push Code
@@ -161,11 +174,21 @@ The subsequent lines are describing how to pull and push changes to this reposit
 cd /dmidata/users/<DMI initials>
 git clone --branch <branch_name> https://gitlab.dmi.dk/ocean/qc_sl_greenland greenland_qc
 cd greenland_qc
-conda activate qc_env
-code .
+```
+* Alternative if the tar file was downloaded
+```
+cd <PROJECT FOLDER>
+unzip qc_sl_greenland-main.zip
+cd qc_sl_greenland-main
 ```
 3. Activate the correct environment (here: conda environment called qc_env)
-
+```
+conda activate qc_env
+```
+4. Open Python in wanted GUI. Here f.e. in Visual Studio code:
+```
+code .
+```
 ## Push altered code back to gitlab
 
 Following steps will allow you to check your changes/improvements and push them to Gitlab.
@@ -184,7 +207,7 @@ Open the gitlab repository online and manually merge the branch into main. Be aw
 Contributions to this project are welcome. Please fork the repository, make your changes, and submit a merge request with a clear description of your modifications.
 
 # Authors and acknowledgment
-This project is carried out by Franca Bauer under the supervision of Jian Su. By question, please feel free to reach out to frb@dmi.dk or jis@dmi.dk.
+This project is carried out by Franca Bauer under the supervision of Jian Su. By question, please feel free to reach out to jis@dmi.dk.
 
 ## Project status
-The preprocessing of the data through statistical tools and existing python scripts is done. Now, it is looked into how to flag undetected measurement errors using supervied machine learning.
+The work on this project by Franca Bauer stopped in August 2025. When it will be picked up and by whom is not clear yet.

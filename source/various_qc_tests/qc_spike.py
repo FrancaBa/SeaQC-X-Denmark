@@ -31,6 +31,9 @@ class SpikeDetector():
         self.cotede_threshold = None
         self.improved_cotede_threshold = None
         self.max_window_neighbours = None #under the assumption that timestamp is in 1 min
+        #set bounds as back-up for plotting (overwritten later)
+        self.min_value_plotting = 0
+        self.max_value_plotting = 10000
         #Selene spline approach needed constants
         self.nsigma = 3
         self.splinelength = None #min

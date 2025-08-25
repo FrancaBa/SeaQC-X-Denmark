@@ -89,8 +89,13 @@ class QualityFlagger():
     def set_missing_value_filler(self, missing_meas_value):
         self.missing_meas_value = missing_meas_value 
 
+    #Set path to folder containing the tidal signals for the tide gauge stations
     def set_tide_series(self, path):
         self.tidal_path = path
+
+    #Define which QC-Flags in the manual labelled training data set describe bad data points which should be used during training of ML algorithm
+    def set_qcclasses(self, qc_classes):
+        self.bad_qc_classes = qc_classes 
 
     #Set path to training dataset used for ML test for small-scale anomalies
     def set_ml_training_data(self, path, path2):
@@ -186,11 +191,15 @@ class QualityFlagger():
         #1. Invalid characters: Set non-float elements to NaN
         # Count the original NaN values
         original_nan_count = self.df_meas[self.measurement_column].isna().sum()
-        altered_ts = self.df_meas[self.measurement_column].apply(lambda x: x if isinstance(x, float) else np.nan)
-        self.df_meas['incorrect_format'] = np.where(altered_ts, False, True)
+        altered_ts = pd.to_numeric(self.df_meas[self.measurement_column], errors='coerce')
+        self.df_meas['incorrect_format'] = altered_ts.isna()
         self.df_meas[self.measurement_column] = altered_ts
         # Count the new NaN values after the transformation -> Where there any invalid characters?
         new_nan_count = self.df_meas[self.measurement_column].isna().sum() - original_nan_count
+        ratio = (self.df_meas['incorrect_format'].sum()/len(self.df_meas))*100
+        print(f'The measurement series contains {self.df_meas['incorrect_format'].sum()} incorrect formates. This is {ratio}% of the overall dataset.')
+        self.information.append([f'The measurement series contains {self.df_meas['incorrect_format'].sum()} incorrect formates. This is {ratio}% of the overall dataset.'])
+
         print('The measurement series contained',new_nan_count,'invalid data entires.')
         self.information.append(['The measurement series contains',new_nan_count,'invalid data entries.'])
         
@@ -236,10 +245,10 @@ class QualityFlagger():
         #tidal_signal_construction.set_output_folder(self.folder_path)
         #df = tidal_signal_construction.run(df, self.adapted_meas_col_name, self.time_column, self.information)
         
-        #Load tidal signal from Mads for respectiv station (MORE ACCURATE)
+        #Load tidal signal from Mads for respectiv station (MORE ACCURATE!!)
         data_flagging_ml = qc_ml_detector.MLOutlierDetection()
         data_flagging_ml.set_output_folder(self.folder_path)
-        data_flagging_ml.set_column_names(self.time_column, self.adapted_meas_col_name, 'label') #last elem is dummy and not needed
+        data_flagging_ml.set_column_names(self.time_column, self.adapted_meas_col_name, 'label')
         df[self.time_column] = df[self.time_column].dt.tz_localize('UTC')
         tidal_signal = data_flagging_ml.add_tidal_signal(df, self.tidal_path, self.station)
         df['tidal_signal'] = tidal_signal
@@ -286,10 +295,10 @@ class QualityFlagger():
         self.save_to_txt()
 
         #Make beautiful graphs for papers/presentations (not generalized)
-        plotter = helper_advanced_graphs.GraphMaker()
-        plotter.set_output_folder(self.folder_path)
-        plotter.set_station(self.station)
-        plotter.run(df, self.time_column, self.measurement_column)
+        #plotter = helper_advanced_graphs.GraphMaker()
+        #plotter.set_output_folder(self.folder_path)
+        #plotter.set_station(self.station)
+        #plotter.run(df, self.time_column, self.measurement_column)
 
     def run_qc(self, df, relevant_measurements, suffix=''):
         """
@@ -301,41 +310,42 @@ class QualityFlagger():
         -suffix: ending for columns and graphs in order to run in different modes [str]
         """
         #Detect stuck values in ts
-        stuck_values = qc_stuck_values.StuckValuesDetector()
-        stuck_values.set_output_folder(self.folder_path)
-        stuck_values.set_parameters(self.params)
-        df = stuck_values.run(df, self.time_column, relevant_measurements, self.information, self.original_length, suffix)
+        if self.active_tests['stuck_value']:
+            stuck_values = qc_stuck_values.StuckValuesDetector()
+            stuck_values.set_output_folder(self.folder_path)
+            stuck_values.set_parameters(self.params)
+            df = stuck_values.run(df, self.time_column, relevant_measurements, self.information, self.original_length, suffix)
 
         #Detect global outliers in ts
-        global_outliers = qc_global_outliers.OutlierRemover()
-        global_outliers.set_output_folder(self.folder_path)
-        global_outliers.set_parameters(self.params, suffix)
-        df = global_outliers.run(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
-        #df = global_outliers.interquantile_run(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
+        if self.active_tests['global_outliers']:
+            global_outliers = qc_global_outliers.OutlierRemover()
+            global_outliers.set_output_folder(self.folder_path)
+            global_outliers.set_parameters(self.params, suffix)
+            df = global_outliers.run(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
+            #df = global_outliers.interquantile_run(df, relevant_measurements, self.time_column, self.measurement_column, self.information, self.original_length, suffix)
 
         #Detect interpolated values
-        interpolated_qc = qc_interpolated.Interpolation_Detector()
-        interpolated_qc.set_output_folder(self.folder_path)
-        interpolated_qc.set_parameters(self.params)
-        df = interpolated_qc.run_interpolation_detection(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
+        if self.active_tests['interpolated_value']:
+            interpolated_qc = qc_interpolated.Interpolation_Detector()
+            interpolated_qc.set_output_folder(self.folder_path)
+            interpolated_qc.set_parameters(self.params)
+            df = interpolated_qc.run_interpolation_detection(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
        
-        #Segmentation of ts in empty and measurement segments
-        #Extract measurement segments and fill them accordingly
-        #self.segment_column = f'segments{suffix}'
+        #Segmentation of ts in empty and measurement segments, Extract measurement segments and fill them accordingly
         self.segment_column = f'segments'
         fill_data_qc = qc_fill_data.MissingDataFiller()
         fill_data_qc.set_output_folder(self.folder_path)
         fill_data_qc.set_parameters(self.params)
 
         #Set short measurement periods between missing data periods as not trustworthy periods
-        if suffix == '':
-            df = fill_data_qc.segmentation_ts(df, relevant_measurements, self.segment_column, self.information, suffix)
+        df = fill_data_qc.segmentation_ts(df, relevant_measurements, self.segment_column, self.information, suffix)
+        if self.active_tests['bad_segment'] and suffix == '':
             df = self.short_bad_measurement_periods(df, relevant_measurements, self.segment_column, suffix)
 
         #Add continuous helper columns
-        df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
-        df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
-        df = fill_data_qc.spline_fitted_measurement_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
+        #df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
+        #df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
+        #df = fill_data_qc.spline_fitted_measurement_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
         #fill_data_qc.compare_filled_measurements(df, self.time_column, self.segment_column, suffix)
 
         #Detect implausible change rate over period
@@ -357,12 +367,21 @@ class QualityFlagger():
         if self.active_tests['cotede_improved_spikes']:
             df = spike_detection.remove_spikes_cotede_improved(df, relevant_measurements, self.time_column, self.information, self.original_length, suffix)
         if self.active_tests['selene_spikes']:
+            df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
+            df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
             df = spike_detection.selene_spike(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', self.information, self.original_length, suffix)
         if self.active_tests['selene_improved_spikes']:
+            df = fill_data_qc.spline_fitted_measurement_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
             df = spike_detection.selene_spike_detection(df, relevant_measurements, self.time_column, f'spline_fitted_data{suffix}', self.information, self.original_length, suffix)
         if self.active_tests['harmonic_detected_spikes']:
+            if f'poly_interpolated_data{suffix}' not in df.columns:    
+                df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
+                df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
             df = spike_detection.remove_spikes_harmonic(df, f'poly_fitted_data{suffix}', relevant_measurements, self.time_column, self.information, self.original_length, suffix)
         if self.active_tests['ml_detected_spikes']:
+            if f'poly_interpolated_data{suffix}' not in df.columns:    
+                df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
+                df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
             df = spike_detection.remove_spikes_ml(df, f'poly_fitted_data{suffix}', relevant_measurements, self.time_column, self.information, self.original_length, suffix)
         
         #Detect shifts & deshift values
@@ -370,8 +389,14 @@ class QualityFlagger():
         shift_detection.set_output_folder(self.folder_path)
         shift_detection.set_parameters(self.params)
         if self.active_tests['shifted_ruptures']:
+            if f'poly_interpolated_data{suffix}' not in df.columns:    
+                df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
+                df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
             df = shift_detection.detect_shifts_ruptures(df, relevant_measurements, self.time_column, f'poly_interpolated_data{suffix}', self.segment_column, self.information, self.original_length, suffix)
         if self.active_tests['shifted_value']:
+            if f'poly_interpolated_data{suffix}' not in df.columns:    
+                df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
+                df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
             df = shift_detection.detect_shifts_statistical(df, f'poly_interpolated_data{suffix}', self.time_column, relevant_measurements, self.segment_column, self.information, self.original_length, suffix)
 
         #Detect small-scale anomalies with ML with combined training approach
@@ -383,6 +408,7 @@ class QualityFlagger():
             data_flagging_ml.set_output_folder(output_path)
             data_flagging_ml.set_column_names('Timestamp', 'value', 'label')
             data_flagging_ml.set_station(training_strategy)
+            data_flagging_ml.set_qcclasses(self.bad_qc_classes)
             tidal_infos = data_flagging_ml.set_tidal_series_file(self.tidal_path_ml)
             if self.multivariate_analysis_mode:
                 self.dfs_multivariate_analysis = data_flagging_ml.load_multivariate_analysis(self.multivariety_data, 'Conductivity', 'Pressure', 'Temperature')
@@ -391,11 +417,18 @@ class QualityFlagger():
                 df = df.merge(multi_variety_df, on=self.time_column, how='left')
             dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir, tidal_infos)
             df_dict, dfs_testing = data_flagging_ml.run_training(dfs_training, combined_training = True)
-            outcomes = data_flagging_ml.run_testing(df_dict, dfs_testing)
-            df['meas_anomaly'] = df[relevant_measurements]-df[relevant_measurements].mean()
-            df = data_flagging_ml.add_features(df, df['tidal_signal'], 'meas_anomaly')       
-            prediction = data_flagging_ml.run_test_data(df)
-            df[f'ml_anomalies{suffix}'] = prediction.astype(bool)
+            #outcomes = data_flagging_ml.run_testing(df_dict, dfs_testing)
+            df_ml = df.copy()
+            df_ml = df_ml.dropna(subset=['Height']).reset_index(drop=True)
+            df_ml['meas_anomaly'] = df_ml['Height']-df_ml['Height'].mean()
+            #ML method needs global outliers, it doesn't scale to cleaned ts -> it becomes way too sensitive
+            #df_ml['meas_anomaly'] = df_ml[relevant_measurements]-df_ml[relevant_measurements].mean()
+            df_ml = data_flagging_ml.add_features(df_ml, df_ml['tidal_signal'], 'meas_anomaly')
+            prediction_output = data_flagging_ml.run_test_data(df_ml)
+
+            df_ml[f'ml_anomalies{suffix}'] = prediction_output.astype(bool)
+            df = pd.merge(df, df_ml[['Timestamp',f'ml_anomalies{suffix}']], on=[self.time_column], how='left')
+            df[f'ml_anomalies{suffix}'] = df[f'ml_anomalies{suffix}'].fillna(False).astype(bool)
             df['test'] = np.where(df[f'ml_anomalies{suffix}'], df[relevant_measurements], np.nan)
             
             #print details on detected ml spikes

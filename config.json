@@ -1,5 +1,5 @@
 {
-  "date_alteration": "23.05.2025",
+  "date_alteration": "20.08.2025",
   "detide_mode": false,
   "multivariate_analysis": false,
   "qc_flag_classification": {
@@ -39,20 +39,18 @@
     "shifted_ruptures": false,
     "probably_good_data": true,
     "stuck_value": true,
-    "global_outliers": true,
-    "implausible_change": true,
-    "spike_value_statistical": true,
-    "cotede_spikes": true,
-    "cotede_improved_spikes": true,
+    "global_outliers": false,
+    "implausible_change": false,
+    "spike_value_statistical": false,
+    "cotede_spikes": false,
+    "cotede_improved_spikes": false,
     "selene_spikes": false,
     "selene_improved_spikes": false,
     "harmonic_detected_spikes": false,
     "ml_detected_spikes": false,
-    "incorrect_format": true,
     "bad_segment": true,
-    "interpolated_value": true,
-    "missing_data": true,
-    "ml_anomalies": false
+    "interpolated_value": false,
+    "ml_anomalies": true 
   },
   "parameter_definition":{
     "1.0min":{
@@ -107,7 +105,7 @@
       "threshold_zscore": 3.0,
       "threshold_zscore_detided": 2.5,
       "rolling_window_outliers": 576,
-      "window_size_const_gradient": 4,
+      "window_size_const_gradient": 30,
 	    "stuck_value": 30,
       "segmentation":{
         "nan_threshold": 75,
@@ -154,8 +152,8 @@
       "threshold_zscore": 4.0,
       "threshold_zscore_detided": 3.0,
       "rolling_window_outliers": 288,
-      "window_size_const_gradient": 3,
-	    "stuck_value": 10,
+      "window_size_const_gradient": 15,
+	    "stuck_value": 20,
       "segmentation":{
         "nan_threshold": 37.5,
         "splinelength": 42,
@@ -180,7 +178,7 @@
         "lag_1tide": 75,
         "lag_2tide": 150,
         "seven_days": 1008,
-        "nsigma": 3,
+        "nsigma": 5,
         "splinelength": 42,
         "splinedegree": 2
       },
@@ -201,12 +199,12 @@
       "threshold_zscore": 4.0,
       "threshold_zscore_detided": 3.0,
       "rolling_window_outliers": 192,
-      "window_size_const_gradient": 3,
-	    "stuck_value": 2,
+      "window_size_const_gradient": 15,
+	    "stuck_value": 15,
       "segmentation":{
         "nan_threshold": 25,
         "splinelength": 28,
-        "splinedegree": 3,
+        "splinedegree": 5,
         "order_ploynomial_fil": 2,
         "poly_fitted_degree": 6
       },
@@ -227,7 +225,7 @@
         "lag_1tide": 50,
         "lag_2tide": 100,
         "seven_days": 672,
-        "nsigma": 3,
+        "nsigma": 5,
         "splinelength": 28,
         "splinedegree": 2
       },

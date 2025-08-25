@@ -51,10 +51,10 @@ class QualityMasking():
         zero_bit = 0
 
         for col_name in df.columns:
-            if col_name == f'incorrect_format{suffix}' and self.active_tests['incorrect_format']:
+            if col_name == f'incorrect_format{suffix}':
                 bitmask_elem = self.bitmask_def[f'incorrect_format{suffix}']
                 df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-            elif col_name == f'missing_values{suffix}' and self.active_tests['missing_data']:
+            elif col_name == f'missing_values{suffix}':
                 bitmask_elem = self.bitmask_def[f'missing_data{suffix}']
                 df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
             elif col_name == f'stuck_value{suffix}' and self.active_tests['stuck_value']:
@@ -223,7 +223,7 @@ class QualityMasking():
         -Main dataframe [pandas df]
         """
 
-        #Order is important
+        #Order is important!!
         df['quality_flag'] = np.where(df['combined_int'] == 0, self.flag_def["good_data"], 0) #flag good data
         
         probably_mask = (df['combined_int'] & self.bitmask_def['probably_good_data']) == self.bitmask_def['probably_good_data']

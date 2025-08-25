@@ -20,7 +20,7 @@ class Test_DTUSpace_DataConverter(unittest.TestCase):
         self.stations = ['Qaqortoq', 'Ittoqqortoormiit', 'Nuuk', 'Nuuk1', 'Pituffik', 'Upernavik']
 
         #get measurements from folder
-        self.datadir = '/dmidata/users/frb/DTU__GL_data_2024'
+        self.datadir = '/dmidata/users/frb/QC Work/1_Greenland/Orginial_DTU__GL_data_2024'
 
     def test_data_Upernavik_conversion(self):
        
