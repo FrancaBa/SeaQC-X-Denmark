@@ -447,7 +447,6 @@ class QualityFlagger():
                     self.helper.plot_two_df_same_axis(df[self.time_column][min:max], df['test'][min:max],'Water Level [m]', 'Detected Spike', df[relevant_measurements][min:max], 'Timestamp ', 'Measured Water Level', f'ML algorithm spike detected{i}-{suffix}')
             
             del df['test']
-            del df['meas_anomaly']
 
         return df
 

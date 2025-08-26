@@ -1,5 +1,5 @@
 {
-  "date_alteration": "20.08.2025",
+  "date_alteration": "26.08.2025",
   "detide_mode": false,
   "multivariate_analysis": false,
   "qc_flag_classification": {
@@ -37,19 +37,19 @@
   "qc_active_tests": {
     "shifted_value": false,
     "shifted_ruptures": false,
-    "probably_good_data": true,
+    "probably_good_data": false,
     "stuck_value": true,
-    "global_outliers": false,
+    "global_outliers": true,
     "implausible_change": false,
     "spike_value_statistical": false,
-    "cotede_spikes": false,
-    "cotede_improved_spikes": false,
+    "cotede_spikes": true,
+    "cotede_improved_spikes": true,
     "selene_spikes": false,
     "selene_improved_spikes": false,
     "harmonic_detected_spikes": false,
     "ml_detected_spikes": false,
     "bad_segment": true,
-    "interpolated_value": false,
+    "interpolated_value": true,
     "ml_anomalies": true 
   },
   "parameter_definition":{
