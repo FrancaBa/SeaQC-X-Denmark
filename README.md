@@ -3,19 +3,19 @@
 In the scope of this project, this repository has been developed to have an automated quality check algorithm for sea level data in Denmark including traditional machine learning approaches as one step of the QC method.
 
 ## Goal
-The goal of this work is to generate an automated QC algorithm which can detect faulty measurements in timeseries with a focus on small-scale anomalies. The first version focused on classifying sea level measurements in Greenland via a combination of statistical and traditional ML tests. The first traditional ML model was trained and evaluated for small-scale anomalies in Greenland. Afterwards, the script was also evaluated on Danish tide gauge station data. There the training data set has been expended to all type of quality errors and it was evaluated how good the ML-tool performs on it own. The conclusion is that it would make sense to combine the ML tool with statistical test for now.
+The goal of this work is to generate an automated QC algorithm which can detect faulty measurements in timeseries with a focus on small-scale anomalies. The first version focused on classifying sea level measurements in Greenland via a combination of statistical and traditional ML tests. The first traditional ML model was trained and evaluated for small-scale anomalies in Greenland. Afterwards, the script was also evaluated on Danish tide gauge station data. There the training data set has been expended to all type of quality errors and it was evaluated how good the ML-tool performs overall. The conclusion is that it would make sense to combine the ML tool with statistical test for now.
 
 ## Motivation
 Quality checking of many time series is at the moment only sparsly done and often manually. However, with the increasing amount of data, it is important to have an automated approach to assess the quality of measurements/recieved values - as a model can only be as accurate as the input. Thus, it is important to have cleaned input data. This work will focus on developing an automated quality check algorithm for sea level data. Different methods to detect data issues are tested and can be turned on/off by the user based on needs.
 
 ## Roadmap
-This project started off by flagging tide gauge measurements into adequate groups by using basic assessment and common oceanographic packages. However, this only manages to detect faulty values to a certain degree. Therefore, a supervised ML algorithm based on manually labelled data is added to mark the left-over faulty values. The ML-tool on its own is good in detecting various erroneous data points, but there is still opportunities in advancing its performance. First steps would be to re-evaluate the feature selection and expand the training data set.
+This project started off by flagging tide gauge measurements into adequate groups by using basic assessment and common oceanographic packages. However, this approach only manages to detect faulty values to a certain degree. Therefore, a supervised ML algorithm based on manually labelled data is added to mark the left-over faulty values. The ML-tool on its own is good in detecting various erroneous data points, but there is still opportunities in advancing its performance. First steps would be to re-evaluate the feature selection and expand the training data set.
 
 ## Output
 The script returns a report describing the various QC test outcomes and a labelled timeseries in .csv with bitmask as well as QC flag.
 
 ## Overview
-This QC algorithm contains a lot of different (partically overlapping) steps. In the config.json, a user can decide to turn the various steps on and off based on their needs. The various test are listed and described below. The approach of 'better marking too much than too little' is taken. Each test leads to a mask where the respectiv column is set to 1 meaning the condition is present, and the column set to 0 meaning the condition is absent. All masks for each QC step are pooled together, to a so called bitmask. A bitmask is a compact way to store and represent multiple conditions using a single integer value. Here, it is worked with 18 bits:
+This QC algorithm contains a lot of different (partically overlapping) steps. In the config.json, a user can decide to turn the various steps on and off based on their needs. The various test are listed and described below. The approach of 'better marking too much than too little' is taken. Each test leads to a mask where the respectiv column is set to 1 meaning the condition is present, and the column set to 0 meaning the condition is absent. All masks for each QC step are pooled together, to a so called bitmask. A bitmask is a compact way to store and represent multiple conditions using a single integer value. Here, it is outlined with 18 bits:
 
 - Bit 0: Shifted period
 - Bit 1: Noisy data period
@@ -77,7 +77,7 @@ Based on the bitmask, IOC flags are assigned to the measurement point. F.e. miss
 There is config.json containing the used IOC flags and the bitmask used for each QC test. Users can adapt the wanted flags in the config.json and then in the corresponing source code assign certain bitmasks to a flag. For now, all the spike test outcomes are merged into one spike bitmask. The code could be adapted to have a bitmask per spike detection method.
 
 ## Applied Quality Tests
-The QC algorithm consists of a raw measurement mode and detided series mode. Based on the users input via the config.json, the QC steps are carried out for each time series (raw & detided) once. The removal of the tidal signal is carried out via Mad's tidal signal as additional input parameter. In the first version, detiding with the python package 'UTide' was tested, but it diesn't work as accurate and has been therefore discarded. If wanted the relevant lines, can be commented in again. All thresholds for the statistical tests are defined and can be adapted in the config.json. The advantage of the ML-method is that it doesn't need any thresholds. Only one threshold is needed to convert the probability outcome of the ML-model to a true/false. This parameter is also set in the config.json.
+The QC algorithm consists of a raw measurement mode and detided series mode. Based on the users input via the config.json, the QC steps are carried out for each time series (raw & detided) once. The removal of the tidal signal is carried out via tidal time series as additional input parameter. In the first version, detiding with the python package 'UTide' was tested, but it didn't work as accurate as using tidal signals directly and has been therefore discarded. All thresholds for the statistical tests are defined and can be adapted in the config.json. The advantage of the ML-method is that it doesn't need any thresholds. Only one threshold is needed to convert the probability outcome of the ML-model to a true/false. This parameter is also set in the config.json.
 
 The following steps are part of the quality control:
 1. Format & date control 
@@ -107,26 +107,26 @@ In order to perform some of the quality check steps, filled timeseries without N
 2. Polynomial fitting series based on polynomial filled series over 7 hours
 3. Spline fitting over roughly 7 hours based on existing measurements
 
-Different versions of the ML algorithm are tested to find the best set-up for the Greenland case. However, not applied approaches are still part of the code and can be commented in or out as wanted. The ML spike detection runs now with best set-up and a RandomForest model. Via the config.json users can turn on/off the multivariety analysis which adds provided measurement series as features to the ML model.
+Different versions of the ML algorithm have tested to find the best set-up for the Greenland case and the best model aftwards applied on the Danish stations. However, not used methods are still part of the code and can be commented in or out as wanted. The ML spike detection runs now with a RandomForest model.
 
 Tested ML methods with different training approaches and features are:
 1. Unsupervised ML - Isolation Forest
 2. Supervised ML - Random Forest
 3. Supervised ML - XGBoost
 
-The multivariety analysis has been only used shortly and should be evaluated/checked more in depth before plugging into the code again.
 
 ## Structure of QC-Framework
 
 The QC-Tool follows the subsequent structure:
 1. Dataset is loaded as df
 2. Config.json is loaded
-3. Df is checked for invalid format & missing data
-4. Df is converted to a homogenous timesteps (find the most common timesteps and then align the greatest common divisor)
+3. DF is checked for invalid format & missing data
+4. DF is converted to a homogenous timesteps (find the most common timesteps and then align the greatest common divisor)
 5. Run QC tests (as described above (except step 12)) based on config.json
 6. If detide mode on:
 * Detide data
-* run QC tests again on detided series
+* Run QC tests again on detided series
+* No ML test on detided data for now
 7. Calculate probably good periods  (step 12) based on previous QC outcomes
 8. Convert QC test outcomes to Bitmasks and QC Flags
 9. Extract results to csv and QC report
@@ -135,8 +135,7 @@ The code contains several print, plot and extraction methods for assessment of t
 
 # Execute the Python Scripts 
 This repository is structured in unittest (saved under tests) and main scripts in the source folder. All outcomes are saved in the output folder, but never committed to GitHub. In order to run the code, the unittests needs to be executed.
-Within the unittests all input data is defined and links to the respective datasets defined.
-The source folder contains the main qc method 'main.py' which runs the QC control by calling all other scripts and the respective QC tests in 'various_qc_tests'. 'Plotting_scripts_paper2' and 'data_importer' are not part of the QC workflow, but were used in pre- and postprocessing. 'data_importer' is also called via a unittest, but 'Plotting_scripts_paper2' runs independant.
+Within the unittests all input data is defined and links to the respective datasets defined. The source folder contains the main qc method 'main.py' which runs the QC control by calling all other scripts and the respective QC tests in 'various_qc_tests'. 
 
 ## Running unittests in command prompt
 1. In command line, change working directory to point to tests.
@@ -147,11 +146,10 @@ The source folder contains the main qc method 'main.py' which runs the QC contro
 
 ```
 cd /home/documents/greenland_qc
-python -m unittest tests.test_greenland_measurements_qc.Test_QC_Station.test_quality_check_qaqortoq
-python -m unittest tests/test_greenland_measurements_qc.py
+python -m unittest tests.test_ml_outlier.Test_QC_ML_Station.test_quality_check_ml_DK
+python -m unittest tests/test_ml_outlier.py
 python -m unittest
 ```
-For example, test_greenland_measurement_converter.py takes 45 min to run.
 
 # Set the correct environment
 The GitHub directory contains a file 'environment.yml' which contains the revent environment set-up needed to run the script. When using this script for the first time, the environment can be generated in the following way:
