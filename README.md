@@ -93,10 +93,8 @@ The following steps are part of the quality control:
 9. Spike detection:
 * 9.2 Cotede
 * 9.3 Improved Cotede
-* 9.4 Selene (VERY SLOW!)
+* 9.4 Like Selene (VERY SLOW!)
 * 9.5 Adapted Selene - Spline analysis (much faster and as good as Selene)
-* 9.6 Harmonic spike detection (testing code, but not relevant)
-* 9.7 Semi-Supervised ML on harmonic data (testing code, but not relevant (trains ML on tidal signal as good and should learn when data 
 deviates tot much - baiscally ML-version of Selene))
 10. Shift detection: (None of the methods work sufficiently! It is not recommended to use them.)
 * 10.1 Ruptures (VERY SLOW!)
@@ -173,8 +171,8 @@ The subsequent lines are describing how to pull and push changes to this reposit
 * Pull from GitHub
 ```
 cd /home/documents/greenland_qc
-git clone --branch <branch_name> https://github.com/FrancaBa/SeaQC-X-Denmark greenland_qc
-cd greenland_qc
+git clone --branch <branch_name> https://github.com/FrancaBa/SeaQC-X-Denmark ml_qc_denmark
+cd ml_qc_denmark
 ```
 
 3. Activate the correct environment (here: conda environment called qc_env)
