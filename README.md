@@ -15,7 +15,7 @@ This project started off by flagging tide gauge measurements into adequate group
 The script returns a report describing the various QC test outcomes and a labeled time series in .csv with bit mask as well as QC flag.
 
 ## Overview
-This QC algorithm contains a lot of different (partially overlapping) steps. In the config.json, a user can decide to turn the various steps on and off based on their needs. The various test are listed and described below. The approach of 'better marking too much than too little' is taken. Each test leads to a mask where the respective column is set to 1 meaning the condition is present, and the column set to 0 meaning the condition is absent. All masks for each QC step are pooled together, to a so called bit mask. A bit mask is a compact way to store and represent multiple conditions using a single integer value. Here, it is outlined with 18 bits:
+This QC algorithm contains a lot of different (partially overlapping) steps. In the config.json file, a user can decide to turn the various steps on and off based on their needs. The various test are listed and described below. The approach of 'better marking too much than too little' is taken. Each test leads to a mask where the respective column is set to 1 meaning the condition is present, and the column set to 0 meaning the condition is absent. All masks for each QC step are pooled together, to a so called bit mask. A bit mask is a compact way to store and represent multiple conditions using a single integer value. Here, it is outlined with 18 bits:
 
 - Bit 0: Shifted period
 - Bit 1: Noisy data period
