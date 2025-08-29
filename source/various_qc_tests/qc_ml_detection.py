@@ -20,7 +20,6 @@ import plotly.io as pio
 pio.renderers.default = "browser"
 
 import source.helper_methods as helper
-import source.helper_wavelet_analysis as wavelet_analysis
 
 from xgboost import XGBClassifier
 from sklearn.preprocessing import LabelEncoder
@@ -48,7 +47,6 @@ class MLOutlierDetection():
     def __init__(self):
 
         self.helper = helper.HelperMethods()
-        self.multivariate_analysis = False
 
         #As default divide df to 85% training and 15% testing
         self.testing_size = 0.15
@@ -93,35 +91,6 @@ class MLOutlierDetection():
         self.measurement_column = measurement_column
         self.qc_column = qc_column
 
-    def load_multivariate_analysis(self, file_path, feature1, feature2, feature3):
-        """
-        Imports auxiliary dataset for various stations in the corresponding folder, plots them and saves them as dictionary for later use. 
-        The imported dfs get more features (tidal signal and so on) appended.
-
-        Input:
-        -file path of the station's measurements with additional measurement series [str]
-        -Name of the additional series that should be imported [str]
-        -Name of another additional series that should be imported [str]
-        """
-        self.multivariate_analysis = True
-        self.dfs_multivariate_analysis = {}
-
-        self.feature1 = feature1
-        self.feature2 = feature2
-        #self.feature3 = feature3
-
-        for filename in os.listdir(file_path):
-            file_path_long = os.path.join(file_path, filename)
-            if os.path.isfile(file_path_long):      
-                #Open .csv file and fix the column names
-                df = pd.read_csv(file_path_long, sep=",", header=0)
-                #df = df[[self.time_column feature1, feature2, feature3]]
-                df = df[[self.time_column, feature1, feature2]]
-                df[self.time_column] = pd.to_datetime(df[self.time_column], format='%Y%m%d%H%M%S').dt.round('min').dt.tz_localize('UTC')
-                self.dfs_multivariate_analysis[f"{filename.split("_")[0]}"] = df.copy()
-                
-        return self.dfs_multivariate_analysis
-
     def import_data(self, folder_path, tidal_infos):
         """
         Imports the manual labelled dataset for various stations in the folder, plots them and saves them as dictionary for later use. 
@@ -151,15 +120,6 @@ class MLOutlierDetection():
             #Add features
             tidal_signal_path = [path for path in tidal_infos if df_name in path]
             tidal_signal = self.add_tidal_signal(df, tidal_signal_path[0], file.split("-")[0])
-            #Add relevant multivariate variables
-            if self.multivariate_analysis:
-                if file.split("-")[0] not in self.dfs_multivariate_analysis.keys():
-                    relev_mv_df = self.dfs_multivariate_analysis[df_name]
-                else:
-                    relev_mv_df = self.dfs_multivariate_analysis[file.split("-")[0]]
-                df = df.merge(relev_mv_df, on=self.time_column, how='left')
-                #Zoom in to plot for assessment
-                self.zoomed_plot(df, self.measurement_column, file.split("-")[0], relev_mv_df.columns)
             df = self.add_features(df, tidal_signal, self.measurement_column)
             #Analyse imported data
             anomaly = np.isin(df[self.qc_column], self.qc_classes)
@@ -370,10 +330,6 @@ class MLOutlierDetection():
         shift_array = np.random.uniform(distribution_start, distribution_end, len(rows_shift))
         rows_shift[self.measurement_column] = rows_shift[self.measurement_column] - shift_array
         rows_shift[self.qc_column] = self.qc_classes[0]
-        if self.multivariate_analysis:
-            #Fix mask for multivariate data based on augmentation
-            rows_shift[f'{self.feature1}_mask'] = False
-            rows_shift[f'{self.feature2}_mask'] = False
         df = pd.concat([df, rows_shift]).sort_values(by=self.time_column).drop_duplicates(subset=self.time_column, keep='last').reset_index(drop=True) 
         
         return df
@@ -398,20 +354,6 @@ class MLOutlierDetection():
         df['gradient_3'] = df[measurement_column] - df[measurement_column].shift(3)
         df['gradient_-3'] = df[measurement_column].shift(-3) - df[measurement_column]
 
-        #Advanced features:
-        #Generate wavelets
-        #freq_hours = pd.Timedelta('1min').total_seconds() / 3600
-        #self.wavelet_analyzer = wavelet_analysis.TidalWaveletAnalysis(target_sampling_rate_hours=freq_hours)
-        #wavelet_outcomes = self.wavelet_analyzer.analyze(df, column=self.measurement_column, detrend='False', max_gap_hours=24)
-        #df_wavelet = pd.DataFrame(index=range(len(wavelet_outcomes.times)))
-        #test = wavelet_outcomes.power_spectrum.T.tolist()
-        #df_wavelet = pd.DataFrame(test)
-        #df_wavelet = pd.DataFrame({'wavelet_coef': df_wavelet.values.tolist()})
-        #df_wavelet['timestep'] = df.index.min() + pd.to_timedelta(wavelet_outcomes.times, unit='h')
-        #df_wavelet['timestep'] = df_wavelet['timestep'].dt.round('min')
-        #merged_df = pd.merge(df, df_wavelet, left_index=True, right_on='timestep', how='left')
-        #df['wavelet'] = merged_df['wavelet_coef'].values
-
         #Add tidal signal
         df['tidal_signal'] = tidal_signal
         rolling_corr = df[measurement_column].rolling(window=10).corr(df['tidal_signal'])
@@ -419,19 +361,9 @@ class MLOutlierDetection():
 
         #Define relevant features
         self.features = [measurement_column, 'tidal_signal', 'gradient_1', 'gradient_-1', 'gradient_2', 'gradient_-2']
-
-        if self.multivariate_analysis:
-            self.add_multivariate_features(df, self.feature1, self.feature2)
                     
         return df
-    
-    def add_multivariate_features(self, df, feature1, feature2):
-        #Add mask to dmultivariate analysis
-        df[f'{feature1}_mask'] = True
-        df[f'{feature2}_mask'] = True
 
-        # Input features: original vars + masks
-        self.features = self.features + [feature1, feature2, f'{feature1}_mask', f'{feature2}_mask']
     
     def add_tidal_signal(self, df, filename, station):
         """
@@ -729,58 +661,6 @@ class MLOutlierDetection():
             fn = (anomalies_weekly_pred == False) & (anomalies_weekly == True)  # False Negatives (FN)
             tp = (anomalies_weekly_pred == True) & (anomalies_weekly == True)  # True Positives (TP)
             self.basic_plotter(df_week, title, fn, fp, tp)
-
-        #Relevant time periods and graphs for first QC paper
-        #df_test['Timestamp_helper'] = df_test['Timestamp'].dt.tz_convert(None)
-        #anomalies_pred = np.isin(y_pred, [self.qc_classes[0]])
-        #if station == 'Nuuk':
-        #    start_date = datetime(int(2023), int(1), int(24), int(21))
-        #    end_date = datetime(int(2023), int(1), int(25), int(18))
-        #    start_date1 = datetime(int(2023), int(1), int(25), int(0))
-        #    end_date1 = datetime(int(2023), int(1), int(25), int(1))
-        #    relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
-        #    relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
-        #elif station == 'Upernavik':
-        #    start_date = datetime(int(2024), int(10), int(20), int(19))
-        #    end_date = datetime(int(2024), int(10), int(21), int(11))
-        #    start_date1 = datetime(int(2024), int(10), int(26), int(22))
-        #    end_date1 = datetime(int(2024), int(10), int(27), int(13))
-        #    relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
-        #    relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
-        #elif station == 'Pituffik':
-        #    start_date = datetime(int(2017), int(12), int(14), int(10))
-        #    end_date = datetime(int(2017), int(12), int(15), int(0))
-        #    start_date1 = datetime(int(2017), int(12), int(14), int(16))
-        #    end_date1 = datetime(int(2017), int(12), int(14), int(19))
-        #    relev_df = df_test[(df_test['Timestamp_helper'] >= start_date) & (df_test['Timestamp_helper']<= end_date)]
-        #    relev_df1 = df_test[(df_test['Timestamp_helper'] >= start_date1) & (df_test['Timestamp_helper']<= end_date1)]
-        #else:
-        #    relev_df = pd.DataFrame()
-        #    relev_df1 = pd.DataFrame()
-
-        #if not relev_df.empty:
-        #    anomalies = np.isin(relev_df[self.qc_column], [3])
-        #    start = relev_df.index[0] - df_test.index[0]
-        #    end = relev_df.index[-1] - df_test.index[0] + 1
-        #    anomalies_pred_short = anomalies_pred[start:end]
-        #    # Identify False Positives (FP) and False Negatives (FN)
-        #    fp = (anomalies_pred_short == True) & (anomalies == False)  # False Positives (FP)
-        #    fn = (anomalies_pred_short == False) & (anomalies == True)  # False Negatives (FN)
-        #    tp = (anomalies_pred_short == True) & (anomalies == True)  # True Positives (TP)
-        #    self.basic_plotter(relev_df, title, fn, fp, tp)
-        
-        #if not relev_df1.empty:
-        #    anomalies = np.isin(relev_df1[self.qc_column], [3])
-        #    start = relev_df1.index[0] - df_test.index[0]
-        #    end = relev_df1.index[-1] - df_test.index[0] + 1
-        #     anomalies_pred1 = anomalies_pred[start:end]
-        #    # Identify False Positives (FP) and False Negatives (FN)
-        #    fp = (anomalies_pred1 == True) & (anomalies == False)  # False Positives (FP)
-        #    fn = (anomalies_pred1 == False) & (anomalies == True)  # False Negatives (FN)
-        #    tp = (anomalies_pred1 == True) & (anomalies == True)  # True Positives (TP)
-        #    self.basic_plotter(relev_df1, title, fn, fp, tp)
-
-        #del df_test['Timestamp_helper']
 
         df_test['ml_anomaly_predicted'] = y_pred
         

@@ -15,10 +15,7 @@ import random
 from functools import reduce
 
 import source.helper_methods as helper
-import source.data_extractor_monthly as extractor
 import source.qc_test_results_to_mask as qc_test_results_to_mask
-import source.helper_advanced_graphs as helper_advanced_graphs
-import source.helper_tidal_signal_generation as helper_tidal_signal_generation
 
 import source.various_qc_tests.qc_spike as qc_spike
 import source.various_qc_tests.qc_interpolation_detector as qc_interpolated
@@ -44,10 +41,6 @@ class QualityFlagger():
         self.station = station
         self.information.append(['The following text summarizes the QC performed on measurements from ',station,':'])
     
-    #provids details on station like coordinates
-    def set_gauge_details(self, gauge_details_path):
-        self.gauge_details_path = gauge_details_path
-
     #load config.json file to generate bitmask and flags after QC tests and to load threshold/parameters used for the QC tests
     def load_config_json(self, json_path):
 
@@ -65,8 +58,6 @@ class QualityFlagger():
         self.active_tests = config_data['qc_active_tests']
         #Defines if certain tests should be carried out on detided data as well
         self.detide_mode = config_data['detide_mode']
-        #Defines if multivariate abalysis should be carried out
-        self.multivariate_analysis_mode = config_data['multivariate_analysis']
 
     #Create output folder to save results
     def set_output_folder(self, folder_path):
@@ -117,32 +108,12 @@ class QualityFlagger():
         - path to file [str]
         - filename including ending [str]
         """
-        self.multivariety_data = path
-
-        if file.endswith(".csv"):
-            #Open .csv file and fix the column names
-            self.df_meas = pd.read_csv(os.path.join(path,file), sep=",", header=0)
-            self.df_meas = self.df_meas[[self.time_column, self.measurement_column]]
-            self.df_meas[self.time_column] = pd.to_datetime(self.df_meas[self.time_column], format='%Y%m%d%H%M%S')
-        elif file.endswith(".dat"):
-            #Open .dat file and fix the column names
-            self.df_meas = pd.read_csv(os.path.join(path,file), sep="\\s+", header=None, names=[self.time_column, self.measurement_column, self.qc_column])
-            self.df_meas = self.df_meas[[self.time_column, self.measurement_column]]
-            self.df_meas[self.time_column] = pd.to_datetime(self.df_meas[self.time_column], format='%Y%m%d%H%M%S')
-        elif file.endswith(".txt"):
-            #Open .txt file and fix the column names
-            self.df_meas = pd.read_csv(os.path.join(path,file), sep="\\s+", header=None, names=[self.time_column, self.measurement_column])
-            self.df_meas[self.measurement_column] = self.df_meas[self.measurement_column]/100 #conversion from cm to m
-            self.df_meas[self.time_column] = pd.to_datetime(self.df_meas[self.time_column], format='%Y%m%d%H%M')
-        elif file.endswith(".seadb_0"):
-            #Open .seadb_0 file and fix the column names
-            self.df_meas_complete = pd.read_csv(os.path.join(path,file), sep=";", header=None)
-            self.df_meas = pd.DataFrame(columns=[self.time_column, self.measurement_column])
-            self.df_meas[self.time_column] = self.df_meas_complete[1]
-            self.df_meas[self.measurement_column] = self.df_meas_complete[2]/100
-            self.df_meas[self.time_column] = pd.to_datetime(self.df_meas[self.time_column], format='%Y-%m-%d %H:%M:%S')
-        else:
-            raise Exception('Format of the input measurement series is unkown to this script.')
+        #Open .seadb_0 file and fix the column names
+        self.df_meas_complete = pd.read_csv(os.path.join(path,file), sep=",", header=None)
+        self.df_meas = pd.DataFrame(columns=[self.time_column, self.measurement_column])
+        self.df_meas[self.time_column] = self.df_meas_complete[1]
+        self.df_meas[self.measurement_column] = self.df_meas_complete[2]/100
+        self.df_meas[self.time_column] = pd.to_datetime(self.df_meas[self.time_column], format='%Y-%m-%d %H:%M:%S')
         
         #Raise an error for data without two decimats when in meters -> Thresholds are currently defined for two decimals. User can adapt it based on the need
         # Count decimals and find the most frequent one
@@ -150,12 +121,6 @@ class QualityFlagger():
         most_frequent_decimal_count = decimal_counts.mode()[0]
         if most_frequent_decimal_count < 2:
             raise Exception('The input data series does not have at least two decimals. The code and thresholds are currently tuned for timeseries with at least 2 decimals. Please, adapt the config.json to run this script with the current timeseries.')
-
-        #Extract data for manual labelling
-        data_extractor = extractor.DataExtractor()
-        data_extractor.set_output_folder(self.folder_path, self.station)
-        data_extractor.set_missing_value_filler(self.missing_meas_value)
-        data_extractor.run(self.df_meas, self.time_column, self.measurement_column)
 
         #drop seconds
         self.df_meas[self.time_column] = self.df_meas[self.time_column].dt.round('min')
@@ -221,10 +186,6 @@ class QualityFlagger():
         plt.savefig(os.path.join(self.folder_path,"Distribuiton - WL measurements.png"),  bbox_inches="tight")
         plt.close() 
 
-        #Subsequent line makes the code slow, only enable when needed
-        #print('length of ts:', len(self.df_meas))
-        #self.helper.zoomable_plot_df(self.df_meas[self.time_column], self.df_meas[self.measurement_column],'Water Level','Timestamp ', 'Measured water level','measured water level')
-
     """
     The methods above are to open and preprocess the needed information and data for the quality check.
     The run-method below is the core of the QC work. It calls the different QC steps, called detided_mode, converts the masks to bitmasks and assigns quality flags.
@@ -237,13 +198,6 @@ class QualityFlagger():
         #Padding of ts to a homogenous timestep
         df = self.set_global_timestamp(self.df_meas)
         df[self.adapted_meas_col_name] = df[self.measurement_column].copy()
-
-        #Code to generate own tide signal based on measurements needed for further assessment
-        #tidal_signal_construction = helper_tidal_signal_generation.TidalSignalGenerator()
-        #tidal_signal_construction.set_station(self.station)
-        #tidal_signal_construction.set_gauge_details_path(self.gauge_details_path)
-        #tidal_signal_construction.set_output_folder(self.folder_path)
-        #df = tidal_signal_construction.run(df, self.adapted_meas_col_name, self.time_column, self.information)
         
         #Load tidal signal from Mads for respectiv station (MORE ACCURATE!!)
         data_flagging_ml = qc_ml_detector.MLOutlierDetection()
@@ -261,11 +215,6 @@ class QualityFlagger():
         #Run the different steps in the QC algorithm for detided data
         if self.detide_mode == True:
             self.information.append(['The QC steps are now performed again for detided data.'])
-            #Export the new series to csv files for manual labelling
-            data_extractor = extractor.DataExtractor()
-            data_extractor.set_output_folder(self.folder_path, self.station)
-            data_extractor.set_missing_value_filler(self.missing_meas_value)
-            data_extractor.run(df, self.time_column, 'detided_series', suffix)
             #Carry out QC steps on detided series as well
             df = self.run_qc(df, 'detided_series',suffix)
         
@@ -293,12 +242,6 @@ class QualityFlagger():
 
         #Save information from QC tests to txt file
         self.save_to_txt()
-
-        #Make beautiful graphs for papers/presentations (not generalized)
-        #plotter = helper_advanced_graphs.GraphMaker()
-        #plotter.set_output_folder(self.folder_path)
-        #plotter.set_station(self.station)
-        #plotter.run(df, self.time_column, self.measurement_column)
 
     def run_qc(self, df, relevant_measurements, suffix=''):
         """
@@ -342,12 +285,6 @@ class QualityFlagger():
         if self.active_tests['bad_segment'] and suffix == '':
             df = self.short_bad_measurement_periods(df, relevant_measurements, self.segment_column, suffix)
 
-        #Add continuous helper columns
-        #df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
-        #df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
-        #df = fill_data_qc.spline_fitted_measurement_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
-        #fill_data_qc.compare_filled_measurements(df, self.time_column, self.segment_column, suffix)
-
         #Detect implausible change rate over period
         implausible_change = qc_implausible_change.ImplausibleChangeDetector()
         implausible_change.set_output_folder(self.folder_path)
@@ -373,17 +310,7 @@ class QualityFlagger():
         if self.active_tests['selene_improved_spikes']:
             df = fill_data_qc.spline_fitted_measurement_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
             df = spike_detection.selene_spike_detection(df, relevant_measurements, self.time_column, f'spline_fitted_data{suffix}', self.information, self.original_length, suffix)
-        if self.active_tests['harmonic_detected_spikes']:
-            if f'poly_interpolated_data{suffix}' not in df.columns:    
-                df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
-                df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
-            df = spike_detection.remove_spikes_harmonic(df, f'poly_fitted_data{suffix}', relevant_measurements, self.time_column, self.information, self.original_length, suffix)
-        if self.active_tests['ml_detected_spikes']:
-            if f'poly_interpolated_data{suffix}' not in df.columns:    
-                df = fill_data_qc.polynomial_fill_data_column(df, relevant_measurements, self.time_column, self.segment_column, suffix)
-                df = fill_data_qc.polynomial_fitted_data_column(df, relevant_measurements, self.time_column, self.segment_column, f'poly_interpolated_data{suffix}', suffix)
-            df = spike_detection.remove_spikes_ml(df, f'poly_fitted_data{suffix}', relevant_measurements, self.time_column, self.information, self.original_length, suffix)
-        
+
         #Detect shifts & deshift values
         shift_detection = qc_shifts.ShiftDetector()
         shift_detection.set_output_folder(self.folder_path)
@@ -410,11 +337,6 @@ class QualityFlagger():
             data_flagging_ml.set_station(training_strategy)
             data_flagging_ml.set_qcclasses(self.bad_qc_classes)
             tidal_infos = data_flagging_ml.set_tidal_series_file(self.tidal_path_ml)
-            if self.multivariate_analysis_mode:
-                self.dfs_multivariate_analysis = data_flagging_ml.load_multivariate_analysis(self.multivariety_data, 'Conductivity', 'Pressure', 'Temperature')
-                multi_variety_df = self.dfs_multivariate_analysis[self.station].copy()
-                multi_variety_df[self.time_column] = multi_variety_df[self.time_column].dt.tz_localize(None)
-                df = df.merge(multi_variety_df, on=self.time_column, how='left')
             dfs_station_subsets, dfs_training = data_flagging_ml.import_data(self.datadir, tidal_infos)
             df_dict, dfs_testing = data_flagging_ml.run_training(dfs_training, combined_training = True)
             #outcomes = data_flagging_ml.run_testing(df_dict, dfs_testing)
@@ -422,7 +344,6 @@ class QualityFlagger():
             df_ml = df_ml.dropna(subset=['Height']).reset_index(drop=True)
             df_ml['meas_anomaly'] = df_ml['Height']-df_ml['Height'].mean()
             #ML method needs global outliers, it doesn't scale to cleaned ts -> it becomes way too sensitive
-            #df_ml['meas_anomaly'] = df_ml[relevant_measurements]-df_ml[relevant_measurements].mean()
             df_ml = data_flagging_ml.add_features(df_ml, df_ml['tidal_signal'], 'meas_anomaly')
             prediction_output = data_flagging_ml.run_test_data(df_ml)
 

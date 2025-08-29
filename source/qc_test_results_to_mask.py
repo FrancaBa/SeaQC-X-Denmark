@@ -120,22 +120,6 @@ class QualityMasking():
                 else:
                     df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
                 del df['new']
-            elif col_name == f'harmonic_detected_spikes{suffix}' and self.active_tests['harmonic_detected_spikes']:
-                bitmask_elem = self.bitmask_def[f'spikes{suffix}']
-                df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-                if f'bit_{bitmask_elem}{suffix}' in df.columns:
-                    df[f'bit_{bitmask_elem}{suffix}'] = np.where(df[f'bit_{bitmask_elem}{suffix}'] == bitmask_elem, df[f'bit_{bitmask_elem}{suffix}'], df['new'])
-                else:
-                    df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-                del df['new']
-            elif col_name == f'ml_detected_spikes{suffix}' and self.active_tests['ml_detected_spikes']:
-                bitmask_elem = self.bitmask_def[f'spikes{suffix}']
-                df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-                if f'bit_{bitmask_elem}{suffix}' in df.columns:
-                    df[f'bit_{bitmask_elem}{suffix}'] = np.where(df[f'bit_{bitmask_elem}{suffix}'] == bitmask_elem, df[f'bit_{bitmask_elem}{suffix}'], df['new'])
-                else:
-                    df[f'bit_{bitmask_elem}{suffix}'] = [bitmask_elem if value else zero_bit for value in df[col_name]]
-                del df['new']
             elif col_name == f'shifted_period{suffix}' and self.active_tests['shifted_value']:
                 bitmask_elem = self.bitmask_def[f'shifted_value{suffix}']
                 df['new'] = [bitmask_elem if value else zero_bit for value in df[col_name]]

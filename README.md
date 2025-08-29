@@ -1,15 +1,15 @@
-# Quality Check (QC) for Tide Gauge Measurements in Greenland and Denmark
+# Quality Check (QC) for Tide Gauge Measurements in Denmark
 
-In the scope of the GrønSL project, this repository has been developed to have an automated quality check algorithm for sea level data in Greenland and Denmark including traditional machine learning approaches as one step of the QC method.
+In the scope of this project, this repository has been developed to have an automated quality check algorithm for sea level data in Denmark including traditional machine learning approaches as one step of the QC method.
 
 ## Goal
 The goal of this work is to generate an automated QC algorithm which can detect faulty measurements in timeseries with a focus on small-scale anomalies. The first version focused on classifying sea level measurements in Greenland via a combination of statistical and traditional ML tests. The first traditional ML model was trained and evaluated for small-scale anomalies in Greenland. Afterwards, the script was also evaluated on Danish tide gauge station data. There the training data set has been expended to all type of quality errors and it was evaluated how good the ML-tool performs on it own. The conclusion is that it would make sense to combine the ML tool with statistical test for now.
 
 ## Motivation
-Quality checking of many time series is at the moment only sparsly done and often manually. However, with the increasing amount of data, it is important to have an automated approach to assess the quality of measurements/recieved values - as a model can only be as accurate as the input. Thus, it is important to have cleaned input data especially in regions with little measurements as Greenland. This work will focus on developing an automated quality check algorithm for sea level data. Different methods to detect data issues are tested and can be turned on/off by the user based on needs.
+Quality checking of many time series is at the moment only sparsly done and often manually. However, with the increasing amount of data, it is important to have an automated approach to assess the quality of measurements/recieved values - as a model can only be as accurate as the input. Thus, it is important to have cleaned input data. This work will focus on developing an automated quality check algorithm for sea level data. Different methods to detect data issues are tested and can be turned on/off by the user based on needs.
 
 ## Roadmap
-This project started off by flagging tide gauge measurements into adequate groups by using basic assessment and common oceanographic packages. However, this only manages to detect faulty values to a certain degree. Therefore, a supervised ML algorithm based on manually labelled data is added to mark the left-over faulty values. The focus was first set on Greenlandic data and then on Danish data. The ML-tool on its own is good in detecting various erroneous data points, but there is still opportunities in advancing its performance. First steps would be to re-evaluate the feature selection and expand the training data set.
+This project started off by flagging tide gauge measurements into adequate groups by using basic assessment and common oceanographic packages. However, this only manages to detect faulty values to a certain degree. Therefore, a supervised ML algorithm based on manually labelled data is added to mark the left-over faulty values. The ML-tool on its own is good in detecting various erroneous data points, but there is still opportunities in advancing its performance. First steps would be to re-evaluate the feature selection and expand the training data set.
 
 ## Output
 The script returns a report describing the various QC test outcomes and a labelled timeseries in .csv with bitmask as well as QC flag.
@@ -136,7 +136,7 @@ The QC-Tool follows the subsequent structure:
 The code contains several print, plot and extraction methods for assessment of the various QC steps.
 
 # Execute the Python Scripts 
-This repository is structured in unittest (saved under tests) and main scripts in the source folder. All outcomes are saved in the output folder, but never committed to Gitlab. In order to run the code, the unittests needs to be executed.
+This repository is structured in unittest (saved under tests) and main scripts in the source folder. All outcomes are saved in the output folder, but never committed to GitHub. In order to run the code, the unittests needs to be executed.
 Within the unittests all input data is defined and links to the respective datasets defined.
 The source folder contains the main qc method 'main.py' which runs the QC control by calling all other scripts and the respective QC tests in 'various_qc_tests'. 'Plotting_scripts_paper2' and 'data_importer' are not part of the QC workflow, but were used in pre- and postprocessing. 'data_importer' is also called via a unittest, but 'Plotting_scripts_paper2' runs independant.
 
@@ -145,10 +145,10 @@ The source folder contains the main qc method 'main.py' which runs the QC contro
 2. Run tests in python. Several options:
 * 2.1. Run a specific test in a phython file (use when actively working on code) (this might run seconds to minutes)
 * 2.2. Run all tests in a specific python file (here: to run code for all stations) (this might run seconds to minutes)
-* 2.3. Run all tests in test folder (recommended for more complex changes when changed methods are used by several tests or before a commit to Gitlab) (this can take up to several hours depending on which QC tests are active.)
+* 2.3. Run all tests in test folder (recommended for more complex changes when changed methods are used by several tests or before a commit to GitHub) (this can take up to several hours depending on which QC tests are active.)
 
 ```
-cd /dmidata/users/<DMI initials>/greenland_qc
+cd /home/documents/greenland_qc
 python -m unittest tests.test_greenland_measurements_qc.Test_QC_Station.test_quality_check_qaqortoq
 python -m unittest tests/test_greenland_measurements_qc.py
 python -m unittest
@@ -156,7 +156,7 @@ python -m unittest
 For example, test_greenland_measurement_converter.py takes 45 min to run.
 
 # Set the correct environment
-The gitlab directory contains a file 'environment.yml' which contains the revent environment set-up needed to run the script. When using this script for the first time, the environment can be generated in the following way:
+The GitHub directory contains a file 'environment.yml' which contains the revent environment set-up needed to run the script. When using this script for the first time, the environment can be generated in the following way:
 ```
 conda env create -f environment.yml
 conda activate qc_env
@@ -165,33 +165,18 @@ conda activate qc_env
 # Pull and Push Code
 The subsequent lines are describing how to pull and push changes to this repository.
 
-## Pull code from Gitlab
-1. Add a new branch on Gitlab via +-Icon
+## Pull code from GitHub
+1. Add a new branch on GitHub via +-Icon
 * Naming convension: initials + month abbr. + number edit in this month 
-* f.e: fb_sep1, fb_sep2, ...
-2. Pull code to local server (you will need to log in to your Gitlab account)
-* Pull from gitlab
+* f.e: fb_aug1, fb_aug2, ...
+2. Pull code to local server (you will need to log in to your GitHub account)
+* Pull from GitHub
 ```
-cd /dmidata/users/<DMI initials>
-git clone --branch <branch_name> https://gitlab.dmi.dk/ocean/qc_sl_greenland greenland_qc
+cd /home/documents/greenland_qc
+git clone --branch <branch_name> https://github.com/FrancaBa/SeaQC-X-Denmark greenland_qc
 cd greenland_qc
 ```
-* Alternative if the tar file was downloaded
-```
-cd <PROJECT FOLDER>
-unzip qc_sl_greenland-main.zip
-cd qc_sl_greenland-main
-```
 
-* Alternative if the tar file was downloaded
-```
-cd PROJECT_FOLDER
-unzip qc_sl_greenland-main.zip
-cd qc_sl_greenland-main
-conda env create -f environment.yml
-conda activate qc_env
-code .
-```
 3. Activate the correct environment (here: conda environment called qc_env)
 ```
 conda activate qc_env
@@ -200,9 +185,9 @@ conda activate qc_env
 ```
 code .
 ```
-## Push altered code back to gitlab
+## Push altered code back to GitHub
 
-Following steps will allow you to check your changes/improvements and push them to Gitlab.
+Following steps will allow you to check your changes/improvements and push them to GitHub.
 ```
 git add * --dry-run
 git add *
@@ -211,14 +196,9 @@ git push origin <branch_name>
 ```
 After that you also need to add your appreviation and password before the push is successfull.
 
-## Merge branch on Gitlab
-Open the gitlab repository online and manually merge the branch into main. Be aware of potential conflicts. After merging a branch, make sure to delete it from the server/local machine and Gitlab.
+## Merge branch on GitHub
+Open the GitHub repository online and manually merge the branch into main. Be aware of potential conflicts. After merging a branch, make sure to delete it from the server/local machine and GitHub.
 
 ## Contributing
 Contributions to this project are welcome. Please fork the repository, make your changes, and submit a merge request with a clear description of your modifications.
 
-# Authors and acknowledgment
-This project is carried out by Franca Bauer under the supervision of Jian Su. By question, please feel free to reach out to jis@dmi.dk.
-
-## Project status
-The work on this project by Franca Bauer stopped in August 2025. When it will be picked up and by whom is not clear yet.
