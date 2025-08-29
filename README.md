@@ -57,11 +57,11 @@ Each of these conditions can be represented as a specific bit in a 18-bit binary
 - Bit 16 (Interpolated data detided): 01 0000 0000 0000 0000 → 65536
 - Bit 17 (ML detected anomalies detided): 10 0000 0000 0000 0000 → 131072
 
-When a data point has multiple issues, the corresponding bits are set to 1, and the flags are combined using the bit wise OR operation. For example, if a data point is both a stuck value and a global outlier, you would combine the flags as follows:
+When a data point has multiple issues, the corresponding bits are set to 1 and the flags are combined using the bit wise OR operation. For example, if a data point is both a stuck value and a global outlier, you would combine the flags as follows:
 
 - Stuck Value(3) | Global Outlier (4): 00 0000 0000 0001 1000 → 24
 
-Based on the bitmask, IOC flags are assigned to the measurement point. F.e. missing data equals flag 9 in IOC.
+Based on the bit mask, IOC flags are assigned to the measurement point. F.e. missing data equals flag 9 in IOC.
 
 0. no quality check carried out
 1. good_data (no bit)
@@ -128,7 +128,7 @@ The QC-Tool follows the subsequent structure:
 * Run QC tests again on detided series
 * No ML test on detided data for now
 7. Calculate probably good periods  (step 12) based on previous QC outcomes
-8. Convert QC test outcomes to Bitmasks and QC Flags
+8. Convert QC test outcomes to bit masks and QC Flags
 9. Extract results to csv and QC report
 
 The code contains several print, plot and extraction methods for assessment of the various QC steps.
@@ -204,7 +204,7 @@ The QC-Tool follows the subsequent structure:
 * Run QC tests again on detided series
 * No ML test on detided data for now
 7. Calculate probably good periods  (step 12) based on previous QC outcomes
-8. Convert QC test outcomes to Bitmasks and QC Flags
+8. Convert QC test outcomes to bit masks and QC Flags
 9. Extract results to csv and QC report
 
 The code contains several print, plot and extraction methods for assessment of the various QC steps.
